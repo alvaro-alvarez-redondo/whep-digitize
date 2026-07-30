@@ -47,8 +47,8 @@ Thumbs.db
 
 # --- Local run wrappers (need a set-up .venv; not portable to a fresh clone).
 # Cloners use the portable path instead: `uv sync` then `uv run whep-digitize run`. ---
-whep-digitalize.py
-whep-digitalize.bat
+whep-digitize.py
+whep-digitize.bat
 
 # --- Nextcloud sync artifacts ---
 *.sync-conflict-*
