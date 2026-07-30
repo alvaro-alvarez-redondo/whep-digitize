@@ -11,7 +11,8 @@ Exercises the port of ``21-template-rules.R`` (``read_rule_table``) and ``21-dia
 * ``build_layer_diagnostics`` — the deterministic matched/unmatched counts, status, and message
   for a matched and an empty audit table (the wall-clock timestamp is not reproduced).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

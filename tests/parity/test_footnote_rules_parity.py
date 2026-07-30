@@ -7,8 +7,9 @@ asserts the reconstructed footnotes, the mutated target column, the change count
 columns, and the full audit table all equal R's output.
 
 Guards the ``;``-explode semantics, the cartesian match/resolve/reconstruct, and the
-before-image footnote change count. If a golden is absent (fresh checkout — goldens are
-gitignored), the test skips.
+before-image footnote change count. Goldens are committed, so this runs on any checkout — CI
+included. A missing one still skips here; ``test_goldens_present.py`` is what makes that a hard
+failure.
 """
 
 from __future__ import annotations

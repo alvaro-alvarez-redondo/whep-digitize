@@ -10,7 +10,8 @@ asserts (parity risk #8):
   stricter audit regex flags negatives / scientific / signed values that STILL parse, and invalid
   rows are retained (the audited frame keeps every input row).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

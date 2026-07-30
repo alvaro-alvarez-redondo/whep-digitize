@@ -12,7 +12,8 @@ overwrite-events table all equal R's output:
 * **D** — wildcard-already-present removal feeding ``concatenate``.
 
 This guards parity risk #4 (last-rule-wins ordering) and #10 (in-place ``set`` -> functional
-scatter). If a golden is absent (fresh checkout — goldens are gitignored), the test skips.
+scatter). Goldens are committed, so this runs on any checkout — CI included. A missing one still
+skips here; ``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

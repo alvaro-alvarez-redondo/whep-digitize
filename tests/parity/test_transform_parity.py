@@ -6,8 +6,8 @@ long frame's column order, row count, and every column value match R's ``data.ta
 based output. This is the check that ``pl.DataFrame.unpivot`` drops exactly the columns
 ``melt`` did and produces the same variable-major row order (parity risk #2).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

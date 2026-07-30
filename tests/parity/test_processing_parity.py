@@ -7,8 +7,8 @@ output regardless of worker count (the determinism guarantee). The parallel run 
 per file so more than one batch (and worker) is actually engaged; if the pool cannot start it
 degrades to sequential, so the assertion holds either way.
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

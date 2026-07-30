@@ -226,8 +226,8 @@ give the most parity scrutiny — are:
 1. **Freeze inputs.** The live dataset grows; snapshot a fixed corpus (plus small synthetic
    fixtures covering edge cases) for all A/Bs and parity tests.
 2. **Golden files from R.** Use the `parity-check` skill to run the R function and save
-   outputs under `tests/golden/<module>/`. Goldens are gitignored (regenerable) but their
-   generating fixtures are committed.
+   outputs under `tests/golden/<module>/`. Goldens are committed alongside their generating
+   fixtures — that is what lets CI run the parity suite without an R install.
 3. **Module-level parity** during each port (`@pytest.mark.parity`), then **stage-level**,
    then **end-to-end** in Phase 5.
 4. **Normalization** follows the documented POLICY (NFD diacritic strip), NOT R's ICU

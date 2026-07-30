@@ -1,0 +1,6 @@
+# Parity artifacts are compared byte-for-byte, so git must never rewrite their bytes.
+# Without `-text`, a contributor with core.autocrlf=true would have line endings translated on
+# commit/checkout — silently corrupting a byte-exact golden (tests/golden/export_processed_data
+# captures a whole TSV, eol included) and the frozen inputs the goldens were captured from.
+tests/golden/** -text
+tests/fixtures/** -text

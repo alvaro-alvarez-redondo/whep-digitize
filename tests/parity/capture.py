@@ -1,13 +1,15 @@
 """CLI to (re)generate R golden files for parity tests.
 
-Goldens live under ``tests/golden/`` and are gitignored (regenerable from the R repo). Run
-this whenever the R source changes or a fresh checkout needs goldens.
+Goldens live under ``tests/golden/`` and are **committed**: they are the frozen R reference the
+parity suite — CI included — compares against, which is why no R install is needed to run it.
+Run this only on a deliberate R-reference change, then commit the resulting golden diff together
+with the change that motivated it. See ``tests/golden/README.md``.
 
 Usage::
 
     # from the repo root, with the project venv:
     .venv/Scripts/python.exe tests/parity/capture.py               # all registered captures
-    .venv/Scripts/python.exe tests/parity/capture.py string_normalization
+    .venv/Scripts/python.exe tests/parity/capture.py file_metadata
 
 Environment: ``WHEP_RSCRIPT`` and ``WHEP_R_REPO`` override the Rscript / R-repo locations
 (see :mod:`r_harness`).

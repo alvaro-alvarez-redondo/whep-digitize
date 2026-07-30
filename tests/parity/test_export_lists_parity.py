@@ -9,8 +9,8 @@ column. The last check runs the real ``export_lists`` and reads the written work
 (openpyxl — xlsx bytes cannot match across writers, but the sheet names and cell values are the
 library-independent logical layout).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

@@ -64,7 +64,9 @@ Stood up the golden-capture harness **before** migrating any module (no module p
   `@pytest.mark.parity` compare test (skips with a regen hint if goldens are absent).
 - Env overrides: `WHEP_RSCRIPT`, `WHEP_R_REPO` (defaults: R 4.6.0 install; sibling repo).
 
-**Goldens** — `tests/golden/<module>/*.json` (gitignored; regenerable, never committed).
+**Goldens** — `tests/golden/<module>/*.json` (**committed**: the frozen R reference, which is what
+lets CI enforce parity with no R install; regenerate only via `capture.py` on a deliberate
+R-reference change — see `tests/golden/README.md`).
 
 **Proof (round-trip green):** `normalize_string` + `clean_footnote` captured from R and
 matched byte-for-byte by the polars port over every edge case (incl. `ß`→`ss`, `½`→`1 2`,
@@ -74,9 +76,9 @@ matched byte-for-byte by the polars port over every edge case (incl. `ß`→`ss`
 
 ```bash
 # Inputs (committed):  tests/fixtures/{corpus,synthetic}/
-# Goldens (gitignored): tests/golden/<module>/
+# Goldens (committed): tests/golden/<module>/
 .venv/Scripts/python.exe tests/parity/capture.py                    # (re)generate all goldens
-.venv/Scripts/python.exe tests/parity/capture.py string_normalization
+.venv/Scripts/python.exe tests/parity/capture.py file_metadata
 .venv/Scripts/python.exe -m pytest -m parity                        # verify Python matches R
 ```
 

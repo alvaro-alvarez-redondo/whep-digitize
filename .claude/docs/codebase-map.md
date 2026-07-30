@@ -142,9 +142,10 @@ analogue of `tests/test_helper.R`). Per-stage suites mirror the package layout:
 `tests/setup/` [done], `tests/contracts/` [done], `tests/ingest/` [done],
 `tests/postpro/` [done], `tests/parity/` [done]; `tests/export/` [done] (Track D).
 `tests/test_pipeline_e2e.py` [done] exercises the top-level `run_pipeline` orchestration.
-Golden parity fixtures live under `tests/golden/` (gitignored; regenerated from R). Mark
-parity tests `@pytest.mark.parity`. Current totals: **682 tests pass** (166 parity);
-`ruff` + `mypy` + a 90% CI coverage gate green.
+Golden parity fixtures live under `tests/golden/` (committed — the frozen R reference; see
+`tests/golden/README.md`), so the parity suite runs in CI with no R install. Mark parity tests
+`@pytest.mark.parity`. Current totals: **712 tests pass** (188 parity, 0 skipped — in CI too);
+`ruff` + `mypy` + a 91% CI coverage gate green.
 
 ## Benchmarks (`.claude/bench/`)
 

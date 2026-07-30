@@ -7,8 +7,8 @@ groß, ½, œuvre, æsir, …) found **zero** ``anyascii``-vs-ICU differences, s
 needed (see ``.claude/docs/r-to-python-mapping.md`` risk #1). The renames goldens cover the
 canonical/alias collision guards; ``validate_dups`` covers collision detection.
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing, so the suite still runs without R.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

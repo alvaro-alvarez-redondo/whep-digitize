@@ -122,6 +122,8 @@ data_file = ".cache/coverage/.coverage"
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# CI coverage gate. The floor sits a couple points below the ~92% CI sees (parity tests skip
-# there — goldens are gitignored), so it guards against regressions without being brittle.
-fail_under = 90
+# CI coverage gate. CI now runs the identical suite to a local run — the goldens are committed,
+# so the parity tests execute there instead of skipping (they were worth ~0.3pt: 91.86% -> 92.16%).
+# With the local/CI gap gone the floor tracks the real number, ~1pt below it so routine churn
+# does not trip the gate.
+fail_under = 91

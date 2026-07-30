@@ -16,7 +16,9 @@ port. Two modes: **capture** (produce R golden files) and **compare** (assert Py
 - R lives at `C:/Program Files/R/R-4.6.0/` — invoke `Rscript.exe` (not on PATH here; use the
   full path or the launcher pattern noted in the R repo's memory).
 - R source repo: `C:/Users/Usuario/Nextcloud/whep_alvaro/digitalization/whep-digitalization/`.
-- Goldens live under `tests/golden/<module>/` in this repo (gitignored — regenerable).
+- Goldens live under `tests/golden/<module>/` in this repo and are **committed** (the frozen R
+  reference CI compares against). A recapture that changes them must be committed deliberately,
+  with the R-reference change that motivated it — see `tests/golden/README.md`.
 
 ## Capture (produce goldens)
 

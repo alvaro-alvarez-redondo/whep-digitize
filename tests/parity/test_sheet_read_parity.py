@@ -7,8 +7,8 @@ and asserts every output column, the column order, and the row count match R's
 *after filtering* (readxl keeps blank source rows that calamine drops; the filter removes
 exactly those).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

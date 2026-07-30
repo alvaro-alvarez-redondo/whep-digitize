@@ -50,7 +50,8 @@ via Rscript (C:/Program Files/R/R-4.6.0) and writes deterministic outputs to
 tests/golden/<module>/. Document the frozen-corpus location and capture command in
 .claude/progress.md. Do not migrate any module yet — just stand up the harness and prove it
 round-trips one trivial R function (e.g. normalize_string) to a golden file that a polars
-test can read. Keep tests/golden gitignored; commit the fixtures.
+test can read. Commit both the fixtures and tests/golden (the goldens are the frozen R
+reference; committing them is what lets CI enforce parity without an R install).
 ```
 
 ---

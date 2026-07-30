@@ -62,5 +62,6 @@ See [guidelines/migration.md](../guidelines/migration.md) for the full playbook.
 
 - Single engine: **polars** (immutable). No pandas except at a documented IO boundary.
 - No global state; stages return typed results.
-- `data/` is gitignored; golden fixtures under `tests/golden/` are gitignored.
+- `data/` is gitignored; golden fixtures under `tests/golden/` **are committed** (the frozen R
+  reference — that is what makes CI enforce parity; regenerate only via `capture.py`).
 - No backward-compatibility scaffolding — remove legacy patterns on sight.

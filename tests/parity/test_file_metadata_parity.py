@@ -5,10 +5,10 @@ asserts :func:`whep_digitize.ingest.file_io.metadata.extract_file_metadata` repr
 output column of the R ``extract_file_metadata`` over the frozen file-name fixture (real
 WHEP corpus paths plus edge cases: no year token, <2 tokens, first-year-wins, non-ASCII).
 
-Each column is compared in R's ``as.character`` string form (NA -> ``null`` -> ``None``),
-matching how the golden was serialized; the boolean ``is_ascii`` maps to ``"TRUE"`` /
-``"FALSE"``. If a golden is absent (fresh checkout — goldens are gitignored), the test skips
-with the regeneration command rather than failing, so the suite still runs without R.
+Each column is compared in R's ``as.character`` string form (NA -> ``null`` -> ``None``), matching
+how the golden was serialized; the boolean ``is_ascii`` maps to ``"TRUE"`` / ``"FALSE"``. Goldens
+are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

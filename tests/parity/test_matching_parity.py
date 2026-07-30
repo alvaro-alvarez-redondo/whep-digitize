@@ -8,8 +8,8 @@ unicode / NA / empty / wildcard / duplicate fixture and asserts they reproduce R
 NA<->NA folding to ``na_match_key`` (#5) and the ``Latin-ASCII; Lower`` transliteration inside
 match keys (#1).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations
