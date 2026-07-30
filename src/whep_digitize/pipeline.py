@@ -43,7 +43,7 @@ def format_completion_summary(elapsed: str, harmonized_rows: int, harmonized_col
 
     The ``|`` separator is padded to line up under the progress bars' left edge, the counts are
     bold bright-yellow, and the multiplication sign is used where the console encoding allows it.
-    Shared by :func:`run_pipeline` and the interactive ``whep-digitalize.py`` runner so both match.
+    Shared by :func:`run_pipeline` and the interactive ``whep-digitize.py`` runner so both match.
 
     Args:
         elapsed: The formatted elapsed-time string.
