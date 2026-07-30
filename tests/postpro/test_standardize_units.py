@@ -11,7 +11,6 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.standardize_units.engine import (
     StandardizeResult,
     apply_standardize_rules,
@@ -22,6 +21,7 @@ from whep_digitize.postpro.standardize_units.rules_setup import (
     validate_conversion_rules,
     validate_rule_schema,
 )
+from whep_digitize.setup.errors import ValidationError
 
 _REQUIRED = ("commodity_key", "unit_source", "unit_target", "unit_factor", "unit_offset")
 

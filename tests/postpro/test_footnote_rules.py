@@ -11,11 +11,11 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.rule_engine.footnote_rules import (
     FootnoteRulesResult,
     apply_footnote_rules,
 )
+from whep_digitize.setup.errors import ValidationError
 
 _RULE_COLUMNS = (
     "column_source",

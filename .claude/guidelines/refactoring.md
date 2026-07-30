@@ -7,7 +7,7 @@ description: Audit and modernize Python modules through iterative refactor passe
 
 Enforce `snake_case`, full type hints, Google-style docstrings, `pathlib` over `os.path`,
 `polars` expressions over Python loops. Remove global state, add `pydantic`/guard validation,
-route errors through `whep_digitize.general.errors`. Reduce duplication; separate validation
+route errors through `whep_digitize.setup.errors`. Reduce duplication; separate validation
 from transformation. Remove dead code and any backward-compat scaffolding.
 
 ## Approach

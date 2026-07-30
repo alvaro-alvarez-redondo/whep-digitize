@@ -5,7 +5,7 @@ registry, and audit-column resolution. Row indices are **1-based** (R ``which()`
 so findings line up with the exported invalid-row subset.
 
 The numeric-string validator uses ``^[0-9]+(\.[0-9]+)?$`` (constant
-:attr:`~whep_digitize.general.constants.Patterns.audit_numeric_string`), which is deliberately
+:attr:`~whep_digitize.setup.constants.Patterns.audit_numeric_string`), which is deliberately
 stricter than the float parser used downstream — negatives/scientific/signed values are flagged
 here yet still parse in :mod:`whep_digitize.postpro.audit.audit` (parity risk #8).
 
@@ -20,10 +20,6 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.audit.config import (
     AUDIT_TYPE_CHARACTER_NON_EMPTY,
     AUDIT_TYPE_NUMERIC_STRING,
@@ -32,6 +28,10 @@ from whep_digitize.postpro.audit.config import (
     empty_audit_findings,
     validate_audit_config,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _NUMERIC_STRING_PATTERN = _CONSTANTS.patterns.audit_numeric_string

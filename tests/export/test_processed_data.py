@@ -20,9 +20,9 @@ from whep_digitize.export.processed_data.export import (
     write_processed_table,
 )
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.numeric import format_double_r
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.numeric import format_double_r
 
 
 def _frame() -> pl.DataFrame:

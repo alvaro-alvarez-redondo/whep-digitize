@@ -3,7 +3,7 @@
 Audit-config validation, the standardized empty audit-findings schema (with the audit-type
 identifiers and messages the validators emit), audit-root preparation, and audit output-path
 resolution. The R original raised via ``checkmate`` / ``cli_abort``; this port uses the guard
-helper (:func:`~whep_digitize.general.helpers.assertions.require`) and reuses the shared
+helper (:func:`~whep_digitize.setup.helpers.assertions.require`) and reuses the shared
 directory helpers.
 """
 
@@ -13,9 +13,9 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.directories import delete_directory_if_exists
-from whep_digitize.general.helpers.assertions import require
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.directories import delete_directory_if_exists
+from whep_digitize.setup.helpers.assertions import require
 
 # Audit-finding metadata (verbatim R identifiers/messages — parity depends on the exact bytes).
 AUDIT_TYPE_CHARACTER_NON_EMPTY = "character_non_empty"
@@ -23,14 +23,14 @@ AUDIT_TYPE_NUMERIC_STRING = "numeric_string"
 CHARACTER_NON_EMPTY_MESSAGE = "value must be a non-empty character string"
 NUMERIC_STRING_MESSAGE = "value must contain only digits and at most one decimal point"
 
-# The findings-table columns (R ``empty_audit_findings_dt``). ``row_index`` is 1-based.
+# The findings-table columns (R ``empty_audit_findings_df``). ``row_index`` is 1-based.
 AUDIT_FINDINGS_COLUMNS = ("row_index", "audit_column", "audit_type", "audit_message")
 
 
 def empty_audit_findings() -> pl.DataFrame:
     """Return the standardized empty audit-findings frame.
 
-    The Python port of R ``empty_audit_findings_dt()``: a zero-row frame with the fixed
+    The Python port of R ``empty_audit_findings_df()``: a zero-row frame with the fixed
     findings schema, so concatenating validator outputs is always well-typed.
 
     Returns:
@@ -50,7 +50,7 @@ def empty_audit_findings() -> pl.DataFrame:
 def validate_audit_config(config: Config) -> None:
     """Validate the audit-relevant configuration fields (R ``load_audit_config``).
 
-    The typed :class:`~whep_digitize.general.config.Config` already guarantees structure; this
+    The typed :class:`~whep_digitize.setup.config.Config` already guarantees structure; this
     mirrors the R non-empty invariants so a malformed config fails loudly at the same point.
 
     Args:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.directories import (
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.directories import (
     create_required_directories,
     delete_directory_if_exists,
 )

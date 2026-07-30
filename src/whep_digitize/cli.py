@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import typer
 
-from whep_digitize.general.helpers.console import alert_success, get_console
-from whep_digitize.general.runner import run_general_pipeline
 from whep_digitize.pipeline import run_pipeline
+from whep_digitize.setup.helpers.console import alert_success, get_console
+from whep_digitize.setup.runner import run_setup_pipeline
 
 app = typer.Typer(help="WHEP digitize pipeline.", no_args_is_help=True, add_completion=False)
 
@@ -21,14 +21,14 @@ def run(
     show_view: bool = False,
     dataset: str | None = None,
 ) -> None:
-    """Run the full pipeline (general -> ingest -> postpro -> export)."""
+    """Run the full pipeline (setup -> ingest -> postpro -> export)."""
     run_pipeline(show_view=show_view, dataset_name=dataset)
 
 
 @app.command()
 def bootstrap(*, dataset: str | None = None) -> None:
     """Run only Stage 0: build the config and create the directory tree."""
-    config = run_general_pipeline(dataset_name=dataset)
+    config = run_setup_pipeline(dataset_name=dataset)
     console = get_console()
     alert_success(f"bootstrapped dataset '{config.dataset_name}'")
     console.print(f"  project root : {config.project_root}")

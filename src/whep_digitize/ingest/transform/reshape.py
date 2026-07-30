@@ -22,16 +22,16 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.frames import drop_na_value_rows
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.ingest.transform.transform_utils import (
     convert_year_columns,
     identify_year_columns,
     normalize_key_fields,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.frames import drop_na_value_rows
+from whep_digitize.setup.options import RuntimeOptions
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +84,7 @@ def add_metadata(
     )
 
 
-def transform_file_dt(
+def transform_file_df(
     frame: pl.DataFrame,
     file_name: str,
     yearbook: str,

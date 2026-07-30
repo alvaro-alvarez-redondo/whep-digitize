@@ -21,8 +21,6 @@ from pathlib import Path, PurePosixPath
 import fastexcel
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.ingest.reading.header_normalization import (
     normalize_header_names,
     resolve_canonical_header_renames,
@@ -33,6 +31,8 @@ from whep_digitize.ingest.reading.read_utils import (
     create_empty_read_result,
     safe_execute_read,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers.assertions import require
 
 
 def compute_non_empty_base_rows(frame: pl.DataFrame, base_cols: Sequence[str]) -> pl.Series:
@@ -116,7 +116,7 @@ def read_excel_sheet(file_path: Path | str, sheet_name: str, config: Config) -> 
 
     keep_mask = compute_non_empty_base_rows(read_df, base_cols)
     filtered = read_df.filter(keep_mask)
-    # R `filtered_dt[, variable := sheet_name]`: overwrite in place if present, else append.
+    # R `filtered_df[, variable := sheet_name]`: overwrite in place if present, else append.
     filtered = filtered.with_columns(pl.lit(sheet_name, dtype=pl.String).alias("variable"))
     return ReadResult(data=filtered, errors=errors)
 

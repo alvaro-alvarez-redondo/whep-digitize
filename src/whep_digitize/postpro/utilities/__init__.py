@@ -3,7 +3,7 @@
 Status (risk):
 
 * ``stage_definitions.py`` <- ``21-stage-definitions.R`` — **[done]** canonical rule columns +
-  stage names (centralized in :mod:`whep_digitize.general.constants`). (LOW)
+  stage names (centralized in :mod:`whep_digitize.setup.constants`). (LOW)
 * ``output_roots.py`` <- ``21-output-roots.R`` — **[done]** resolve/create the audit subtree
   (:class:`~whep_digitize.postpro.utilities.output_roots.PostproOutputPaths`). (LOW)
 * ``diagnostics.py`` <- ``21-diagnostics.R`` — **[done]** ``build_layer_diagnostics`` base object

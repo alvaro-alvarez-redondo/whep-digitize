@@ -12,7 +12,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from whep_digitize.general.config import Config, load_pipeline_config
+from whep_digitize.setup.config import Config, load_pipeline_config
 
 _CORPUS = Path(__file__).parent / "fixtures" / "corpus"
 

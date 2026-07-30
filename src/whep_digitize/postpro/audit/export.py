@@ -2,7 +2,7 @@
 
 Writes the audit workbook via **openpyxl** (the R original used ``openxlsx``): the invalid-row
 subset with each flagged cell highlighted (solid fill + bold font + thick border, from
-:class:`~whep_digitize.general.constants.ErrorHighlightStyle`). Excel rows/columns are 1-based
+:class:`~whep_digitize.setup.constants.ErrorHighlightStyle`). Excel rows/columns are 1-based
 with a one-row header offset.
 
 Behaviors preserved from R:
@@ -22,9 +22,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Border, Font, PatternFill, Side
 from openpyxl.worksheet.worksheet import Worksheet
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import ErrorHighlightStyle
-from whep_digitize.general.directories import ensure_output_directories
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import ErrorHighlightStyle
+from whep_digitize.setup.directories import ensure_output_directories
 
 _SHEET_NAME = "audit_report"
 _SOURCE_ROW_INDEX = "source_row_index"
@@ -40,9 +40,9 @@ _HEADER_OFFSET = 1
 
 
 def export_validation_audit_report(
-    audit_dt: pl.DataFrame,
+    audit_df: pl.DataFrame,
     config: Config,
-    findings_dt: pl.DataFrame | None,
+    findings_df: pl.DataFrame | None,
     output_path: Path,
 ) -> Path | None:
     """Write the styled audit workbook, or skip when there is nothing to report.
@@ -50,22 +50,22 @@ def export_validation_audit_report(
     The Python port of R ``export_validation_audit_report``.
 
     Args:
-        audit_dt: The invalid-row subset to write (may be empty).
+        audit_df: The invalid-row subset to write (may be empty).
         config: The pipeline configuration (supplies the error-highlight style).
-        findings_dt: Findings whose ``row_index`` (matching ``audit_dt``'s ``source_row_index``)
+        findings_df: Findings whose ``row_index`` (matching ``audit_df``'s ``source_row_index``)
             and ``audit_column`` drive cell highlighting; may be ``None`` (then derived from
-            ``audit_dt`` if it carries those columns).
+            ``audit_df`` if it carries those columns).
         output_path: Destination workbook path.
 
     Returns:
         The written path, or ``None`` when both the subset and findings are empty (no file
         created).
     """
-    has_findings = findings_dt is not None and findings_dt.height > 0
-    if audit_dt.height == 0 and not has_findings:
+    has_findings = findings_df is not None and findings_df.height > 0
+    if audit_df.height == 0 and not has_findings:
         return None
 
-    export = _add_source_row_index(audit_dt)
+    export = _add_source_row_index(audit_df)
     if _DOCUMENT_COLUMN in export.columns:
         export = export.sort(_DOCUMENT_COLUMN, nulls_last=True, maintain_order=True)
 
@@ -81,20 +81,20 @@ def export_validation_audit_report(
         _write_note(worksheet)
     else:
         _write_table(worksheet, export.select(cols_to_show))
-        _apply_highlights(worksheet, export, cols_to_show, findings_dt, config)
+        _apply_highlights(worksheet, export, cols_to_show, findings_df, config)
 
     ensure_output_directories([output_path])
     workbook.save(output_path)
     return output_path
 
 
-def _add_source_row_index(audit_dt: pl.DataFrame) -> pl.DataFrame:
+def _add_source_row_index(audit_df: pl.DataFrame) -> pl.DataFrame:
     """Add ``source_row_index`` — the existing ``row_index`` column, else a 1-based sequence."""
-    if _ROW_INDEX_COLUMN in audit_dt.columns:
-        return audit_dt.with_columns(
+    if _ROW_INDEX_COLUMN in audit_df.columns:
+        return audit_df.with_columns(
             pl.col(_ROW_INDEX_COLUMN).cast(pl.Int64).alias(_SOURCE_ROW_INDEX)
         )
-    return audit_dt.with_row_index(_SOURCE_ROW_INDEX, offset=1).with_columns(
+    return audit_df.with_row_index(_SOURCE_ROW_INDEX, offset=1).with_columns(
         pl.col(_SOURCE_ROW_INDEX).cast(pl.Int64)
     )
 
@@ -113,11 +113,11 @@ def _write_table(worksheet: Worksheet, display: pl.DataFrame) -> None:
 
 
 def _effective_findings(
-    export: pl.DataFrame, findings_dt: pl.DataFrame | None
+    export: pl.DataFrame, findings_df: pl.DataFrame | None
 ) -> pl.DataFrame | None:
     """Return the findings driving highlighting, deriving them from ``export`` when not supplied."""
-    if findings_dt is not None:
-        return findings_dt
+    if findings_df is not None:
+        return findings_df
     if {_ROW_INDEX_COLUMN, _AUDIT_COLUMN}.issubset(export.columns):
         return export.select(
             pl.col(_ROW_INDEX_COLUMN).cast(pl.Int64),
@@ -130,11 +130,11 @@ def _apply_highlights(
     worksheet: Worksheet,
     export: pl.DataFrame,
     cols_to_show: list[str],
-    findings_dt: pl.DataFrame | None,
+    findings_df: pl.DataFrame | None,
     config: Config,
 ) -> None:
     """Paint the highlight style onto every flagged (shown) cell."""
-    effective = _effective_findings(export, findings_dt)
+    effective = _effective_findings(export, findings_df)
     if effective is None or effective.height == 0:
         return
 

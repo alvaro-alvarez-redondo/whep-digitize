@@ -15,8 +15,6 @@ import polars as pl
 import pytest
 from openpyxl import Workbook, load_workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
 from whep_digitize.postpro.utilities.output_roots import (
     PostproOutputPaths,
@@ -38,6 +36,8 @@ from whep_digitize.postpro.utilities.templates import (
     read_rule_table,
     write_stage_rule_template,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
 
 _CANONICAL_HEADER = (
     "clean_column_source,clean_value_source_raw,clean_value_source,"

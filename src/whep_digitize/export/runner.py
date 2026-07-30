@@ -13,11 +13,11 @@ import polars as pl
 from whep_digitize.contracts import ExportResult, PostproResult, assert_export_paths_contract
 from whep_digitize.export.lists.write import export_lists
 from whep_digitize.export.processed_data.export import export_processed_data
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import ensure_directories_exist
-from whep_digitize.general.helpers.progress import stage_progress
-from whep_digitize.general.options import RuntimeOptions
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import ensure_directories_exist
+from whep_digitize.setup.helpers.progress import stage_progress
+from whep_digitize.setup.options import RuntimeOptions
 
 _MESSAGES = get_pipeline_constants().progress.messages["export"]
 

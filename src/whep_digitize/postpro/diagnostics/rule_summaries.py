@@ -84,19 +84,19 @@ def _anti_join_null_safe(
     return folded_left.join(folded_right, on=fold_names, how="anti").drop(fold_names)
 
 
-def summarize_stage_rules(audit_dt: pl.DataFrame) -> pl.DataFrame:
+def summarize_stage_rules(audit_df: pl.DataFrame) -> pl.DataFrame:
     """Normalize a clean/harmonize stage audit into the canonical matched-rule summary.
 
     The Python port of R ``summarize_stage_rules`` (the ``stage_name`` argument was unused in R
     and is dropped).
 
     Args:
-        audit_dt: The stage audit table.
+        audit_df: The stage audit table.
 
     Returns:
         The 9-column summary, sorted deterministically (empty typed frame when the audit is empty).
     """
-    frame = audit_dt
+    frame = audit_df
     if "value_source" not in frame.columns and "value_source_result" in frame.columns:
         frame = frame.with_columns(pl.col("value_source_result").alias("value_source"))
     if "value_target" not in frame.columns and "value_target_result" in frame.columns:
@@ -149,25 +149,25 @@ def build_stage_rule_catalog_from_payloads(rule_payloads: Sequence[RulePayload])
 
 
 def build_unmatched_rule_summary(
-    rule_catalog_dt: pl.DataFrame, matched_rule_summary_dt: pl.DataFrame
+    rule_catalog_df: pl.DataFrame, matched_rule_summary_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Return the catalog rules that never matched (anti-join), with ``affected_rows = 0``.
 
     The Python port of R ``build_unmatched_rule_summary``.
 
     Args:
-        rule_catalog_dt: The canonical rule catalog.
-        matched_rule_summary_dt: The matched-rule summary (from :func:`summarize_stage_rules`).
+        rule_catalog_df: The canonical rule catalog.
+        matched_rule_summary_df: The matched-rule summary (from :func:`summarize_stage_rules`).
 
     Returns:
         The 9-column unmatched summary (empty typed frame when nothing is unmatched).
     """
-    if rule_catalog_dt.height == 0:
+    if rule_catalog_df.height == 0:
         return pl.DataFrame(schema=_STAGE_SUMMARY_SCHEMA)
 
-    catalog = _ensure_columns(rule_catalog_dt, _CATALOG_COLUMNS)
+    catalog = _ensure_columns(rule_catalog_df, _CATALOG_COLUMNS)
     rule_key = catalog.select(_CATALOG_COLUMNS).unique(maintain_order=True)
-    matched_key = _ensure_columns(matched_rule_summary_dt, _UNMATCHED_KEY).select(_UNMATCHED_KEY)
+    matched_key = _ensure_columns(matched_rule_summary_df, _UNMATCHED_KEY).select(_UNMATCHED_KEY)
 
     unmatched = _anti_join_null_safe(rule_key, matched_key, _UNMATCHED_KEY)
     if unmatched.height == 0:

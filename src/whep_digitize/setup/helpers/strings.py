@@ -1,26 +1,28 @@
 """String normalization — the Python port of ``02-string-normalization.R``.
 
-Correctness-critical: match-key normalization determines whether post-processing rules
-fire, so byte-identical output to R matters. The R implementation uses
-``stringi::stri_trans_general(x, "Latin-ASCII; Lower")`` (an ICU transliteration).
+Implements the ``whep-digitalization`` normalization **policy** directly: fold text to
+lowercase ASCII, replace runs of non-alphanumerics with a single space, then squish and trim.
+Match-key normalization uses the same policy, so it decides whether post-processing rules fire.
 
-This port reproduces ICU ``Latin-ASCII`` **exactly** via :data:`LATIN_ASCII_MAP`, a static table
-generated from R/stringi (ICU 74.1). ``anyascii`` — the earlier approximation — diverged on the
-real dataset: it ASCII-ifies *every* script (Greek gamma -> "g", a modifier-letter T -> "t"),
-whereas ICU leaves non-Latin scripts, super/sub-scripts and modifier letters unchanged while
-still expanding Latin symbols (the registered sign -> "(R)"). Using ICU's own table removes that
-top parity risk entirely; any codepoint absent from the table is one ICU leaves unchanged, so the
-downstream non-alphanumeric step collapses it to a space — exactly as R does.
+The "fold to ASCII" step is a principled Unicode diacritic strip (NFD decomposition + drop the
+combining marks), **not** R's ICU ``Latin-ASCII`` transliteration. This is a deliberate
+divergence from R's output: ICU applies historical / compatibility expansions the policy does
+not want — ``Philippines®`` -> ``philippines r`` (via ``® -> (R)``), ``½`` -> ``1/2``, plus
+ligature and super/subscript folds. Under the policy those symbols carry no ASCII base and are
+removed by the non-alphanumeric step. Accented Latin letters fold to their base (``café`` ->
+``cafe``, ``ñ`` -> ``n``); letters with no canonical decomposition (``ø``, ``ß``, ``æ``,
+ligatures) are treated like any other non-``[a-z0-9]`` character and dropped — no
+character-specific exceptions or compatibility rules are introduced to match R.
 """
 
 from __future__ import annotations
 
 import re
+import unicodedata
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.helpers._latin_ascii import LATIN_ASCII_MAP
+from whep_digitize.setup.constants import get_pipeline_constants
 
 _constants = get_pipeline_constants()
 _NORMALIZE_NON_ALNUM = re.compile(_constants.patterns.normalize_non_alnum)
@@ -29,25 +31,32 @@ _UNKNOWN_FILENAME = _constants.defaults.unknown_filename
 
 
 def transliterate_ascii_lower(text: str) -> str:
-    """Transliterate to ASCII and lowercase (R ``stri_trans_general(x, "Latin-ASCII; Lower")``).
+    """Fold to lowercase ASCII by stripping diacritics, then lowercase.
 
     The single implementation of the pipeline's transliteration, shared by match-key
     normalization (:func:`normalize_text`) and header normalization
-    (:mod:`whep_digitize.ingest.reading.header_normalization`). Both R call sites use the same
-    ``Latin-ASCII; Lower`` rule. Each non-ASCII codepoint is mapped through :data:`LATIN_ASCII_MAP`
-    (ICU's exact output; a miss means ICU leaves it unchanged), then the whole string is
-    lowercased — byte-identical to R (ICU's output is ASCII, so a Python lowercase matches ICU's
-    ``Lower``). Pure-ASCII text skips the table entirely.
+    (:mod:`whep_digitize.ingest.reading.header_normalization`) so both fold identically.
+
+    Implements the policy step directly: decompose to NFD and drop the combining marks, so an
+    accented Latin letter folds to its base (``é`` -> ``e``, ``ñ`` -> ``n``), then lowercase.
+    This intentionally does **not** reproduce R's ICU ``Latin-ASCII`` transliteration: no symbol
+    expansions (``®``, ``½``, ``±``), no compatibility folds (superscripts, ligatures, ``ß`` ->
+    ``ss``), and no character-specific exceptions. Any codepoint without a canonical ASCII base is
+    left unchanged here and removed by the caller's non-alphanumeric step. Pure-ASCII text takes
+    the lowercase fast path.
 
     Args:
-        text: The value to transliterate.
+        text: The value to fold.
 
     Returns:
-        The ASCII-folded, lowercased string.
+        The diacritic-folded, lowercased string. It may retain non-ASCII codepoints (symbols,
+        non-Latin scripts, non-decomposable letters); the caller's non-alphanumeric replacement
+        drops them.
     """
     if text.isascii():
         return text.lower()
-    return "".join(LATIN_ASCII_MAP.get(ord(char), char) for char in text).lower()
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(char for char in decomposed if not unicodedata.combining(char)).lower()
 
 
 def normalize_text(text: str | None) -> str | None:

@@ -53,7 +53,8 @@ recurring task of the project. Follow it end-to-end; do not stop at a partial po
 ## Guardrails
 
 - Reproduce documented R quirks exactly (see mapping doc); do not silently "fix" them.
-- If `anyascii` transliteration diverges from R's ICU on an input, record the case, match R
-  via an explicit override, and add a regression test.
+- Normalization follows the documented POLICY (NFD diacritic strip), not R's ICU `Latin-ASCII`.
+  Do NOT add character-specific overrides to match ICU's symbol/ligature expansions — pin the
+  behavior with a policy test (see `tests/setup/test_helpers.py`).
 - Keep the change scoped to one module. If a dependency is missing, migrate it first (or
   note the blocker) rather than stubbing incorrectly.

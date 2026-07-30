@@ -46,7 +46,7 @@ sum** because tracks run in parallel.
 
 ```mermaid
 graph TD
-  P0["Phase 0 — Foundation + Stage 0 general (DONE)"]
+  P0["Phase 0 — Foundation + Stage 0 setup (DONE)"]
 
   subgraph S1["Stage 1 — ingest"]
     D[file_io.discovery] --> M[file_io.metadata]
@@ -120,7 +120,7 @@ Milestones (bottom-up, mostly parallel):
 - **1c Transform** (`transform_utils`, `reshape`, `processing`) — HIGH; the wide→long
   `unpivot` and the fused parallel path. Depends on 1b for real input but can start against
   fixtures immediately.
-- **1d Output** (`validate`, `consolidate`) — `validate_long_dt_by_document` is HIGH
+- **1d Output** (`validate`, `consolidate`) — `validate_long_df_by_document` is HIGH
   (ordering + verbatim error strings). Independent of 1b/1c against fixtures.
 - **1e Runner + parallelism** — wire the fused read+transform, sequential first.
 
@@ -176,15 +176,15 @@ on TSVs; logical layout — sheet names + values — on xlsx, which no writer re
 - ✅ Gated `rich.progress` bars for each stage runner (`RuntimeOptions.progress_enabled`).
 - ✅ **End-to-end parity** on the real (frozen) dataset: R + Python run on the same inputs;
   processed TSV **byte-identical**, unique-list workbooks **content-identical** (see the DoD
-  note on workbook bytes). The transliteration divergence found here (anyascii vs ICU) was
-  fixed with a generated ICU `Latin-ASCII` table.
+  note on workbook bytes). The transliteration divergence found here was later superseded by a
+  policy decision: normalization implements the NFD diacritic-strip POLICY, not R's ICU.
 
 **Exit (met):** `whep-digitize run` produces byte-identical processed TSVs (content-identical
 workbooks) to the R pipeline on the frozen dataset.
 
 ### Phase 6 — Performance, CI, docs — ✅ DONE
 
-- ✅ Benchmark harness `benchmarks/bench.py`; profiled the pipeline (I/O-bound on polars
+- ✅ Benchmark harness `.claude/bench/bench.py`; profiled the pipeline (I/O-bound on polars
   `read_excel`, already parallelized; rule engine already polars-vectorized) and vectorized the
   Python-loop hot spots (`canonicalize_semicolon_delimited_cells`, validation error assembly),
   parity preserved. Perf metric enabled in `autocode.toml` (weights re-normalized to sum to 1.0).
@@ -230,8 +230,8 @@ give the most parity scrutiny — are:
    generating fixtures are committed.
 3. **Module-level parity** during each port (`@pytest.mark.parity`), then **stage-level**,
    then **end-to-end** in Phase 5.
-4. **Transliteration** (`anyascii` vs ICU `Latin-ASCII`) is the pervasive risk — parity-test
-   normalization on accented/unicode data before anything downstream relies on match keys.
+4. **Normalization** follows the documented POLICY (NFD diacritic strip), NOT R's ICU
+   `Latin-ASCII` — divergence on symbols/ligatures is intentional; pin it with policy tests.
 
 ## Risks & mitigations
 
@@ -239,7 +239,7 @@ give the most parity scrutiny — are:
 |------|------------|
 | Transliteration divergence silently breaks rule matching | Golden-test `normalize_string` on real accented data first; explicit overrides + regression tests for divergences |
 | `melt`→`unpivot` drops/keeps different columns | Recompute year columns explicitly; assert column set in parity tests |
-| Non-deterministic ordering across workers | `sort_pipeline_stage_dt` everywhere; parity test sequential vs parallel |
+| Non-deterministic ordering across workers | `sort_pipeline_stage_df` everywhere; parity test sequential vs parallel |
 | Rule-engine complexity (7 HIGH modules) underestimated | Start earliest; migrate strictly bottom-up; heavy fixture coverage per module |
 | R `serialize()` cycle detection has no portable analogue | Replace with deterministic content hash; rely on the cheap `changed_value_count==0` early stop as primary convergence signal |
 | Live dataset drift invalidates goldens | Freeze the corpus; regenerate goldens only on an intentional, recorded refresh |

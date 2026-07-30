@@ -11,7 +11,6 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.rule_engine.schema_validation import (
     build_conditional_rule_dictionary,
     check_type_compatibility,
@@ -27,6 +26,7 @@ from whep_digitize.postpro.utilities.stage_definitions import (
     get_stage_target_value_column,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.errors import ValidationError
 
 _CANONICAL = (
     "column_source",

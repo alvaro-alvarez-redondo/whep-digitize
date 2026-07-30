@@ -4,7 +4,7 @@
 
 ```python
 from whep_digitize.pipeline import run_pipeline
-run_pipeline(show_view=False)          # general -> ingest -> postpro -> export
+run_pipeline(show_view=False)          # setup -> ingest -> postpro -> export
 ```
 
 ```bash
@@ -13,7 +13,7 @@ whep-digitize bootstrap    # Stage 0 only: build config + create dirs
 ```
 
 Unlike the R pipeline, **importing a module never runs anything** — stages are explicit
-calls. All four stages (general → ingest → postpro → export) are implemented and wired, so
+calls. All four stages (setup → ingest → postpro → export) are implemented and wired, so
 `run` executes the full pipeline end-to-end.
 
 ## Environment (this Windows host)
@@ -42,17 +42,19 @@ calls. All four stages (general → ingest → postpro → export) are implement
 
 - A real package — explicit imports, no `source()` and no numeric-prefix load order.
 - No import-time side effects: modules only define; running happens in `run_*` functions.
-- `general` is the shared foundation every stage imports (`constants`, `Config`, helpers).
+- `setup` is the shared foundation every stage imports (`constants`, `Config`, helpers).
 
 ## Determinism
 
 - Identical inputs + options ⇒ identical outputs.
 - String-typed through import; `value` → `Float64` only at the postpro audit step.
-- Every sort goes through `sort_pipeline_stage_dt` (`nulls_last=True, maintain_order=True`);
+- Every sort goes through `sort_pipeline_stage_df` (`nulls_last=True, maintain_order=True`);
   polars sorts by Unicode code point (locale-independent) — matches R radix for ASCII keys.
 - Seed any randomness; tests use temp dirs + in-memory fixtures, no network/FS side effects.
-- **Transliteration parity** (`anyascii` vs ICU `Latin-ASCII`) is the top determinism risk —
-  see [r-to-python-mapping.md](r-to-python-mapping.md). Verify against R goldens.
+- **Normalization** follows the documented POLICY (NFD diacritic strip + non-alphanumeric
+  collapse), deliberately NOT R's ICU `Latin-ASCII` — see
+  [r-to-python-mapping.md](r-to-python-mapping.md). Deterministic via stdlib `unicodedata`;
+  pin behavior with policy tests, not R goldens.
 
 ## Parallelism (planned, Phase 5)
 

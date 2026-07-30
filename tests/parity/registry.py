@@ -571,19 +571,10 @@ _POSTPRO_STAGE_PREAMBLE = (
 )
 
 CAPTURES: dict[str, CaptureSpec] = {
-    "string_normalization": CaptureSpec(
-        module="string_normalization",
-        r_sources=(_GENERAL_CONSTANTS, _STRING_NORMALIZATION),
-        fixture="synthetic/normalize_string_inputs.json",
-        exports={
-            "normalize_string": "normalize_string(values)",
-            "clean_footnote": "clean_footnote(values)",
-        },
-        description=(
-            "String match-key + footnote normalization over unicode/NA/empty/duplicate/"
-            "wildcard edge cases (the top parity risk: anyascii vs ICU Latin-ASCII)."
-        ),
-    ),
+    # NOTE: string_normalization has no R-parity spec. The normalization POLICY (NFD diacritic
+    # strip + non-alnum->space) deliberately diverges from R's ICU Latin-ASCII on symbols /
+    # ligatures / non-decomposable letters, so it is verified by policy tests in
+    # tests/setup/test_helpers.py, not against an R golden.
     "file_metadata": CaptureSpec(
         module="file_metadata",
         r_sources=(_GENERAL_CONSTANTS, _ASSERTIONS, _FILE_METADATA),

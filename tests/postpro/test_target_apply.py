@@ -14,14 +14,14 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
 )
 from whep_digitize.postpro.rule_engine.target_apply import (
     TargetApplyResult,
     apply_target_updates_with_strategy,
 )
+from whep_digitize.setup.errors import ValidationError
 
 
 def _apply(
@@ -146,7 +146,7 @@ def test_overwrite_events_schema_matches_empty_events() -> None:
         row_id=["1", "1"], value_target_result=["X", "Y"], value_target_raw=[None, None]
     )
     result = _apply(_ds("unit", ["a"]), updates, "unit")
-    assert result.overwrite_events.schema == empty_last_rule_wins_overwrite_events_dt().schema
+    assert result.overwrite_events.schema == empty_last_rule_wins_overwrite_events_df().schema
 
 
 # --------------------------------------------------------------------------- concatenate

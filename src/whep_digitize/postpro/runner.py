@@ -26,11 +26,6 @@ from pathlib import Path
 import polars as pl
 
 from whep_digitize.contracts import LayerDiagnostics, PostproDiagnostics, PostproResult
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.helpers.progress import stage_progress
-from whep_digitize.general.helpers.sorting import sort_pipeline_stage_dt
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.postpro.audit.audit import audit_data_output
 from whep_digitize.postpro.clean_harmonize.layer_runner import (
     run_cleaning_layer_batch,
@@ -50,6 +45,11 @@ from whep_digitize.postpro.utilities.output_roots import (
     get_postpro_output_paths,
 )
 from whep_digitize.postpro.utilities.templates import generate_postpro_rule_templates
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.progress import stage_progress
+from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
+from whep_digitize.setup.options import RuntimeOptions
 
 _DEFAULT_DATASET_NAME = get_pipeline_constants().dataset_default_name
 _MESSAGES = get_pipeline_constants().progress.messages["postpro"]
@@ -66,7 +66,7 @@ def run_postpro_pipeline(
     The Python port of R ``run_postpro_pipeline_batch`` — the nine deterministic steps:
     audit → resolve output roots → templates → collect preflight → assert preflight → clean →
     standardize → harmonize → persist. Each layer frame is sorted to the canonical row order
-    (R ``sort_pipeline_stage_dt``) before feeding the next stage.
+    (R ``sort_pipeline_stage_df``) before feeding the next stage.
 
     Args:
         raw: The raw long frame from the ingest stage.
@@ -87,9 +87,7 @@ def run_postpro_pipeline(
     resolved_options = options or RuntimeOptions()
     resolved_dataset_name = dataset_name if dataset_name is not None else _DEFAULT_DATASET_NAME
 
-    with stage_progress(
-        "post-process", total=9, enabled=resolved_options.progress_enabled
-    ) as progress:
+    with stage_progress("postpro", total=9, enabled=resolved_options.progress_enabled) as progress:
         # 1. audit — coerce ``value`` to Float64, export invalid-cell highlights (rows kept).
         progress.step(_MESSAGES["audit"])
         audited = audit_data_output(raw, config).audited
@@ -111,31 +109,31 @@ def run_postpro_pipeline(
         # 6. clean layer (multi-pass), then canonical sort.
         progress.step(_MESSAGES["clean"])
         clean_layer = run_cleaning_layer_batch(audited, config, dataset_name=resolved_dataset_name)
-        clean_dt = sort_pipeline_stage_dt(clean_layer.data)
+        clean_df = sort_pipeline_stage_df(clean_layer.data)
 
         # 7. standardize-units layer, then canonical sort.
         progress.step(_MESSAGES["standardize"])
-        standardize_layer = run_standardize_units_layer_batch(clean_dt, config)
-        normalize_dt = sort_pipeline_stage_dt(standardize_layer.data)
+        standardize_layer = run_standardize_units_layer_batch(clean_df, config)
+        normalize_df = sort_pipeline_stage_df(standardize_layer.data)
 
         # 8. harmonize layer (multi-pass) on the normalized frame, then canonical sort.
         progress.step(_MESSAGES["harmonize"])
         harmonize_layer = run_harmonize_layer_batch(
-            normalize_dt, config, dataset_name=resolved_dataset_name
+            normalize_df, config, dataset_name=resolved_dataset_name
         )
-        harmonize_dt = sort_pipeline_stage_dt(harmonize_layer.data)
+        harmonize_df = sort_pipeline_stage_df(harmonize_layer.data)
 
         # 9. persist per-stage audit workbooks + the last-rule-wins overwrite subset.
         progress.step(_MESSAGES["persist"])
         output_paths = persist_postpro_audit(
-            clean_audit_dt=clean_layer.audit,
-            harmonize_audit_dt=harmonize_layer.audit,
-            standardize_audit_dt=standardize_layer.audit,
-            standardize_rules_dt=standardize_layer.layer_rules,
-            final_stage_dt=harmonize_dt,
-            last_rule_wins_overwrites_dt=harmonize_layer.overwrite_events,
+            clean_audit_df=clean_layer.audit,
+            harmonize_audit_df=harmonize_layer.audit,
+            standardize_audit_df=standardize_layer.audit,
+            standardize_rules_df=standardize_layer.layer_rules,
+            final_stage_df=harmonize_df,
+            last_rule_wins_overwrites_df=harmonize_layer.overwrite_events,
             config=config,
-            standardize_matched_rule_counts_dt=standardize_layer.matched_rule_counts,
+            standardize_matched_rule_counts_df=standardize_layer.matched_rule_counts,
         )
 
     diagnostics = PostproDiagnostics(
@@ -145,9 +143,9 @@ def run_postpro_pipeline(
         outputs=_build_output_paths(audit_paths, template_path, output_paths, config),
     )
     return PostproResult(
-        harmonize=harmonize_dt,
-        clean=clean_dt,
-        normalize=normalize_dt,
+        harmonize=harmonize_df,
+        clean=clean_df,
+        normalize=normalize_df,
         diagnostics=diagnostics,
     )
 

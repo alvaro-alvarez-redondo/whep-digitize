@@ -15,8 +15,6 @@ import polars as pl
 import pytest
 from openpyxl import load_workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.audit.audit import AuditResult, audit_data_output
 from whep_digitize.postpro.audit.config import (
     AUDIT_FINDINGS_COLUMNS,
@@ -34,6 +32,8 @@ from whep_digitize.postpro.audit.validation import (
     resolve_audit_columns_by_type,
     run_master_validation,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
 
 _DOCUMENT_VALUE_MAP = {
     "character_non_empty": ("document",),
@@ -234,12 +234,12 @@ def test_export_returns_none_when_empty(config: Config, tmp_path: Path) -> None:
 
 def test_export_highlights_flagged_cell_with_document_sort(config: Config, tmp_path: Path) -> None:
     # Two invalid rows; findings flag the "bad" value. source_row_index 1 = b.xlsx row.
-    audit_dt = pl.DataFrame(
+    audit_df = pl.DataFrame(
         {"document": _series(["b.xlsx", "a.xlsx"]), "value": _series(["bad", "10"])}
     )
     output_path = tmp_path / "audit.xlsx"
     result = export_validation_audit_report(
-        audit_dt, config, _small_findings(1, "value"), output_path
+        audit_df, config, _small_findings(1, "value"), output_path
     )
     assert result == output_path
 

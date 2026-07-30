@@ -2,7 +2,7 @@
 
 Parses the WHEP positional file-name convention into ``yearbook`` and ``commodity``
 tokens, flags non-ASCII file names, and returns a typed metadata frame. The positional
-parsing is delegated to :mod:`whep_digitize.general.helpers.tokens` (``yearbook`` =
+parsing is delegated to :mod:`whep_digitize.setup.helpers.tokens` (``yearbook`` =
 second token joined to the first 4-digit token; ``commodity`` = tokens 7 onward with the
 extension stripped from the last one) so discovery and any future caller share one
 convention.
@@ -18,8 +18,8 @@ from pathlib import PurePosixPath
 
 import polars as pl
 
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.tokens import extract_commodity, extract_yearbook
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.tokens import extract_commodity, extract_yearbook
 
 # Column order + dtypes shared by build_empty_file_metadata and extract_file_metadata so
 # the two frames are identical in shape (mirrors the R data.table: five character columns
@@ -57,7 +57,7 @@ def extract_file_metadata(file_paths: Sequence[str]) -> pl.DataFrame:
     """Parse file paths into a structured metadata frame.
 
     For each path the base file name is parsed positionally into ``yearbook`` and
-    ``commodity`` (see :mod:`whep_digitize.general.helpers.tokens`), checked for ASCII
+    ``commodity`` (see :mod:`whep_digitize.setup.helpers.tokens`), checked for ASCII
     encoding, and — when non-ASCII — annotated with an ``error_message``. ``file_path`` is
     retained verbatim (R ``as.character(file_paths)``); tokens that cannot be formed are
     ``None`` (R ``NA_character_``).

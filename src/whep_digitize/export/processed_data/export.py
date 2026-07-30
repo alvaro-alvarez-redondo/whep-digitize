@@ -14,7 +14,7 @@ adjustments reproduce R ``data.table::fwrite(sep = "\t")`` exactly (verified aga
   ``as.character()`` under the pipeline's ``scipen = 999``: **15 significant figures, fixed
   notation, trailing zeros and a bare ``.0`` dropped** (``1.0`` -> ``1``, ``1000.0`` ->
   ``1000``). polars' shortest-round-trip formatter instead keeps ``1.0`` and switches to
-  ``1e16``-style scientific. :func:`~whep_digitize.general.helpers.numeric.format_double_r`
+  ``1e16``-style scientific. :func:`~whep_digitize.setup.helpers.numeric.format_double_r`
   reproduces the R rendering, so numeric
   columns are stringified before the write. For the finite decimals the pipeline actually
   produces (parsed inputs times exact unit factors) this is byte-identical to ``fwrite``; the
@@ -32,10 +32,10 @@ from pathlib import Path
 import polars as pl
 
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.numeric import format_double_r
-from whep_digitize.general.helpers.strings import normalize_filename
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.strings import normalize_filename
 
 # ``data.table::fwrite`` eol default: "\r\n" on Windows, "\n" on unix (``.Platform$OS.type``).
 _FWRITE_EOL: str = "\r\n" if os.name == "nt" else "\n"
@@ -50,7 +50,7 @@ def build_processed_export_path(config: Config, object_name: str) -> Path:
     Args:
         config: The resolved pipeline configuration.
         object_name: The object name whose file stem is derived via
-            :func:`~whep_digitize.general.helpers.strings.normalize_filename`.
+            :func:`~whep_digitize.setup.helpers.strings.normalize_filename`.
 
     Returns:
         ``<config.paths.data.export.processed>/<normalized_name>.tsv``.

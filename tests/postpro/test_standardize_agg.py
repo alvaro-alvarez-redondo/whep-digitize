@@ -15,8 +15,6 @@ import polars as pl
 import pytest
 from openpyxl import Workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.standardize_units.aggregation import (
     aggregate_standardized_rows,
     extract_aggregated_rows,
@@ -30,6 +28,8 @@ from whep_digitize.postpro.standardize_units.orchestration import (
     run_standardize_units_layer_batch,
 )
 from whep_digitize.postpro.standardize_units.rules_setup import prepare_standardize_rules
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
 
 
 def _s(values: list[str | None]) -> pl.Series:

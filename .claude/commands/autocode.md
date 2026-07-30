@@ -9,7 +9,7 @@ State: [progress.md](../progress.md), [results.tsv](../results.tsv).
 - **Language:** Python 3.11+ (this host: `py -3.14`, venv at `.venv/`).
 - **Tests:** `pytest` (`.venv/Scripts/python.exe -m pytest`).
 - **Quality:** `ruff check` + `mypy` (strict).
-- **Performance:** full-pipeline benchmark under `benchmarks/` (added once stages exist).
+- **Performance:** full-pipeline benchmark under `.claude/bench/` (added once stages exist).
 
 ## Metrics (see `autocode.toml`)
 
@@ -18,7 +18,7 @@ State: [progress.md](../progress.md), [results.tsv](../results.tsv).
 | tests | `pytest -q` (pass %) | up | 0.5 |
 | quality | `ruff check` (issue count) | down | 0.2 |
 | types | `mypy` (error count) | down | 0.2 |
-| performance | `benchmarks/bench.py` (seconds) | down | 0.1 (pending stages) |
+| performance | `.claude/bench/bench.py` (seconds) | down | 0.1 (pending stages) |
 
 **Critical rule:** never accept a change that drops test pass rate below baseline —
 correctness is not tradeable. Parity tests (`@pytest.mark.parity`) are part of correctness.
@@ -26,7 +26,7 @@ correctness is not tradeable. Parity tests (`@pytest.mark.parity`) are part of c
 ## Modifiable vs read-only
 
 - **CAN modify:** `src/**/*.py` (and `autocode.toml` only during setup).
-- **CANNOT modify:** `tests/**`, `benchmarks/**`, `tests/golden/**` — ground truth.
+- **CANNOT modify:** `tests/**`, `.claude/bench/**`, `tests/golden/**` — ground truth.
 - Do **not** add dependencies without explicit approval (edit `pyproject.toml` deps only
   when asked).
 

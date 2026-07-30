@@ -15,7 +15,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-val
 
 All keying goes through
 :func:`whep_digitize.postpro.rule_engine.matching_strategy.encode_rule_match_key`, so match
-correctness inherits the ``Latin-ASCII; Lower`` transliteration parity guarantee.
+correctness inherits the normalization policy (NFD diacritic strip, not R's ICU ``Latin-ASCII``).
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.rule_engine.matching_strategy import encode_rule_match_key
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token

@@ -9,7 +9,7 @@ Profile first — optimize the measured hot path, not a guess (`cProfile`, `py-s
 `polars` query plans via `.explain()`). Prefer:
 
 - **polars-native, vectorized expressions** over Python loops / `map_elements`. Reach for
-  `map_elements` only for genuinely scalar-Python work (e.g. the `anyascii` unique-value
+  `map_elements` only for genuinely scalar-Python work (e.g. the normalization unique-value
   fast path), and apply it to `unique()` values then join back.
 - **Lazy frames** (`pl.LazyFrame` / `.lazy().collect()`) so polars can fuse and parallelize.
 - **Fewer materializations**: chain expressions; avoid intermediate `.to_pandas()`/`.to_list()`.
@@ -20,7 +20,7 @@ Measure before/after on a frozen input (the live dataset grows — freeze fixtur
 Look for >5% wins; ignore noise. Preserve correctness: tests (incl. parity) pass before and
 after.
 
-The committed benchmark ground truth will live under `benchmarks/` (read-only once added).
+The committed benchmark ground truth will live under `.claude/bench/` (read-only once added).
 Ad-hoc profiling harnesses and their output are **temporary — delete immediately** (temp-file
 policy in [conventions.md](../docs/conventions.md)). Fold durable findings into
 `.claude/progress.md`.

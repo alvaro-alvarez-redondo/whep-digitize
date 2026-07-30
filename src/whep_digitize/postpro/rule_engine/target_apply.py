@@ -11,7 +11,7 @@ updates against a strategy and rewrites the column:
 * **concatenate** — join a row's candidates with the delimiter, then merge into the existing
   value (order-preserving, existing-first token dedupe).
 
-R mutates ``dataset_dt`` in place via ``data.table::set``; this port is functional — every
+R mutates ``dataset_df`` in place via ``data.table::set``; this port is functional — every
 scatter is a join-back on a row index + ``when/then/otherwise`` (parity risk #10) and the
 updated frame is returned in :class:`TargetApplyResult`.
 
@@ -31,11 +31,8 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
     get_target_update_strategy_config,
     resolve_last_rule_wins_unique_row_fast_path_enabled,
     resolve_target_update_strategy,
@@ -46,6 +43,9 @@ from whep_digitize.postpro.rule_engine.matching_values import (
     count_elementwise_value_changes,
     match_rule_target_condition_values,
 )
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
@@ -172,7 +172,7 @@ def apply_target_updates_with_strategy(
     ):
         require(len(value) >= 1, f"{name} must be a non-empty string")
 
-    empty_events = empty_last_rule_wins_overwrite_events_dt()
+    empty_events = empty_last_rule_wins_overwrite_events_df()
 
     if target_updates.height == 0:
         return TargetApplyResult(False, dataset, empty_events, 0)

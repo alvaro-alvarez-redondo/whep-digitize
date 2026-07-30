@@ -14,13 +14,13 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.ingest.transform.processing import (
     ReadTransformResult,
     read_transform_pipeline_files,
     transform_single_file,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
 
 _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
 

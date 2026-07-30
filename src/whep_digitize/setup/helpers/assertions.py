@@ -1,6 +1,6 @@
 """Guard assertions — the Python port of ``02-assertions.R`` (``assert_or_abort``).
 
-Lightweight runtime guards that raise :class:`~whep_digitize.general.errors.ValidationError`
+Lightweight runtime guards that raise :class:`~whep_digitize.setup.errors.ValidationError`
 on failure, the Python analogue of routing a failed ``checkmate`` result through
 ``cli::cli_abort``. Heavier schema validation uses ``pydantic`` at stage boundaries.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from whep_digitize.general.errors import ValidationError
+from whep_digitize.setup.errors import ValidationError
 
 
 def require(condition: bool, message: str) -> None:

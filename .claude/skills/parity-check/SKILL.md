@@ -43,9 +43,11 @@ port. Two modes: **capture** (produce R golden files) and **compare** (assert Py
 
 ## When they differ
 
-- Isolate the first differing row/column. Common causes, in likelihood order:
-  transliteration (`anyascii` vs ICU), sort/tie ordering, null vs empty-string, float
-  formatting, `melt`/`unpivot` dropped columns.
-- Prefer matching R exactly (add an explicit override + regression test). Only diverge when
-  the migration deliberately intends to (then document it in
-  [r-to-python-mapping.md](../../docs/r-to-python-mapping.md)).
+- Isolate the first differing row/column. Common causes, in likelihood order: normalization
+  (policy NFD diacritic strip vs R's ICU `Latin-ASCII` — divergence on symbols / ligatures /
+  non-decomposable letters is EXPECTED, not a bug), sort/tie ordering, null vs empty-string,
+  float formatting, `melt`/`unpivot` dropped columns.
+- Prefer matching R exactly, EXCEPT where a documented policy deliberately diverges (e.g.
+  normalization — see [r-to-python-mapping.md](../../docs/r-to-python-mapping.md)); pin those
+  with a policy test rather than an R golden. Never add a character-specific override to force
+  ICU parity.

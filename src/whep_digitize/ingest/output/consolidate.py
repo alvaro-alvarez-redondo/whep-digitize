@@ -5,7 +5,7 @@ null, and reorders columns to the configured canonical order (extras last). ``rb
 use.names, fill)`` becomes ``pl.concat(how="diagonal")``.
 
 R source: ``r/1-import_pipeline/13-output/13-output.R``
-(``consolidate_audited_dt``, ``validate_output_column_order``).
+(``consolidate_audited_df``, ``validate_output_column_order``).
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.helpers.assertions import require
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers.assertions import require
 
 # The full canonical output schema every consolidated frame must contain (R target_schema).
 _TARGET_SCHEMA = (
@@ -68,7 +68,7 @@ def validate_output_column_order(config: Config) -> list[str]:
     return column_order
 
 
-def consolidate_audited_dt(
+def consolidate_audited_df(
     frames: Sequence[pl.DataFrame | None], config: Config
 ) -> ConsolidateResult:
     """Row-bind audited long tables, fill missing schema columns, and enforce column order.

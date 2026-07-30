@@ -26,16 +26,16 @@ import fastexcel
 import polars as pl
 from openpyxl import Workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import ensure_directories_exist
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.utilities.output_roots import initialize_postpro_output_root
 from whep_digitize.postpro.utilities.stage_definitions import (
     get_canonical_rule_columns,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import ensure_directories_exist
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _TEMPLATE_FILE_NAME = _CONSTANTS.postpro.clean_harmonize_template_file_name

@@ -19,7 +19,6 @@ dependencies = [
     "fastexcel>=0.10",      # readxl equivalent: fast all-text .xlsx reads (calamine) for polars
     "xlsxwriter>=3.2",      # writexl equivalent: workbook writing for polars.write_excel
     "openpyxl>=3.1",        # openxlsx equivalent: styled per-cell audit workbooks
-    "anyascii>=0.3",        # stringi "Latin-ASCII" transliteration equivalent (see parity note)
 ]
 
 [project.optional-dependencies]
@@ -51,6 +50,7 @@ packages = ["src/whep_digitize"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+cache-dir = ".cache/ruff"
 
 [tool.ruff.lint]
 select = [
@@ -90,12 +90,13 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
 files = ["src", "tests"]
+cache_dir = ".cache/mypy"
 
 # Third-party modules without type stubs. Stage migrations add their own entries as they
 # introduce those imports (fastexcel/xlsxwriter at the ingest Excel IO boundary; openpyxl at
 # the postpro audit styled-workbook boundary).
 [[tool.mypy.overrides]]
-module = ["anyascii.*", "fastexcel.*", "xlsxwriter.*", "openpyxl.*"]
+module = ["fastexcel.*", "xlsxwriter.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ ignore_missing_imports = true
 minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["src"]
+cache_dir = ".cache/pytest"
 addopts = "--strict-markers --strict-config -ra"
 markers = [
     "parity: tests that compare Python output against R golden outputs",
@@ -115,6 +117,7 @@ markers = [
 [tool.coverage.run]
 source = ["whep_digitize"]
 branch = true
+data_file = ".cache/coverage/.coverage"
 
 [tool.coverage.report]
 show_missing = true

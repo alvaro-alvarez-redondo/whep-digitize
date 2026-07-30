@@ -12,9 +12,10 @@ Design notes (Python-native divergences from the R original, all deliberate):
   the R contract "treat constants as immutable" at the type level.
 * :func:`get_pipeline_constants` is memoized with :func:`functools.lru_cache`, mirroring
   the R global cache (``.pipeline_constants_cache``).
-* The R ``Latin-ASCII; Lower`` transliteration is not stored as a constant — it is
-  implemented in :mod:`whep_digitize.general.helpers.strings` via ``anyascii``. See the
-  parity note in ``.claude/docs/r-to-python-mapping.md``.
+* Transliteration is not stored as a constant — it is implemented in
+  :mod:`whep_digitize.setup.helpers.strings` as the normalization policy's NFD diacritic
+  strip (deliberately not R's ICU ``Latin-ASCII``). See the note in
+  ``.claude/docs/r-to-python-mapping.md``.
 * R runtime-only constants are dropped: source-time auto-run option names (Python uses
   explicit calls), the declared R-package list (``uv`` owns dependencies), and the ANSI
   progress palette (``rich`` handles theming).
@@ -157,7 +158,7 @@ class Columns:
 
 @dataclass(frozen=True, slots=True)
 class Sorting:
-    """Canonical business-key row order applied by ``sort_pipeline_stage_dt``."""
+    """Canonical business-key row order applied by ``sort_pipeline_stage_df``."""
 
     stage_row_order: tuple[str, ...] = (
         "hemisphere",
@@ -189,15 +190,15 @@ class PathNames:
     """Relative directory names under ``data/`` (assembled into absolute paths by Config)."""
 
     data_dir: str = "data"
-    import_dir: str = "1-import"
-    import_raw_dir: str = "10-raw_import"
-    import_clean_dir: str = "11-clean_import"
-    import_standardize_dir: str = "12-standardize_import"
-    import_harmonize_dir: str = "13-harmonize_import"
-    postpro_dir: str = "2-postpro"
-    export_dir: str = "3-export"
+    import_dir: str = "import"
+    import_raw_dir: str = "raw"
+    import_clean_dir: str = "clean"
+    import_standardize_dir: str = "standardize"
+    import_harmonize_dir: str = "harmonize"
+    postpro_dir: str = "postpro"
+    export_dir: str = "export"
     export_lists_dir: str = "lists"
-    export_processed_dir: str = "processed_data"
+    export_processed_dir: str = "processed"
     checkpoints_dir: str = ".checkpoints"
 
 
@@ -369,9 +370,9 @@ class Progress:
     stage_labels: Mapping[str, str] = field(
         default_factory=lambda: MappingProxyType(
             {
-                "general": "general",
+                "setup": "setup",
                 "import": "import",
-                "postpro": "post-process",
+                "postpro": "postpro",
                 "export": "export",
             }
         )
@@ -379,7 +380,7 @@ class Progress:
     messages: Mapping[str, Mapping[str, str]] = field(
         default_factory=lambda: MappingProxyType(
             {
-                "general": MappingProxyType(
+                "setup": MappingProxyType(
                     {
                         "load_config": "loading pipeline configuration",
                         "create_dirs": "creating required directories",

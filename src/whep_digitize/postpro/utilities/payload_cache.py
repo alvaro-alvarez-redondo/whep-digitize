@@ -25,15 +25,15 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import ensure_directories_exist
 from whep_digitize.postpro.rule_engine.schema_validation import coerce_rule_schema
 from whep_digitize.postpro.utilities.stage_definitions import validate_postpro_stage_name
 from whep_digitize.postpro.utilities.templates import (
     discover_stage_rule_files,
     load_stage_rule_payloads,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import ensure_directories_exist
 
 _CONSTANTS = get_pipeline_constants()
 # Sanctioned module-level cache (R ``.stage_payload_bundle_cache`` env). Keyed by cache key.

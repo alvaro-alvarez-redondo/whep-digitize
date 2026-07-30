@@ -25,10 +25,10 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ConfigurationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.utilities.stage_definitions import validate_postpro_stage_name
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ConfigurationError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _ContentHash = bytes

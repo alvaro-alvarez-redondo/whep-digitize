@@ -11,8 +11,5 @@
   {"current": null,             "condition": "a",        "existing": "a; a; b",         "incoming": "c",           "before": "e",    "after": null,  "target": "groß"},
   {"current": "",               "condition": "",         "existing": "s",               "incoming": "s",           "before": "same", "after": "same","target": ""},
   {"current": "a; ; b",         "condition": "b",        "existing": "t; u",            "incoming": "u; t",        "before": "1",    "after": "2",   "target": "x"},
-  {"current": "Œuvre; Straße",  "condition": "oeuvre",   "existing": "v",               "incoming": "w",           "before": "k",    "after": "k",   "target": "y"},
-  {"current": "Œuvre; Straße",  "condition": "strasse",  "existing": "m; n",            "incoming": "n; o; m",     "before": "p",    "after": "q",   "target": "z"},
-  {"current": "½ kg",           "condition": "1 2 kg",   "existing": "Ω; α",            "incoming": "β; Ω",        "before": "aa",   "after": "aa",  "target": "α"},
   {"current": "a; b",           "condition": "b; a",     "existing": "long text; note", "incoming": "note; extra", "before": null,   "after": "bb",  "target": "note"}
 ]

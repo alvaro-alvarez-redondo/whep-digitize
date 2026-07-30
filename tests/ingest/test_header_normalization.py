@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.strings import normalize_text, transliterate_ascii_lower
 from whep_digitize.ingest.reading.header_normalization import (
     HeaderRenames,
     normalize_header_name,
@@ -19,6 +17,8 @@ from whep_digitize.ingest.reading.header_normalization import (
     resolve_canonical_header_renames,
     validate_header_normalization,
 )
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.strings import normalize_text, transliterate_ascii_lower
 
 _CANON = ["continent", "polity", "unit", "footnotes", "commodity", "variable", "hemisphere"]
 
@@ -41,7 +41,7 @@ _CANON = ["continent", "polity", "unit", "footnotes", "commodity", "variable", "
         ("value %", "value"),  # % -> _ -> trimmed
         ("%", ""),  # all-punctuation collapses to empty
         ("", ""),  # empty stays empty
-        ("½ unit", "1/2_unit"),  # anyascii ½ -> 1/2, ASCII / preserved by the header pattern
+        ("½ unit", "unit"),  # policy: ½ has no ASCII base -> dropped (ICU would give "1/2_unit")
     ],
 )
 def test_normalize_header_name(raw: str, expected: str) -> None:
@@ -76,9 +76,13 @@ def test_fast_path_falls_through_on_double_underscore() -> None:
 
 def test_shared_transliteration_with_match_keys() -> None:
     # Header + match-key normalization must fold identically (one transliteration source).
-    assert transliterate_ascii_lower("groß") == "gross"
-    assert normalize_header_name("groß") == "gross"
-    assert normalize_text("groß") == "gross"
+    assert transliterate_ascii_lower("Résumé") == "resume"
+    assert normalize_header_name("Résumé") == "resume"
+    assert normalize_text("Résumé") == "resume"
+    # Policy consequence: ß has no canonical decomposition, so it is dropped (not folded to
+    # "ss" as ICU's Latin-ASCII would) — identically by both entry points.
+    assert normalize_header_name("groß") == "gro"
+    assert normalize_text("groß") == "gro"
 
 
 # --------------------------------------------------------------------------- renames

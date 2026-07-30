@@ -19,7 +19,7 @@ in `whep-digitize`, preserving behavior **byte-for-byte** where outputs are comp
   dependency order in [codebase-map.md](../docs/codebase-map.md) and the roadmap.
 - **Functional polars.** No by-reference mutation. Every R `set`/`:=` scatter becomes a
   new frame (join-back + `when/then`, or column rebuild).
-- **Deterministic.** `sort_pipeline_stage_dt` for ordering; code-point sorts; seed
+- **Deterministic.** `sort_pipeline_stage_df` for ordering; code-point sorts; seed
   randomness. Identical inputs ⇒ identical outputs.
 
 ## Procedure
@@ -42,8 +42,9 @@ in `whep-digitize`, preserving behavior **byte-for-byte** where outputs are comp
 - Compare with `polars.testing.assert_frame_equal` (set `check_dtypes` deliberately — R is
   string-typed pre-audit).
 - For error/diagnostic strings, compare exact text and order when a consumer depends on it.
-- When `anyascii` transliteration differs from R's ICU on a specific input, record the case,
-  decide (usually match R via an explicit override), and add a regression test.
+- Normalization follows the documented POLICY (NFD diacritic strip + non-alphanumeric collapse),
+  not R's ICU `Latin-ASCII`. Do NOT add character-specific overrides to match ICU's symbol /
+  ligature / compatibility expansions — pin the intended behavior with a policy test instead.
 
 ## Constraints
 

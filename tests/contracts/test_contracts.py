@@ -14,10 +14,10 @@ from whep_digitize.contracts import (
     PostproResult,
     assert_export_paths_contract,
 )
-from whep_digitize.general.config import Config
-from whep_digitize.general.directories import create_required_directories
-from whep_digitize.general.errors import ContractError, WhepError
 from whep_digitize.postpro.runner import run_postpro_pipeline
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.directories import create_required_directories
+from whep_digitize.setup.errors import ContractError, WhepError
 
 
 def test_import_result_construction() -> None:

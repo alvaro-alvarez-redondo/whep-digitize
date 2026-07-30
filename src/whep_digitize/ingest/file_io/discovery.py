@@ -24,9 +24,9 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.ingest.file_io.metadata import build_empty_file_metadata, extract_file_metadata
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers.assertions import require
 
 _XLSX_SUFFIX = ".xlsx"
 

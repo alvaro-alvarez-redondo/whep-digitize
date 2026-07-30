@@ -16,7 +16,6 @@ import polars as pl
 import pytest
 from openpyxl import Workbook
 
-from whep_digitize.general.config import Config
 from whep_digitize.postpro.clean_harmonize.controls_cache import (
     build_stage_state_record,
     find_repeated_stage_state_pass,
@@ -36,6 +35,7 @@ from whep_digitize.postpro.rule_engine.payload_application import (
     prepare_rule_payload_execution_plan,
 )
 from whep_digitize.postpro.utilities.payload_cache import clear_stage_payload_memory_cache
+from whep_digitize.setup.config import Config
 
 _CANONICAL = (
     "column_source",

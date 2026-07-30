@@ -5,7 +5,7 @@ Formats a duration in seconds as ``Ns`` / ``Nm Ns`` / ``Nh Nm`` for console outp
 
 from __future__ import annotations
 
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 
 
 def format_elapsed_time(seconds: float) -> str:

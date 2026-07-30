@@ -13,8 +13,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import WhepError
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import WhepError
 
 _RULE_EXTENSION_RE = re.compile(r"\.(xlsx|xls|csv)$")
 _CLEAN_PATTERN_RE = re.compile(r"^clean_.*\.(xlsx|xls|csv)$")
@@ -77,9 +77,9 @@ def collect_postpro_preflight(
     }
     issues: list[str] = []
     if not checks["cleaning_dir_exists"]:
-        issues.append("[clean stage] missing 11-clean_import directory")
+        issues.append("[clean stage] missing clean directory")
     if not checks["harmonize_dir_exists"]:
-        issues.append("[harmonize stage] missing 13-harmonize_import directory")
+        issues.append("[harmonize stage] missing harmonize directory")
     if not checks["templates_dir_exists"]:
         issues.append("[postpro root] missing templates directory")
     if not checks["diagnostics_dir_exists"]:
@@ -92,13 +92,10 @@ def collect_postpro_preflight(
         _HARMONIZE_PATTERN_RE.match(entry.name) for entry in _rule_files(harmonization_dir)
     )
     if not checks["cleaning_pattern_ok"]:
-        issues.append(
-            "[clean stage] invalid 11-clean_import file naming pattern (expected prefix: clean_)"
-        )
+        issues.append("[clean stage] invalid clean file naming pattern (expected prefix: clean_)")
     if not checks["harmonize_pattern_ok"]:
         issues.append(
-            "[harmonize stage] invalid 13-harmonize_import file naming pattern "
-            "(expected prefix: harmonize_)"
+            "[harmonize stage] invalid harmonize file naming pattern (expected prefix: harmonize_)"
         )
 
     dataset_column_set = set(dataset_columns)
