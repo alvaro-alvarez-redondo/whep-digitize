@@ -19,9 +19,9 @@ See [guidelines/migration.md](../guidelines/migration.md) for the full playbook.
 
 ## Add or change a constant / threshold
 
-- **Where:** `src/whep_digitize/general/constants.py` (the relevant frozen dataclass).
+- **Where:** `src/whep_digitize/setup/constants.py` (the relevant frozen dataclass).
 - **What:** add/edit a field; access via `get_pipeline_constants().<group>.<field>`.
-- **Tests:** `tests/general/test_constants.py` (pins exact values).
+- **Tests:** `tests/setup/test_constants.py` (pins exact values).
 - **Docs:** mirror in [constants-and-options.md](constants-and-options.md).
 
 ## Add a column to the canonical schema
@@ -36,14 +36,14 @@ See [guidelines/migration.md](../guidelines/migration.md) for the full playbook.
 
 ## Add a runtime option
 
-- **Where:** `RuntimeOptions` in `general/options.py` (env var `WHEP_<UPPER>`).
+- **Where:** `RuntimeOptions` in `setup/options.py` (env var `WHEP_<UPPER>`).
 - **Tests:** add to a config/options test.
 - **Docs:** [constants-and-options.md](constants-and-options.md).
 
 ## Add a helper function
 
-- Drop it in the right `general/helpers/<name>.py` (or add a module). Fully typed +
-  Google-style docstring. Add tests in `tests/general/test_helpers.py`.
+- Drop it in the right `setup/helpers/<name>.py` (or add a module). Fully typed +
+  Google-style docstring. Add tests in `tests/setup/test_helpers.py`.
 
 ## Change a cross-stage contract
 

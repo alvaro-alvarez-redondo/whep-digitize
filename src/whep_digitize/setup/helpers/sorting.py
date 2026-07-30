@@ -11,10 +11,10 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 
 
-def sort_pipeline_stage_dt(
+def sort_pipeline_stage_df(
     frame: pl.DataFrame,
     sort_columns: Sequence[str] | None = None,
 ) -> pl.DataFrame:

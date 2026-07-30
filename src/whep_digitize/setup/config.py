@@ -9,10 +9,10 @@ Two deliberate simplifications over the R original (documented in
 
 * The R ``config$defaults`` (only ``notes_value``) vs ``constants$defaults`` (operational
   placeholders) name collision is removed: :class:`Config` exposes the full
-  :class:`~whep_digitize.general.constants.Defaults` once.
+  :class:`~whep_digitize.setup.constants.Defaults` once.
 * The apparently-dead ``generate_export_path`` / ``list_suffix`` / ``lists_workbook_name``
   and the misleading ``data_suffix`` are not reproduced as behavior; see
-  :class:`~whep_digitize.general.constants.ExportConfig`.
+  :class:`~whep_digitize.setup.constants.ExportConfig`.
 """
 
 from __future__ import annotations
@@ -21,9 +21,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from anyascii import anyascii
-
-from whep_digitize.general.constants import (
+from whep_digitize.setup.constants import (
     Columns,
     Defaults,
     ExportConfig,
@@ -33,7 +31,8 @@ from whep_digitize.general.constants import (
     Sorting,
     get_pipeline_constants,
 )
-from whep_digitize.general.paths import project_root
+from whep_digitize.setup.helpers.strings import transliterate_ascii_lower
+from whep_digitize.setup.paths import project_root
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _NON_NAME_RE = re.compile(r"[^a-z0-9 ]")
@@ -42,9 +41,10 @@ _NON_NAME_RE = re.compile(r"[^a-z0-9 ]")
 def normalize_dataset_name(dataset_name: str) -> str:
     """Normalize a dataset name to the canonical ``snake_case`` form.
 
-    Mirrors the R normalization: lowercase -> transliterate to ASCII -> replace
-    non-alphanumeric (keeping spaces) with a space -> trim -> collapse whitespace runs
-    to single underscores. ``"whep_data_raw"`` round-trips unchanged.
+    Uses the shared policy transliteration (:func:`~whep_digitize.setup.helpers.strings.
+    transliterate_ascii_lower` — NFD diacritic strip + lowercase) -> replace non-alphanumeric
+    (keeping spaces) with a space -> trim -> collapse whitespace runs to single underscores.
+    ``"whep_data_raw"`` round-trips unchanged.
 
     Args:
         dataset_name: Raw dataset name.
@@ -52,8 +52,8 @@ def normalize_dataset_name(dataset_name: str) -> str:
     Returns:
         The normalized dataset name.
     """
-    lowered = anyascii(dataset_name).lower()
-    spaced = _NON_NAME_RE.sub(" ", lowered).strip()
+    ascii_lower = transliterate_ascii_lower(dataset_name)
+    spaced = _NON_NAME_RE.sub(" ", ascii_lower).strip()
     return _WHITESPACE_RE.sub("_", spaced)
 
 
@@ -142,7 +142,7 @@ def load_pipeline_config(
     Args:
         dataset_name: Dataset name; defaults to ``constants.dataset_default_name``.
             Normalized via :func:`normalize_dataset_name`.
-        root: Project root; defaults to :func:`~whep_digitize.general.paths.project_root`.
+        root: Project root; defaults to :func:`~whep_digitize.setup.paths.project_root`.
 
     Returns:
         A fully resolved, frozen :class:`Config`.

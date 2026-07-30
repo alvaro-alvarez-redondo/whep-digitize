@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 
 
 def test_constants_is_cached_singleton() -> None:

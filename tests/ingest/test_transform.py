@@ -14,22 +14,22 @@ import dataclasses
 import polars as pl
 import pytest
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.ingest.transform.reshape import (
     TransformResult,
     add_metadata,
     build_empty_transform_result,
     reshape_to_long,
     resolve_commodity_name,
-    transform_file_dt,
+    transform_file_df,
 )
 from whep_digitize.ingest.transform.transform_utils import (
     convert_year_columns,
     identify_year_columns,
     normalize_key_fields,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.options import RuntimeOptions
 
 # --------------------------------------------------------------------------- identify_year_columns
 
@@ -145,7 +145,7 @@ def test_add_metadata(config: Config) -> None:
     assert result.schema["notes"] == pl.String
 
 
-# --------------------------------------------------------------------------- transform_file_dt
+# --------------------------------------------------------------------------- transform_file_df
 
 
 def _wide() -> pl.DataFrame:
@@ -165,8 +165,8 @@ def _wide() -> pl.DataFrame:
     )
 
 
-def test_transform_file_dt(config: Config) -> None:
-    result = transform_file_dt(_wide(), "f.xlsx", "fao_2020", "wheat", config)
+def test_transform_file_df(config: Config) -> None:
+    result = transform_file_df(_wide(), "f.xlsx", "fao_2020", "wheat", config)
     assert isinstance(result, TransformResult)
     assert result.long_raw.columns == [
         "commodity",
@@ -188,15 +188,15 @@ def test_transform_file_dt(config: Config) -> None:
     assert result.wide_raw["commodity"].unique().to_list() == ["wheat"]  # appended, normalized
 
 
-def test_transform_file_dt_keeps_nulls_when_disabled(config: Config) -> None:
+def test_transform_file_df_keeps_nulls_when_disabled(config: Config) -> None:
     options = RuntimeOptions(drop_na_values=False)
-    result = transform_file_dt(_wide(), "f.xlsx", "fao_2020", "wheat", config, options)
+    result = transform_file_df(_wide(), "f.xlsx", "fao_2020", "wheat", config, options)
     assert result.long_raw.height == 4  # no null-value drop
 
 
-def test_transform_file_dt_blank_args(config: Config) -> None:
+def test_transform_file_df_blank_args(config: Config) -> None:
     with pytest.raises(ValidationError):
-        transform_file_dt(_wide(), "", "fao_2020", "wheat", config)
+        transform_file_df(_wide(), "", "fao_2020", "wheat", config)
 
 
 # --------------------------------------------------------------------------- resolve_commodity_name

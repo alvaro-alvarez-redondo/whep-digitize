@@ -61,7 +61,7 @@ test can read. Keep tests/golden gitignored; commit the fixtures.
 ```
 /migrate-module the ingest file_io modules: discovery.py (ports 10-discovery.R) and
 metadata.py (ports 10-metadata.R) in whep_digitize/ingest/file_io/. Reuse
-general.helpers.tokens for the positional filename parsing (yearbook = token 2 + first
+setup.helpers.tokens for the positional filename parsing (yearbook = token 2 + first
 4-digit token; commodity = tokens 7+). Risk LOW/MEDIUM. Add parity tests on real WHEP
 filenames from the frozen corpus.
 ```
@@ -70,10 +70,10 @@ filenames from the frozen corpus.
 ```
 /migrate-module whep_digitize/ingest/reading/header_normalization.py (ports
 11-header-normalization.R). HIGH risk / parity-critical: reproduce the ordered regex chain
-+ Latin-ASCII;Lower transliteration + canonical/alias renames (country→polity) with the
-collision guards, exactly. Capture R goldens first and assert byte parity, ESPECIALLY on
-accented/unicode headers (anyascii vs ICU is the top project risk — read
-r-to-python-mapping.md). Record any transliteration divergence + an override + regression test.
++ diacritic-strip transliteration + canonical/alias renames (country→polity) with the
+collision guards, exactly. Normalization follows the POLICY (NFD diacritic strip), NOT R's ICU
+`Latin-ASCII`: do not add character-specific overrides — pin behavior with policy tests,
+especially on accented/unicode headers. See r-to-python-mapping.md.
 ```
 
 ### A3 — reading (read_utils + sheet_read + batching)  *(prereq: A2)*
@@ -276,7 +276,7 @@ differences. Fix any divergence to reach byte-identical output.
 
 ### E3 — performance + CI + docs finalize  *(prereq: E2)*
 ```
-Add benchmarks/bench.py (full-pipeline wall-clock on the frozen dataset, prints
+Add .claude/bench/bench.py (full-pipeline wall-clock on the frozen dataset, prints
 "PIPELINE_SECONDS: <n>"), enable the performance metric in autocode.toml and re-normalize
 weights. Profile hot paths (postpro rule engine first) and optimize per the performance
 guideline. Harden CI (coverage gate). Refresh uv.lock. Finalize docs (flip remaining

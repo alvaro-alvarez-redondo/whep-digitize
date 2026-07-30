@@ -17,9 +17,9 @@ Two responsibilities:
   ``last_rule_wins`` or ``concatenate``, plus the tokenized-target column set and the
   match-key normalization policy.
 
-Match-key normalization reuses :func:`whep_digitize.general.helpers.strings.normalize_string`
-(the ``Latin-ASCII; Lower`` transliteration, parity risk #1), so key correctness is guarded by
-the string-normalization golden test.
+Match-key normalization reuses :func:`whep_digitize.setup.helpers.strings.normalize_string`
+(the normalization policy: NFD diacritic strip + non-alphanumeric collapse, not R's ICU
+``Latin-ASCII``), so key correctness is guarded by its policy tests in ``tests/setup``.
 """
 
 from __future__ import annotations
@@ -29,10 +29,10 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ConfigurationError
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.strings import normalize_string
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ConfigurationError
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import normalize_string
 
 _CONSTANTS = get_pipeline_constants()
 _NA_PLACEHOLDER = _CONSTANTS.na_placeholder
@@ -160,7 +160,7 @@ def encode_rule_match_key(
 ) -> pl.Series:
     """Build deterministic match keys, mapping missing values to an explicit token.
 
-    Values are optionally normalized (``Latin-ASCII; Lower`` + non-alphanumeric collapse) to
+    Values are optionally normalized (policy NFD diacritic strip + non-alphanumeric collapse) to
     comparable string keys; every ``None`` then folds to ``na_key`` so that ``NA`` matches
     ``NA`` (and only ``NA``) during comparison.
 
@@ -195,7 +195,7 @@ def resolve_rule_match_normalization_settings() -> RuleMatchNormalizationSetting
     )
 
 
-def empty_last_rule_wins_overwrite_events_dt() -> pl.DataFrame:
+def empty_last_rule_wins_overwrite_events_df() -> pl.DataFrame:
     """Return the standardized empty ``last_rule_wins`` overwrite-events frame.
 
     Returns:

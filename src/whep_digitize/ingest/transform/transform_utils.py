@@ -13,10 +13,10 @@ from collections import Counter
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.strings import (
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.strings import (
     clean_footnote_column,
     normalize_string,
     normalize_text,

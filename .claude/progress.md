@@ -2,17 +2,25 @@
 
 Session state for the migration + `/autocode` loop. Durable notes only (no scratch).
 
+> **Normalization policy update (2026-07-29):** string / header / dataset-name normalization no
+> longer reproduces R's ICU `Latin-ASCII`. `transliterate_ascii_lower` implements the documented
+> POLICY (NFD diacritic strip + lowercase; any char with no ASCII base is dropped by the
+> non-alnum step) — no ICU table, no `anyascii`, no character-specific overrides. Removes ICU
+> quirks such as `Philippines®` → `philippines r` (now `philippines`). Value sums / row counts
+> unchanged; verified by policy tests, not R goldens. Historical entries below that describe the
+> `anyascii` / ICU-table approach are SUPERSEDED. See [r-to-python-mapping.md](docs/r-to-python-mapping.md) risk #1.
+
 ## Phase 0 — Foundation + Stage 0 — ✅ complete (2026-07-20)
 
 Built the complete Python foundation for the R→Python migration:
 
 - **Tooling:** `pyproject.toml` (hatchling, `requires-python>=3.11`), deps polars/pydantic/
-  pydantic-settings/rich/typer/fastexcel/xlsxwriter/openpyxl/anyascii; dev ruff/mypy/pytest.
+  pydantic-settings/rich/typer/fastexcel/xlsxwriter/openpyxl; dev ruff/mypy/pytest.
   Ruff (E,W,F,I,N,UP,B,A,C4,SIM,PTH,ARG,RUF,D), mypy strict, pytest (`pythonpath=src`).
-- **Stage 0 (general) fully implemented + tested:** `constants` (frozen dataclasses mirroring
+- **Stage 0 (setup) fully implemented + tested:** `constants` (frozen dataclasses mirroring
   `get_pipeline_constants`, `lru_cache`), `config`/`load_pipeline_config`, `RuntimeOptions`,
   `directories` (audit-subtree contract), `paths` (`here()` analogue), `errors`, `runner`, and
-  helpers (`strings` w/ anyascii transliteration, `numeric`, `sorting`, `frames`,
+  helpers (`strings` w/ policy NFD transliteration, `numeric`, `sorting`, `frames`,
   `checkpoints`, `time_format`, `tokens`, `assertions`, `console`).
 - **Contracts + scaffold:** typed `ImportResult`/`PostproResult`/`ExportResult` in
   `contracts.py`; stages 1–3 scaffolded (packages + runner stubs raising
@@ -40,9 +48,9 @@ Stood up the golden-capture harness **before** migrating any module (no module p
   `<whep-digitalization>/data/1-import/10-raw_import/`, mirroring the
   `<yearbook>/<yearbook>_<category>/` layout so it is a drop-in raw root for future ingest
   (Stage 1) parity (~37 KB total).
-- `synthetic/normalize_string_inputs.json` — edge-case string vector covering empty,
-  accented/unicode, duplicates, wildcard `__ANY__`, NA, and the anyascii-vs-ICU risk chars
-  (`ß`, `½`, `œ`). Per-element edge-case map in [tests/fixtures/README.md](../tests/fixtures/README.md).
+- `synthetic/normalize_string_inputs.json` — REMOVED (2026-07-29): string normalization no longer
+  targets R/ICU parity, so its edge cases (`ß`, `½`, `œ`, …) moved to policy tests
+  (`tests/setup/test_helpers.py`). See the normalization-policy note at the top.
 
 **Harness** — `tests/parity/` (committed reusable pattern):
 
@@ -186,19 +194,19 @@ Ported the wide->long transform core (`r/1-import_pipeline/12-transform/`), bott
   `footnotes`; `unit` left raw), `convert_year_columns` (Excel `.0` strip, `YYYY-NN`->`YYYY`,
   `YYYY-NN/YYYY-NN`->`YYYY-YYYY`, then a **fatal** duplicate-collision guard → `ValidationError`).
 - **`reshape.py`** (`12-reshape.R`) — `reshape_to_long` (the `melt`->`unpivot`), `add_metadata`
-  (document/notes/yearbook), `transform_file_dt` (full per-file chain), `resolve_commodity_name`,
+  (document/notes/yearbook), `transform_file_df` (full per-file chain), `resolve_commodity_name`,
   `build_empty_transform_result`, and the `TransformResult(wide_raw, long_raw)` type.
 
 **Parity risk #2 handled:** the `whep_year_columns` attribute is NOT carried — `reshape_to_long`
 recomputes year columns via `identify_year_columns`. `unpivot(index=available_id, on=year_cols)`
 drops exactly the columns `melt(id.vars, measure.vars)` drops (verified: a non-id/non-year
 column is dropped identically). **Confirmed polars `unpivot` produces the same variable-major
-row order as data.table `melt`** — the full `transform_file_dt` long frame matched the R golden
+row order as data.table `melt`** — the full `transform_file_df` long frame matched the R golden
 byte-for-byte: 12 columns in order, 45 rows (72 melted − 27 null-value), every cell equal
 (incl. accent-folded polity values and the `drop_na_value_rows` filtering).
 
 **Capture:** new `transform` CaptureSpec reads a real corpus sheet then runs the full R
-`transform_file_dt` (reuses the harness `preamble`/`fixtures_dir`), capturing the long frame
+`transform_file_df` (reuses the harness `preamble`/`fixtures_dir`), capturing the long frame
 column-by-column. Divergence documented: R's year-column `as.character` coercion is a no-op
 (calamine reads all-as-text).
 
@@ -209,7 +217,7 @@ column-by-column. Divergence documented: R's year-column `as.character` coercion
 
 Ported `12-processing.R` → `ingest/transform/processing.py`, completing Stage 1c:
 
-- **`transform_single_file`** — resolve commodity + `transform_file_dt` for one file; `None` for
+- **`transform_single_file`** — resolve commodity + `transform_file_df` for one file; `None` for
   a 0-row wide frame (R `NULL`, dropped downstream); explicit `isinstance` guards on
   `file_name` / `yearbook` (ValidationError, and mypy-narrowing).
 - **`read_transform_pipeline_files`** — the fused read+transform-per-batch path
@@ -233,7 +241,7 @@ unchanged (→ stripped by the non-alnum step) while `anyascii` folds it to `"1"
 anyascii is aggressive (`£`→`GBP`, `°`→`deg`, `½`→`1/2` vs ICU `" 1/2"`, …). Fix: an ICU-derived
 override table in the shared `strings.transliterate_ascii_lower` (identity codepoints +
 fraction/`±`/`Ŋ` remaps over Latin-1 + super/subscripts + number forms). Regression tests in
-`tests/general/test_helpers.py`; the golden parity tests guard the rest. All prior parity
+`tests/setup/test_helpers.py`; the golden parity tests guard the rest. All prior parity
 goldens (string/header/transform) still pass unchanged.
 
 **Deferred:** the non-fused two-stage `process_files` / `transform_files_list` (R has both;
@@ -244,7 +252,7 @@ the fused path is what the runner uses) — will be added with the runner if nee
 
 ## Phase 1d (partial) — ingest output: validate — ✅ complete (2026-07-21)
 
-Ported `13-validate.R` → `ingest/output/validate.py` (`validate_long_dt_by_document` +
+Ported `13-validate.R` → `ingest/output/validate.py` (`validate_long_df_by_document` +
 `ValidationResult`), the most intricate ingest module (parity risk #3). Runs the three
 long-format checks for every document in one pass:
 
@@ -274,13 +282,13 @@ vectorized path replaces; the runner uses `_by_document`).
 
 Closed out Stage 1 (ingest) end-to-end:
 
-- **`output/consolidate.py`** (`13-output.R`) — `consolidate_audited_dt` (drop `None` frames,
+- **`output/consolidate.py`** (`13-output.R`) — `consolidate_audited_df` (drop `None` frames,
   `pl.concat(how="diagonal")` for R `rbindlist(use.names, fill)`, fill missing schema columns
   null, reorder to `column_order` with extras last) + `validate_output_column_order` (unique +
   full-target-schema check) + `ConsolidateResult`.
 - **`runner.py`** (`run_import_pipeline.R`) — **removed `StageNotImplementedError`**; wired the
   full contract: `discover_pipeline_files` → `read_transform_pipeline_files` → `drop_na_value_rows`
-  → `validate_long_dt_by_document` → `consolidate_audited_dt` → `sort_pipeline_stage_dt` →
+  → `validate_long_df_by_document` → `consolidate_audited_df` → `sort_pipeline_stage_df` →
   `ImportResult(data, wide_raw, diagnostics)`. `current_year` param for deterministic validation.
   Deferred (output-preserving): R's `here::here` auto-sourcing / auto-run, checkpoint cache, and
   `progressr` bars (progress lands in Phase 5).
@@ -756,7 +764,7 @@ test also runs the real `export_lists`, reads the workbooks back with openpyxl, 
 names + cell values match. Committed fixture `export_lists_inputs.json`.
 
 **Refactor:** promoted the R `as.character`/`fwrite` double formatter to
-`general/helpers/numeric.format_double_r` (now shared by the TSV writer and the lists numeric
+`setup/helpers/numeric.format_double_r` (now shared by the TSV writer and the lists numeric
 branch); `processed_data/export.py` re-points to it (behavior unchanged).
 
 **Gates:** ruff clean · mypy strict clean (137 files) · **634 tests pass** (+54: 36 unit + 19

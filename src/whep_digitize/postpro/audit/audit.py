@@ -25,8 +25,6 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
 from whep_digitize.postpro.audit.config import (
     prepare_audit_root,
     resolve_audit_output_paths,
@@ -37,6 +35,8 @@ from whep_digitize.postpro.audit.validation import (
     resolve_audit_columns_by_type,
     run_master_validation,
 )
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
 
 _CONSTANTS = get_pipeline_constants()
 _VALUE_COLUMN = _CONSTANTS.defaults.value_column
@@ -97,13 +97,13 @@ def audit_data_output(
 
     report_path: Path | None = None
     if findings.height > 0:
-        audit_dt = _subset_invalid_rows(dataset, invalid_index)
+        audit_df = _subset_invalid_rows(dataset, invalid_index)
         findings_for_export = _remap_findings_row_index(findings, invalid_index)
         audit_file_path = resolve_audit_output_paths(
             audit_output_dir, config.paths.data.audit.audit_file_path.name
         )
         report_path = export_validation_audit_report(
-            audit_dt, config, findings_for_export, audit_file_path
+            audit_df, config, findings_for_export, audit_file_path
         )
 
     audited = dataset

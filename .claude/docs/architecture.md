@@ -7,7 +7,7 @@ script pipeline). `whep_digitize.pipeline.run_pipeline` orchestrates four stages
 order by **explicit function calls** (no source-on-import side effects):
 
 ```
-general (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
+setup (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
 ```
 
 The single dataframe engine is **polars** (columnar, immutable, multi-threaded) — the
@@ -18,7 +18,7 @@ Python analogue of R's `data.table`. Each stage returns a typed, frozen result o
 
 | Stage | Python package | R source | Responsibility |
 |-------|----------------|----------|----------------|
-| 0 — general | `whep_digitize.general` | `r/0-general_pipeline/` | constants, config, directories, helpers |
+| 0 — setup | `whep_digitize.setup` | `r/0-general_pipeline/` | constants, config, directories, helpers |
 | 1 — ingest | `whep_digitize.ingest` | `r/1-import_pipeline/` | discover, read, wide→long, validate |
 | 2 — postpro | `whep_digitize.postpro` | `r/2-postpro_pipeline/` | audit, clean, standardize units, harmonize |
 | 3 — export | `whep_digitize.export` | `r/3-export_pipeline/` | processed TSVs + unique-list workbooks |
@@ -30,7 +30,7 @@ irrelevant under explicit imports). See [codebase-map.md](codebase-map.md).
 ## Data flow
 
 ```
-Excel workbooks (data/1-import/10-raw_import/**.xlsx)
+Excel workbooks (data/import/raw/**.xlsx)
    │  discover → read (all-text) → wide→long unpivot → validate (by document)
    ▼
 ImportResult(data=long df, wide_raw=wide df, diagnostics)
@@ -59,7 +59,7 @@ is a float while every other column stays string. Null-`value` rows are dropped 
 
 - `run_pipeline(*, show_view=False, dataset_name=None, root=None, options=None) -> ExportResult`
   — the top-level orchestrator (`whep_digitize/pipeline.py`).
-- `general.runner.run_general_pipeline(dataset_name=None, root=None) -> Config`.
+- `setup.runner.run_setup_pipeline(dataset_name=None, root=None) -> Config`.
 - `ingest.runner.run_import_pipeline(config, options=None) -> ImportResult`.
 - `postpro.runner.run_postpro_pipeline(raw, config, dataset_name=None, options=None) -> PostproResult`.
 - `export.runner.run_export_pipeline(config, result, *, overwrite=True) -> ExportResult`.
@@ -93,8 +93,8 @@ a stage can be built and parity-tested against fixtures as long as it honors its
 
 ## Data layout (gitignored, under `data/`)
 
-- `data/1-import/` — `10-raw_import` (input `.xlsx`), then `11-clean_import` /
-  `12-standardize_import` / `13-harmonize_import`.
-- `data/2-postpro/` — `audit`, `diagnostics`, `templates`, `runtime_cache` (the audit
+- `data/import/` — `raw` (input `.xlsx`), then `clean` /
+  `standardize` / `harmonize`.
+- `data/postpro/` — `audit`, `diagnostics`, `templates`, `runtime_cache` (the audit
   subtree; the `2-postpro` root is created lazily as their parent).
-- `data/3-export/` — `processed_data` (**TSV**), `lists` (**xlsx** `unique_*.xlsx`).
+- `data/export/` — `processed` (**TSV**), `lists` (**xlsx** `unique_*.xlsx`).

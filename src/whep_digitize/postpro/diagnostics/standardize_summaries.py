@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from whep_digitize.general.helpers.strings import normalize_string
 from whep_digitize.postpro.diagnostics.rule_summaries import _anti_join_null_safe
+from whep_digitize.setup.helpers.strings import normalize_string
 
 # R ``trimws()`` default whitespace class.
 _R_TRIMWS = " \t\r\n"
@@ -68,22 +68,22 @@ def _blank_to_null(column: str) -> pl.Expr:
     )
 
 
-def build_standardize_rule_catalog(layer_rules_dt: pl.DataFrame) -> pl.DataFrame:
+def build_standardize_rule_catalog(layer_rules_df: pl.DataFrame) -> pl.DataFrame:
     """Convert standardize-layer rules to the standardize audit catalog (deduplicated).
 
     The Python port of R ``build_standardize_rule_catalog``.
 
     Args:
-        layer_rules_dt: The prepared standardize-layer rules.
+        layer_rules_df: The prepared standardize-layer rules.
 
     Returns:
         The 9-column catalog (meaningful rows only), or an empty typed frame.
     """
-    if layer_rules_dt.height == 0:
+    if layer_rules_df.height == 0:
         return pl.DataFrame(schema=_STD_CATALOG_SCHEMA)
 
     rename = {"source_rule_file": "rule_file_identifier"}
-    frame = layer_rules_dt.rename({k: v for k, v in rename.items() if k in layer_rules_dt.columns})
+    frame = layer_rules_df.rename({k: v for k, v in rename.items() if k in layer_rules_df.columns})
     additions = [
         pl.lit(None, dtype=_STD_CATALOG_SCHEMA[column]).alias(column)
         for column in _STD_CATALOG_COLUMNS
@@ -106,13 +106,13 @@ def build_standardize_rule_catalog(layer_rules_dt: pl.DataFrame) -> pl.DataFrame
     return catalog.filter(meaningful).unique(maintain_order=True)
 
 
-def summarize_standardize_rules(audit_dt: pl.DataFrame) -> pl.DataFrame:
+def summarize_standardize_rules(audit_df: pl.DataFrame) -> pl.DataFrame:
     """Normalize a standardize audit into the canonical matched-rule summary.
 
     The Python port of R ``summarize_standardize_rules``.
 
     Args:
-        audit_dt: The standardize audit table.
+        audit_df: The standardize audit table.
 
     Returns:
         The 10-column summary, sorted deterministically (empty typed frame when audit is empty).
@@ -120,9 +120,9 @@ def summarize_standardize_rules(audit_dt: pl.DataFrame) -> pl.DataFrame:
     additions = [
         pl.lit(None, dtype=_STD_SUMMARY_SCHEMA[column]).alias(column)
         for column in _STD_SUMMARY_COLUMNS
-        if column not in audit_dt.columns
+        if column not in audit_df.columns
     ]
-    frame = audit_dt.with_columns(additions) if additions else audit_dt
+    frame = audit_df.with_columns(additions) if additions else audit_df
     frame = frame.with_columns(
         pl.col("affected_rows").cast(pl.Int64, strict=False).fill_null(0),
         *(pl.col(column).cast(pl.Float64, strict=False) for column in _STD_NUM_COLUMNS),
@@ -134,9 +134,9 @@ def summarize_standardize_rules(audit_dt: pl.DataFrame) -> pl.DataFrame:
 
 
 def build_unmatched_standardize_rule_summary(
-    rule_catalog_dt: pl.DataFrame,
-    matched_rule_summary_dt: pl.DataFrame,
-    matched_rule_counts_dt: pl.DataFrame | None = None,
+    rule_catalog_df: pl.DataFrame,
+    matched_rule_summary_df: pl.DataFrame,
+    matched_rule_counts_df: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Return the standardize rules that never matched, with ``affected_rows = 0``.
 
@@ -144,29 +144,29 @@ def build_unmatched_standardize_rule_summary(
     normalized-key counts branch.
 
     Args:
-        rule_catalog_dt: The standardize rule catalog.
-        matched_rule_summary_dt: The matched-rule summary.
-        matched_rule_counts_dt: Optional counts keyed by ``(rule_commodity_match_key,
+        rule_catalog_df: The standardize rule catalog.
+        matched_rule_summary_df: The matched-rule summary.
+        matched_rule_counts_df: Optional counts keyed by ``(rule_commodity_match_key,
             unit_source_key)``; when present (and keyed), a catalog rule is matched when its
             normalized ``(commodity_key, unit_source)`` appears there.
 
     Returns:
         The 10-column unmatched summary (empty typed frame when nothing is unmatched).
     """
-    if rule_catalog_dt.height == 0:
+    if rule_catalog_df.height == 0:
         return pl.DataFrame(schema=_STD_SUMMARY_SCHEMA)
 
-    catalog = _coerce_std_keys(rule_catalog_dt).with_columns(
-        normalize_string(rule_catalog_dt.get_column("commodity_key").cast(pl.String)).alias(
+    catalog = _coerce_std_keys(rule_catalog_df).with_columns(
+        normalize_string(rule_catalog_df.get_column("commodity_key").cast(pl.String)).alias(
             "rule_commodity_match_key"
         ),
-        normalize_string(rule_catalog_dt.get_column("unit_source").cast(pl.String)).alias(
+        normalize_string(rule_catalog_df.get_column("unit_source").cast(pl.String)).alias(
             "unit_source_key"
         ),
     )
     rule_key = catalog.select(_STD_CATALOG_COLUMNS).unique(maintain_order=True)
 
-    counts = matched_rule_counts_dt if matched_rule_counts_dt is not None else pl.DataFrame()
+    counts = matched_rule_counts_df if matched_rule_counts_df is not None else pl.DataFrame()
     use_counts = counts.height > 0 and {"rule_commodity_match_key", "unit_source_key"} <= set(
         counts.columns
     )
@@ -188,7 +188,7 @@ def build_unmatched_standardize_rule_summary(
         )
     else:
         matched_key = (
-            _coerce_std_keys(matched_rule_summary_dt).select(_STD_CATALOG_COLUMNS).unique()
+            _coerce_std_keys(matched_rule_summary_df).select(_STD_CATALOG_COLUMNS).unique()
         )
 
     unmatched = _anti_join_null_safe(rule_key, matched_key, _STD_CATALOG_COLUMNS)

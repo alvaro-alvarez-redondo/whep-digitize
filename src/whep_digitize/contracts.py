@@ -24,7 +24,7 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.errors import ContractError
+from whep_digitize.setup.errors import ContractError
 
 # --------------------------------------------------------------------------- ingest
 

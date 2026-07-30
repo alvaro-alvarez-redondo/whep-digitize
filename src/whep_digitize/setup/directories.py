@@ -2,7 +2,7 @@
 
 Creates the import/export directory tree and the post-processing audit subtree
 (``audit``, ``diagnostics``, ``templates``, ``runtime_cache``). Preserves the R
-contract that the audit *root* (``data/2-postpro``) is created lazily by the
+contract that the audit *root* (``data/postpro``) is created lazily by the
 post-processing stage, not eagerly here.
 """
 
@@ -13,8 +13,8 @@ import shutil
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
 
 _FILE_SUFFIX_RE = re.compile(get_pipeline_constants().patterns.file_extension, re.IGNORECASE)
 

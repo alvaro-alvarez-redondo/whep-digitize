@@ -1,6 +1,6 @@
 r"""Long-format validation — the Python port of ``13-validate.R``.
 
-``validate_long_dt_by_document`` runs the three long-format checks (mandatory-field,
+``validate_long_df_by_document`` runs the three long-format checks (mandatory-field,
 year-value, duplicate) for every document in one pass and returns the validated data plus a
 verbatim, deterministically-ordered error vector. A downstream consumer compares the error
 *text*, so the message formats and their order are reproduced exactly:
@@ -18,8 +18,8 @@ The R ``current_year`` comes from ``Sys.Date()``; it is exposed here as a parame
 to the system year, matching R) so the plausible-year range is deterministic in tests — the
 same rationale R gives for ``validate_year_values(current_year=)``.
 
-R source: ``r/1-import_pipeline/13-output/13-validate.R`` (``validate_long_dt_by_document``; the
-non-vectorized ``validate_long_dt`` + per-check helpers are the reference it replaces).
+R source: ``r/1-import_pipeline/13-output/13-validate.R`` (``validate_long_df_by_document``; the
+non-vectorized ``validate_long_df`` + per-check helpers are the reference it replaces).
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ from typing import NamedTuple
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.helpers.assertions import require
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.assertions import require
 
 _STAGE_ROW_ORDER = get_pipeline_constants().sorting.stage_row_order
 _MIN_YEAR = 1900
@@ -191,13 +191,13 @@ def _duplicate_errors(work: pl.DataFrame, doc_rank_map: dict[object, int]) -> li
     return records
 
 
-def validate_long_dt_by_document(
-    long_dt: pl.DataFrame, config: Config, current_year: int | None = None
+def validate_long_df_by_document(
+    long_df: pl.DataFrame, config: Config, current_year: int | None = None
 ) -> ValidationResult:
     """Validate a long-format frame for every document in one pass.
 
     Args:
-        long_dt: Long-format frame with a ``document`` column.
+        long_df: Long-format frame with a ``document`` column.
         config: Pipeline configuration (``column_required`` are the mandatory columns).
         current_year: Reference year for the plausible-year range ``[1900, current_year + 1]``;
             defaults to the system year (R ``Sys.Date()``).
@@ -207,14 +207,14 @@ def validate_long_dt_by_document(
         error messages, ordered by ``(document_rank, type_rank, key_a, key_b)``.
 
     Raises:
-        ValidationError: If ``config.column_required`` is empty or ``long_dt`` lacks the
+        ValidationError: If ``config.column_required`` is empty or ``long_df`` lacks the
             ``document`` (or, when non-empty, ``year``) column.
     """
     require(len(config.column_required) >= 1, "config.column_required must be non-empty")
-    require("document" in long_dt.columns, "long_dt must have a 'document' column")
+    require("document" in long_df.columns, "long_df must have a 'document' column")
 
     mandatory_cols = list(config.column_required)
-    work = long_dt
+    work = long_df
     missing_cols = [col for col in mandatory_cols if col not in work.columns]
     if missing_cols:
         work = work.with_columns([pl.lit(None, dtype=pl.String).alias(col) for col in missing_cols])
@@ -223,7 +223,7 @@ def validate_long_dt_by_document(
     if work.height == 0:
         return ValidationResult(data=work, errors=())
 
-    require("year" in work.columns, "long_dt must have a 'year' column")
+    require("year" in work.columns, "long_df must have a 'year' column")
     resolved_year = current_year if current_year is not None else date.today().year
     max_year = resolved_year + 1
 

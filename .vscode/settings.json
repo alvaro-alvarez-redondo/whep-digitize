@@ -1,0 +1,8 @@
+{
+  // Make Positron / VS Code use the project's .venv automatically when this folder is
+  // opened, so the Python console and terminals have whep_digitize + its dependencies.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"]
+}

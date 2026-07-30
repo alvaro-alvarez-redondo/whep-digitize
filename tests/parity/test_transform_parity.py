@@ -1,4 +1,4 @@
-"""Parity test: Python ``transform_file_dt`` must match the R golden long shape byte-for-byte.
+"""Parity test: Python ``transform_file_df`` must match the R golden long shape byte-for-byte.
 
 Reads a real corpus sheet, runs the full per-file transform (key-field normalization,
 year-header cleanup, wide->long melt, metadata enrichment, null-value drop), and asserts the
@@ -20,9 +20,9 @@ from polars.testing import assert_series_equal
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.config import load_pipeline_config
 from whep_digitize.ingest.reading.sheet_read import read_excel_sheet
-from whep_digitize.ingest.transform.reshape import TransformResult, transform_file_dt
+from whep_digitize.ingest.transform.reshape import TransformResult, transform_file_df
+from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = CAPTURES["transform"]
 _CORPUS_REL = "corpus/fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx"
@@ -58,7 +58,7 @@ def _gold(name: str) -> list[str | None]:
 def result() -> TransformResult:
     config = load_pipeline_config(root=FIXTURES_DIR.parents[1])
     wide = read_excel_sheet(FIXTURES_DIR / _CORPUS_REL, "production", config).data
-    return transform_file_dt(wide, "r_fao_1949_crops_92_92_date.xlsx", "fao_1949", "date", config)
+    return transform_file_df(wide, "r_fao_1949_crops_92_92_date.xlsx", "fao_1949", "date", config)
 
 
 @pytest.mark.parity

@@ -20,12 +20,12 @@ import pytest
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.config import Config
 from whep_digitize.postpro.clean_harmonize.layer_runner import (
     StageLayerResult,
     run_cleaning_layer_batch,
     run_harmonize_layer_batch,
 )
+from whep_digitize.setup.config import Config
 
 _SPEC = CAPTURES["layer_batch"]
 _FIXTURE_NAME = _SPEC.fixture

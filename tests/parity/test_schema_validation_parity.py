@@ -22,12 +22,12 @@ import pytest
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.rule_engine.schema_validation import (
     build_conditional_rule_dictionary,
     coerce_rule_schema,
     validate_canonical_rules,
 )
+from whep_digitize.setup.errors import ValidationError
 
 _SPEC = CAPTURES["schema_validation"]
 _FIXTURE_NAME = _SPEC.fixture

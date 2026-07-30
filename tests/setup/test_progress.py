@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from whep_digitize.general.helpers.progress import StageProgress, stage_progress
+from whep_digitize.setup.helpers.progress import StageProgress, stage_progress
 
 
 def test_stage_progress_disabled_is_inert() -> None:

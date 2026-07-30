@@ -25,12 +25,6 @@ import fastexcel
 import polars as pl
 from openpyxl import Workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import ensure_directories_exist
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.strings import normalize_string
 from whep_digitize.postpro.standardize_units.aggregation import (
     aggregate_standardized_rows,
     extract_aggregated_rows,
@@ -41,6 +35,12 @@ from whep_digitize.postpro.standardize_units.rules_setup import (
     prepare_standardize_rules,
 )
 from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import ensure_directories_exist
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import normalize_string
 
 _CONSTANTS = get_pipeline_constants()
 _STANDARDIZATION = _CONSTANTS.postpro.standardization
@@ -217,8 +217,8 @@ def load_units_standardization_rules(config: Config) -> LoadedStandardizeRules:
 
 
 def build_standardize_layer_audit(
-    layer_rules_dt: pl.DataFrame,
-    matched_rule_counts_dt: pl.DataFrame,
+    layer_rules_df: pl.DataFrame,
+    matched_rule_counts_df: pl.DataFrame,
     source_paths: tuple[str, ...],
 ) -> pl.DataFrame:
     """Merge prepared rules with matched-rule counts into the standardize audit table.
@@ -226,18 +226,18 @@ def build_standardize_layer_audit(
     The Python port of R ``build_standardize_layer_audit``.
 
     Args:
-        layer_rules_dt: Prepared conversion rules.
-        matched_rule_counts_dt: The engine's ``matched_rule_counts``.
+        layer_rules_df: Prepared conversion rules.
+        matched_rule_counts_df: The engine's ``matched_rule_counts``.
         source_paths: Source rule-file paths (basename fallback for ``rule_file_identifier``).
 
     Returns:
         The audit table (empty 10-column frame when no rules or no matches).
     """
-    if layer_rules_dt.height == 0:
+    if layer_rules_df.height == 0:
         return pl.DataFrame(schema=_AUDIT_SCHEMA)
 
-    rules = _ensure_audit_rule_columns(layer_rules_dt, source_paths)
-    counts = _ensure_audit_count_columns(matched_rule_counts_dt)
+    rules = _ensure_audit_rule_columns(layer_rules_df, source_paths)
+    counts = _ensure_audit_count_columns(matched_rule_counts_df)
 
     merged = rules.join(
         counts,
@@ -263,7 +263,7 @@ def build_standardize_layer_audit(
 
 
 def attach_standardize_diagnostics(
-    standardized_dt: pl.DataFrame,
+    standardized_df: pl.DataFrame,
     clean_rows_count: int,
     matched_count: int,
     unmatched_count: int,
@@ -276,11 +276,11 @@ def attach_standardize_diagnostics(
 ) -> StandardizeDiagnostics:
     """Build the standardize-layer diagnostics (R ``attach_standardize_diagnostics``)."""
     audit_rows = [matched_count] if matched_count > 0 else []
-    audit_dt = pl.DataFrame(
+    audit_df = pl.DataFrame(
         {"affected_rows": pl.Series("affected_rows", audit_rows, dtype=pl.Int64)}
     )
     base = build_layer_diagnostics(
-        "standardize_units", clean_rows_count, standardized_dt.height, audit_dt
+        "standardize_units", clean_rows_count, standardized_df.height, audit_df
     )
 
     messages = ("no numeric standardization rules found",) if rules_count == 0 else base.messages
@@ -304,7 +304,7 @@ def attach_standardize_diagnostics(
 
 
 def run_standardize_units_layer_batch(
-    clean_dt: pl.DataFrame,
+    clean_df: pl.DataFrame,
     config: Config,
     *,
     unit_column: str = "unit",
@@ -317,7 +317,7 @@ def run_standardize_units_layer_batch(
     The Python port of R ``run_standardize_units_layer_batch``.
 
     Args:
-        clean_dt: The clean-layer dataset.
+        clean_df: The clean-layer dataset.
         config: The resolved pipeline configuration.
         unit_column: The unit column name.
         value_column: The numeric value column name.
@@ -329,7 +329,7 @@ def run_standardize_units_layer_batch(
     """
     loaded = load_units_standardization_rules(config)
     applied = apply_standardize_rules(
-        clean_dt, loaded.layer_rules, unit_column, value_column, commodity_column
+        clean_df, loaded.layer_rules, unit_column, value_column, commodity_column
     )
 
     rows_before = applied.data.height
@@ -342,7 +342,7 @@ def run_standardize_units_layer_batch(
 
     diagnostics = attach_standardize_diagnostics(
         data,
-        clean_dt.height,
+        clean_df.height,
         applied.matched_count,
         applied.unmatched_count,
         loaded.layer_rules.height,

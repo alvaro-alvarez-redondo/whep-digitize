@@ -6,8 +6,8 @@ import polars as pl
 import pytest
 from polars.testing import assert_series_equal
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.helpers import (
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers import (
     checkpoints,
     frames,
     numeric,
@@ -57,26 +57,37 @@ def test_normalize_filename() -> None:
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("¹", "¹"),  # superscript 1: ICU leaves it (anyascii would give "1")
-        ("²", "²"),  # superscript 2
-        ("°", "°"),  # degree sign (anyascii -> "deg")
-        ("£", "£"),  # pound sign (anyascii -> "GBP")
-        ("µ", "µ"),  # micro sign (anyascii -> "u")
-        ("½", " 1/2"),  # vulgar half: ICU adds a leading space (anyascii -> "1/2")
-        ("±", "+/-"),  # plus-minus (anyascii -> "+-")
+        ("café", "cafe"),  # accented Latin letters fold to their ASCII base
+        ("ÑOÑO", "nono"),
+        ("Kuršėnai", "kursenai"),
+        ("Straße", "straße"),  # ß has no canonical decomposition -> left for the non-alnum step
+        ("½", "½"),  # symbols are NOT expanded (ICU would give " 1/2"); passed through untouched
+        ("±", "±"),  # (ICU: "+/-")
+        ("®", "®"),  # (ICU: "(r)")
+        ("¹", "¹"),  # superscripts are NOT folded to digits (compatibility rule avoided)
     ],
 )
-def test_transliterate_matches_icu_on_symbols(raw: str, expected: str) -> None:
-    # Regression: anyascii diverges from ICU "Latin-ASCII" on these symbols; the override
-    # in transliterate_ascii_lower reproduces ICU so match/header keys stay byte-identical.
+def test_transliterate_ascii_lower_policy(raw: str, expected: str) -> None:
+    # Policy: strip diacritics via NFD + lowercase; do NOT reproduce ICU's symbol/compatibility
+    # expansions. Non-decomposable codepoints pass through for the caller's non-alnum step to drop.
     assert strings.transliterate_ascii_lower(raw) == expected
 
 
-def test_normalize_text_superscript_footnote_marker() -> None:
-    # Corpus case (belgian congo¹): ICU keeps the superscript -> the non-alnum step drops
-    # it; anyascii would fold it to "1" and keep it. Match keys must follow ICU.
-    assert strings.normalize_text("Belgian Congo¹") == "belgian congo"
-    assert strings.normalize_text("A¹B") == "a b"  # superscript becomes a separator
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Philippines®", "philippines"),  # ® dropped, NOT expanded to "philippines r"
+        ("½ kg", "kg"),  # ½ dropped, NOT "1 2 kg"
+        ("Straße", "stra e"),  # ß dropped (no canonical decomposition)
+        ("Belgian Congo¹", "belgian congo"),  # superscript marker becomes a separator
+        ("naïve café", "naive cafe"),  # diacritics folded to ASCII base
+        ("γ-ray", "ray"),  # noqa: RUF001  (non-Latin script has no ASCII base, dropped)
+    ],
+)
+def test_normalize_text_policy(raw: str, expected: str) -> None:
+    # End-to-end policy: fold diacritics, drop every non-[a-z0-9] char (symbols, non-Latin
+    # scripts, non-decomposable letters), collapse runs to a single space, trim.
+    assert strings.normalize_text(raw) == expected
 
 
 # --------------------------------------------------------------------------- numeric
@@ -107,15 +118,15 @@ def test_coerce_numeric_series() -> None:
 # --------------------------------------------------------------------------- sorting
 
 
-def test_sort_pipeline_stage_dt(sample_long_df: pl.DataFrame) -> None:
-    result = sorting.sort_pipeline_stage_dt(sample_long_df)
+def test_sort_pipeline_stage_df(sample_long_df: pl.DataFrame) -> None:
+    result = sorting.sort_pipeline_stage_df(sample_long_df)
     # Canonical order sorts by hemisphere, continent, polity, ... with nulls last.
     assert result["polity"].to_list() == ["japan", "spain", "france"]
 
 
 def test_sort_ignores_absent_columns() -> None:
     frame = pl.DataFrame({"polity": ["b", "a"], "extra": [1, 2]})
-    result = sorting.sort_pipeline_stage_dt(frame)
+    result = sorting.sort_pipeline_stage_df(frame)
     assert result["polity"].to_list() == ["a", "b"]
 
 

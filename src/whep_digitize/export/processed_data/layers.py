@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 
 import polars as pl
 
-from whep_digitize.general.errors import ValidationError
+from whep_digitize.setup.errors import ValidationError
 
 # Default layer suffixes (R ``layer_suffixes`` argument default).
 _DEFAULT_LAYER_SUFFIXES: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")

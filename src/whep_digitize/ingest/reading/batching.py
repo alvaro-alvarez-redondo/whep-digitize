@@ -25,15 +25,15 @@ from functools import partial
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.ingest.reading.read_utils import (
     ReadResult,
     normalize_pipeline_read_result,
     safe_execute_read,
 )
 from whep_digitize.ingest.reading.sheet_read import read_file_sheets
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.options import RuntimeOptions
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +73,7 @@ def resolve_import_effective_workers(config: Config, options: RuntimeOptions | N
     """Resolve the effective import worker count (>= 1).
 
     Mirrors R ``resolve_import_effective_workers``: the ``import_parallel_workers`` option (here
-    :class:`~whep_digitize.general.options.RuntimeOptions`, the ``WHEP_*`` env layer) wins over
+    :class:`~whep_digitize.setup.options.RuntimeOptions`, the ``WHEP_*`` env layer) wins over
     the constant default. The ``"auto"`` sentinel resolves to ``min(auto_max, cpu_count - 1)``
     (readxl/calamine reading is I/O + serialization bound, so returns taper past ~8 workers); an
     explicit integer is honored, with anything below 1 forced to sequential (``1``).

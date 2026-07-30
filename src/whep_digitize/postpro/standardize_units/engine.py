@@ -14,7 +14,7 @@ The Python port of ``r/2-postpro_pipeline/24-standardize_units/24-standardize-en
 5. **affine converts** matched rows (``value * factor + offset``) and rewrites the unit to the
    target.
 
-Order is exactly fold → revert-probe → match → convert. R mutated ``mapped_dt`` by reference and
+Order is exactly fold → revert-probe → match → convert. R mutated ``mapped_df`` by reference and
 returned a list; this port is functional and returns :class:`StandardizeResult`.
 """
 
@@ -24,11 +24,11 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.numeric import coerce_numeric_series
-from whep_digitize.general.helpers.strings import normalize_string
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.numeric import coerce_numeric_series
+from whep_digitize.setup.helpers.strings import normalize_string
 
 _CONSTANTS = get_pipeline_constants()
 _ALL_COMMODITY = _CONSTANTS.postpro.standardization.all_commodity_key
@@ -55,8 +55,8 @@ class StandardizeResult:
 
 
 def apply_standardize_rules(
-    mapped_dt: pl.DataFrame,
-    prepared_rules_dt: pl.DataFrame,
+    mapped_df: pl.DataFrame,
+    prepared_rules_df: pl.DataFrame,
     unit_column: str,
     value_column: str,
     commodity_column: str,
@@ -66,8 +66,8 @@ def apply_standardize_rules(
     The Python port of R ``apply_standardize_rules``.
 
     Args:
-        mapped_dt: The dataset to standardize.
-        prepared_rules_dt: Prepared conversion rules (see
+        mapped_df: The dataset to standardize.
+        prepared_rules_df: Prepared conversion rules (see
             :func:`~whep_digitize.postpro.standardize_units.rules_setup.prepare_standardize_rules`).
         unit_column: The unit column name.
         value_column: The numeric value column name.
@@ -86,24 +86,24 @@ def apply_standardize_rules(
         (commodity_column, "commodity"),
     ):
         require(len(column) >= 1, f"{label} column name must be non-empty")
-        if column not in mapped_dt.columns:
+        if column not in mapped_df.columns:
             raise ValidationError(f"{label} column '{column}' is missing")
 
-    raw_value = mapped_dt.get_column(value_column)
+    raw_value = mapped_df.get_column(value_column)
     numeric_raw = coerce_numeric_series(raw_value)
     _abort_on_non_numeric(raw_value, numeric_raw)
 
-    raw_unit = mapped_dt.get_column(unit_column).cast(pl.String)
+    raw_unit = mapped_df.get_column(unit_column).cast(pl.String)
     original_key = normalize_string(raw_unit)
-    commodity_key = normalize_string(mapped_dt.get_column(commodity_column).cast(pl.String))
+    commodity_key = normalize_string(mapped_df.get_column(commodity_column).cast(pl.String))
 
-    working = _fold_multiplier(mapped_dt.height, numeric_raw, raw_unit, original_key, commodity_key)
-    has_rules = prepared_rules_dt.height > 0
+    working = _fold_multiplier(mapped_df.height, numeric_raw, raw_unit, original_key, commodity_key)
+    has_rules = prepared_rules_df.height > 0
     if has_rules:
-        working = _revert_prefixes(working, prepared_rules_dt)
+        working = _revert_prefixes(working, prepared_rules_df)
 
     if not has_rules:
-        data = mapped_dt.with_columns(
+        data = mapped_df.with_columns(
             working.get_column("numeric").alias(value_column),
             working.get_column("unit_str").alias(unit_column),
         )
@@ -114,8 +114,8 @@ def apply_standardize_rules(
             matched_rule_counts=_empty_matched_rule_counts(),
         )
 
-    matched = _match_and_convert(working, prepared_rules_dt)
-    data = mapped_dt.with_columns(
+    matched = _match_and_convert(working, prepared_rules_df)
+    data = mapped_df.with_columns(
         matched.get_column("numeric").alias(value_column),
         matched.get_column("unit_str").alias(unit_column),
     )

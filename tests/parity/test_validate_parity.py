@@ -1,8 +1,8 @@
 """Parity test: document-major validation must match the R golden byte-for-byte.
 
-Runs ``validate_long_dt_by_document`` over the interleaved multi-document fixture and asserts
+Runs ``validate_long_df_by_document`` over the interleaved multi-document fixture and asserts
 the verbatim error strings, their exact order (the 4-key stable sort), and the document-major
-reordered data all equal R's ``validate_long_dt_by_document`` output. ``current_year`` is pinned
+reordered data all equal R's ``validate_long_df_by_document`` output. ``current_year`` is pinned
 to 2025 to match the R capture's ``Sys.Date`` override, so the plausible-year range in the
 messages is deterministic.
 
@@ -19,8 +19,8 @@ import pytest
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.config import load_pipeline_config
-from whep_digitize.ingest.output.validate import ValidationResult, validate_long_dt_by_document
+from whep_digitize.ingest.output.validate import ValidationResult, validate_long_df_by_document
+from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = CAPTURES["validate"]
 _FIXTURE_NAME = _SPEC.fixture
@@ -45,7 +45,7 @@ def result() -> ValidationResult:
     records = json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
     frame = pl.DataFrame(records)
     config = load_pipeline_config(root=FIXTURES_DIR.parents[1])
-    return validate_long_dt_by_document(frame, config, current_year=_PINNED_YEAR)
+    return validate_long_df_by_document(frame, config, current_year=_PINNED_YEAR)
 
 
 @pytest.mark.parity

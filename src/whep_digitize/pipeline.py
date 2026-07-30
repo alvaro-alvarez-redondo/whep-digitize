@@ -1,29 +1,65 @@
 """Top-level orchestrator — the Python port of ``r/run_pipeline.R``.
 
-Runs the four stages (general -> ingest -> postpro -> export) in fixed order and reports
-elapsed time plus the clean/harmonize pass counts. Unlike the R version there is no
+Runs the four stages (setup -> ingest -> postpro -> export) in fixed order and reports
+elapsed time plus the harmonized row/column counts. Unlike the R version there is no
 auto-run-on-import: :func:`run_pipeline` is an explicit call.
 """
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
 from whep_digitize.contracts import ExportResult
 from whep_digitize.export.runner import run_export_pipeline
-from whep_digitize.general.helpers.console import alert_info, alert_success
-from whep_digitize.general.helpers.time_format import format_elapsed_time
-from whep_digitize.general.options import RuntimeOptions
-from whep_digitize.general.runner import run_general_pipeline
 from whep_digitize.ingest.runner import run_import_pipeline
 from whep_digitize.postpro.runner import run_postpro_pipeline
+from whep_digitize.setup.helpers.console import alert_success
+from whep_digitize.setup.helpers.time_format import format_elapsed_time
+from whep_digitize.setup.options import RuntimeOptions
+from whep_digitize.setup.runner import run_setup_pipeline
+
+# The progress bars draw their left "|" edge at column 30 (a 1-char spinner + space +
+# "running stage: " + a 12-wide label + space). The alert's "OK " prefix is 3 columns, so
+# padding "Pipeline completed in <elapsed>" to 27 lands the summary "|" directly under those
+# edges. Kept in sync by hand with helpers.progress (_STAGE_WORD length + _LABEL_WIDTH).
+_SEPARATOR_COLUMN = 27
 
 
-def _pass_count(multi_pass: object) -> str:
-    """Render a multi-pass ``passes_executed`` count for the summary line."""
-    passes = getattr(multi_pass, "passes_executed", None)
-    return str(passes) if isinstance(passes, int) else "N/A"
+def _multiplication_sign() -> str:
+    """Return the multiplication sign where the stdout encoding allows, else ASCII ``x``."""
+    sign = chr(0xD7)  # multiplication sign, kept out of the source as a literal
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        sign.encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        return "x"
+    return sign
+
+
+def format_completion_summary(elapsed: str, harmonized_rows: int, harmonized_cols: int) -> str:
+    """Build the coloured, aligned pipeline-completion summary (for ``alert_success``).
+
+    The ``|`` separator is padded to line up under the progress bars' left edge, the counts are
+    bold bright-yellow, and the multiplication sign is used where the console encoding allows it.
+    Shared by :func:`run_pipeline` and the interactive ``whep-digitalize.py`` runner so both match.
+
+    Args:
+        elapsed: The formatted elapsed-time string.
+        harmonized_rows: Row count of the harmonized frame.
+        harmonized_cols: Column count of the harmonized frame.
+
+    Returns:
+        Rich-markup text without the ``OK`` prefix (``alert_success`` adds it).
+    """
+    prefix = f"Pipeline completed in {elapsed}"
+    pad = " " * max(1, _SEPARATOR_COLUMN - len(prefix))
+    return (
+        f"Pipeline completed in [bold bright_yellow]{elapsed}[/]{pad}[dim]|[/] "
+        f"[bold bright_yellow]{harmonized_rows}[/] harmonized rows {_multiplication_sign()} "
+        f"[bold bright_yellow]{harmonized_cols}[/] cols"
+    )
 
 
 def run_pipeline(
@@ -33,7 +69,7 @@ def run_pipeline(
     root: Path | str | None = None,
     options: RuntimeOptions | None = None,
 ) -> ExportResult:
-    """Run the general -> ingest -> postpro -> export pipeline in order.
+    """Run the setup -> ingest -> postpro -> export pipeline in order.
 
     Args:
         show_view: Reserved for API parity with R (the RStudio viewer has no Python
@@ -49,29 +85,21 @@ def run_pipeline(
     start = time.perf_counter()
     effective_options = options if options is not None else RuntimeOptions()
 
-    alert_info("running stage: general")
-    config = run_general_pipeline(dataset_name=dataset_name, root=root, options=effective_options)
-
-    alert_info("running stage: ingest")
+    # Each stage's progress bar carries its own "running stage: <label>" line, so no separate
+    # announcement is printed here.
+    config = run_setup_pipeline(dataset_name=dataset_name, root=root, options=effective_options)
     import_result = run_import_pipeline(config, effective_options)
-
-    alert_info("running stage: postpro")
     postpro_result = run_postpro_pipeline(
         import_result.data,
         config,
         dataset_name=config.dataset_name,
         options=effective_options,
     )
-
-    alert_info("running stage: export")
     export_result = run_export_pipeline(
         config, postpro_result, raw=import_result.data, options=effective_options
     )
 
     elapsed = format_elapsed_time(time.perf_counter() - start)
-    cleans = _pass_count(postpro_result.diagnostics.clean.multi_pass)
-    harmonizations = _pass_count(postpro_result.diagnostics.harmonize.multi_pass)
-    alert_success(
-        f"Pipeline completed in {elapsed} | cleans: {cleans} | harmonizations: {harmonizations}"
-    )
+    harmonized = postpro_result.harmonize
+    alert_success(format_completion_summary(elapsed, harmonized.height, harmonized.width))
     return export_result

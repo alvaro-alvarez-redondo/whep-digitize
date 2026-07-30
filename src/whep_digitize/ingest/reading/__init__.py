@@ -4,7 +4,7 @@
   ``(data, errors)`` read-result plumbing (:class:`~.read_utils.ReadResult` /
   :class:`~.read_utils.SafeReadResult`) + safe-execution wrapper.
 * :mod:`~whep_digitize.ingest.reading.header_normalization` (``11-header-normalization.R``)
-  — the ordered multi-regex header chain + ``Latin-ASCII; Lower`` transliteration +
+  — the ordered multi-regex header chain + diacritic-strip/lowercase transliteration +
   canonical/alias renames (``country`` -> ``polity``) with collision guards.
 * :mod:`~whep_digitize.ingest.reading.sheet_read` (``11-sheet-read.R``) — read each sheet
   all-as-text (``pl.read_excel(engine="calamine", infer_schema_length=0)``); tag

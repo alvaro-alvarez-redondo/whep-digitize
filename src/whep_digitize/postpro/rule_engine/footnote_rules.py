@@ -18,7 +18,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-footnote-rul
    columns (``"footnotes"`` only when the footnote text actually changed, plus each mutated
    target column), and emits a per-rule audit table.
 
-R mutates ``dataset_dt`` in place; this port is functional and returns the updated frame in
+R mutates ``dataset_df`` in place; this port is functional and returns the updated frame in
 :class:`FootnoteRulesResult`.
 """
 
@@ -28,10 +28,9 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     decode_target_rule_value,
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
     get_target_update_strategy_config,
@@ -48,6 +47,7 @@ from whep_digitize.postpro.utilities.stage_definitions import (
     get_stage_target_value_column,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.helpers.assertions import require
 
 # R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
 _R_TRIMWS_CHARS = " \t\r\n"
@@ -421,7 +421,7 @@ def _apply_target_updates(
     total_changed = 0
     changed_columns: list[str] = []
     if target_updates.height == 0:
-        return new_dataset, empty_last_rule_wins_overwrite_events_dt(), 0, changed_columns
+        return new_dataset, empty_last_rule_wins_overwrite_events_df(), 0, changed_columns
 
     for target_column in dict.fromkeys(target_updates.get_column("column_target").to_list()):
         result = apply_target_updates_with_strategy(
@@ -447,6 +447,6 @@ def _apply_target_updates(
     overwrite_events = (
         pl.concat(overwrite_tables)
         if overwrite_tables
-        else empty_last_rule_wins_overwrite_events_dt()
+        else empty_last_rule_wins_overwrite_events_df()
     )
     return new_dataset, overwrite_events, total_changed, changed_columns

@@ -16,13 +16,13 @@ naive port.
 | `openxlsx` | styled per-cell `.xlsx` (audit highlight) | **openpyxl** (`PatternFill`, cell styles) |
 | `readr::parse_double` / `read_csv` | numeric parse; all-text CSV | `cast(Float64, strict=False)`; `pl.read_csv(infer_schema_length=0)` |
 | `data.table::fwrite(sep="\t")` | processed TSV | `pl.DataFrame.write_csv(separator="\t")` |
-| `stringi` / `stringr` | string ops, transliteration | polars `.str` namespace + `re`; **generated ICU `Latin-ASCII` table** (`helpers._latin_ascii`) |
+| `stringi` / `stringr` | string ops, transliteration | polars `.str` namespace + `re`; **policy NFD diacritic strip** in `helpers.strings` (deliberately not ICU `Latin-ASCII`) |
 | `future` / `future.apply` | parallelism | `concurrent.futures.ProcessPoolExecutor` |
 | `progressr` | progress bars + pulses | `rich.progress` |
-| `cli` | errors / warnings / status | exceptions (`whep_digitize.general.errors`) / `warnings` / `rich` |
+| `cli` | errors / warnings / status | exceptions (`whep_digitize.setup.errors`) / `warnings` / `rich` |
 | `checkmate` | argument validation | `pydantic` (schemas) + guard helpers (`helpers.assertions`) |
 | `purrr` (`map`/`map2`/`reduce`/`walk`) | functional iteration | comprehensions / `functools.reduce` / loops |
-| `fs` / `here` | paths, project root | `pathlib` / `general.paths.project_root` |
+| `fs` / `here` | paths, project root | `pathlib` / `setup.paths.project_root` |
 | `renv` | env + lockfile | **uv** + `pyproject.toml` + `uv.lock` |
 | `serialize` / `digest` / `tools::md5sum` | fingerprints, cache keys | `hashlib`, polars `hash_rows()` |
 | `saveRDS` / `readRDS` | binary persistence | **parquet** (frames) / `pickle` (objects) |
@@ -54,19 +54,23 @@ naive port.
 
 ## Parity risks (ranked) — the things that will silently break a port
 
-1. **`Latin-ASCII; Lower` transliteration** (`stringi::stri_trans_general`). Used in string
-   normalization (match keys) AND header normalization. **RESOLVED** — `helpers.strings.
-   transliterate_ascii_lower` now maps through `helpers._latin_ascii.LATIN_ASCII_MAP`, a static
-   table **generated from R/stringi (ICU 74.1)** over the BMP + math-alphanumerics, so it is
-   byte-identical to ICU by construction (a codepoint absent from the table is one ICU leaves
-   unchanged → the downstream non-alnum step turns it into a space). This replaced the earlier
-   `anyascii` + override-table approximation, which diverged on the full dataset — `anyascii`
-   ASCII-ifies *every* script (Greek `γ`→`g`, modifier `ᵀ`→`t`) while ICU leaves non-Latin
-   scripts / super-scripts / modifiers alone but still expands Latin symbols (`®`→`(R)`→`r`).
-   The full-pipeline R↔Python diff over the frozen dataset is now **byte-identical** (processed
-   TSV) / **content-identical** (list workbooks); the string-normalization golden guards the
-   divergent codepoints (`γ`, `®`, `¹ᵀ`, Cyrillic). Regenerate the table against R if its ICU
-   version changes.
+1. **String/header normalization follows the POLICY, not ICU** (was the top parity risk).
+   R uses `stringi::stri_trans_general(x, "Latin-ASCII; Lower")`; the Python port
+   **deliberately does not** reproduce ICU. `helpers.strings.transliterate_ascii_lower`
+   implements the documented policy directly: NFD decomposition + drop combining marks (fold
+   accented Latin letters — `café`→`cafe`, `ñ`→`n`) + lowercase, then the caller's
+   `[^a-z0-9]+`→space step drops everything else. This intentionally diverges from R's output
+   wherever ICU applies historical / compatibility expansions the policy rejects:
+   `Philippines®`→`philippines` (ICU: `philippines r`, via `®`→`(R)`), `½`→dropped (ICU:
+   `1/2`), ligatures / super-scripts / `ß`→`ss` not folded; letters with no canonical
+   decomposition (`ø`, `æ`, `œ`) are dropped like any other non-`[a-z0-9]` character — **no
+   character-specific exceptions or compatibility rules are added to match R**. Verified by
+   policy tests (`tests/setup/test_helpers.py::test_transliterate_ascii_lower_policy` /
+   `test_normalize_text_policy`), **not** an R golden. Real-world impact on the full 1340-workbook
+   dataset: the harmonize TSV equals R except **13 rows** where the `®`→`r` quirk is avoided
+   (`philippines`, `nicaragus`); **value sums and row counts are unchanged**. The
+   `string_normalization` R-parity spec was removed; the `header_normalization` and `matching`
+   parity fixtures were trimmed of ICU-divergent inputs (those cases now live in the policy tests).
 2. **`melt` vs `unpivot` column-drop semantics** + the R attribute-carried `whep_year_columns`.
    Recompute year columns explicitly; verify `unpivot` drops exactly the non-id/non-measure
    columns `melt` did.

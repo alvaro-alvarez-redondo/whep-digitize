@@ -12,9 +12,9 @@ yields batch results in submission order, and batch order + within-batch file or
 the global file order, so parallel output is byte-identical to sequential output (parity
 risk: non-deterministic ordering across workers).
 
-Because a :class:`~whep_digitize.general.config.Config` is not picklable (it nests
+Because a :class:`~whep_digitize.setup.config.Config` is not picklable (it nests
 ``mappingproxy`` constants), workers receive the picklable ``(dataset_name, project_root)``
-and rebuild an identical config with :func:`~whep_digitize.general.config.load_pipeline_config`
+and rebuild an identical config with :func:`~whep_digitize.setup.config.load_pipeline_config`
 (the config is a pure function of those plus the frozen constants).
 
 R source: ``r/1-import_pipeline/12-transform/12-processing.R`` (``read_transform_pipeline_files``,
@@ -34,11 +34,6 @@ from pathlib import Path, PurePosixPath
 
 import polars as pl
 
-from whep_digitize.general.config import Config, load_pipeline_config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.ingest.reading.batching import (
     read_workbook_batch,
     resolve_import_effective_workers,
@@ -49,8 +44,13 @@ from whep_digitize.ingest.transform.reshape import (
     TransformResult,
     build_empty_transform_result,
     resolve_commodity_name,
-    transform_file_dt,
+    transform_file_df,
 )
+from whep_digitize.setup.config import Config, load_pipeline_config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.options import RuntimeOptions
 
 _MESSAGES = get_pipeline_constants().progress.messages["import"]
 
@@ -126,7 +126,7 @@ def transform_single_file(
     commodity = file_row.get("commodity")
     commodity_str = commodity if isinstance(commodity, str) else None
     commodity_name = resolve_commodity_name(commodity_str, config, file_name=file_name)
-    return transform_file_dt(df_wide, file_name, yearbook, commodity_name, config, options)
+    return transform_file_df(df_wide, file_name, yearbook, commodity_name, config, options)
 
 
 def _read_message(path: str) -> str:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from whep_digitize.general.config import Config, load_pipeline_config, normalize_dataset_name
+from whep_digitize.setup.config import Config, load_pipeline_config, normalize_dataset_name
 
 
 def test_default_dataset_name(config: Config) -> None:
@@ -28,15 +28,15 @@ def test_normalize_dataset_name(raw: str, expected: str) -> None:
 
 def test_import_paths(config: Config, project_dir: Path) -> None:
     data = project_dir / "data"
-    assert config.paths.data.import_.raw == data / "1-import" / "10-raw_import"
-    assert config.paths.data.import_.cleaning == data / "1-import" / "11-clean_import"
-    assert config.paths.data.import_.standardization == data / "1-import" / "12-standardize_import"
-    assert config.paths.data.import_.harmonization == data / "1-import" / "13-harmonize_import"
+    assert config.paths.data.import_.raw == data / "import" / "raw"
+    assert config.paths.data.import_.cleaning == data / "import" / "clean"
+    assert config.paths.data.import_.standardization == data / "import" / "standardize"
+    assert config.paths.data.import_.harmonization == data / "import" / "harmonize"
 
 
 def test_audit_subtree_paths(config: Config, project_dir: Path) -> None:
     audit = config.paths.data.audit
-    postpro_root = project_dir / "data" / "2-postpro"
+    postpro_root = project_dir / "data" / "postpro"
     assert audit.audit_root_dir == postpro_root
     assert audit.audit_dir == postpro_root / "audit"
     assert audit.diagnostics_dir == postpro_root / "diagnostics"

@@ -1,14 +1,14 @@
 # Constants & options
 
-## Constants — `whep_digitize.general.constants`
+## Constants — `whep_digitize.setup.constants`
 
-**Authoritative source:** `src/whep_digitize/general/constants.py`. Access via
+**Authoritative source:** `src/whep_digitize/setup/constants.py`. Access via
 `get_pipeline_constants() -> Constants` (memoized with `functools.lru_cache`, the analogue
 of the R global cache). The result is an immutable tree of frozen dataclasses; sequences
 are tuples, mappings are `MappingProxyType`. **Treat as immutable.**
 
 ```python
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 c = get_pipeline_constants()
 c.sorting.stage_row_order        # the 12-column canonical order
 c.postpro.canonical_rule_columns # the 6 rule columns
@@ -47,7 +47,7 @@ c.postpro.canonical_rule_columns # the 6 rule columns
   R-package list (`uv` owns dependencies), the ANSI progress palette (`rich` themes).
 - **`runtime_cache.cache_file_name`** ends `.parquet` (R used `.rds`).
 
-## Runtime options — `whep_digitize.general.options.RuntimeOptions`
+## Runtime options — `whep_digitize.setup.options.RuntimeOptions`
 
 A `pydantic-settings` model, overridable via `WHEP_*` environment variables. Pass an
 instance to `run_pipeline(options=...)` or let stages construct the default.
@@ -60,7 +60,7 @@ instance to `run_pipeline(options=...)` or let stages construct the default.
 | `import_parallel_workers` | `WHEP_IMPORT_PARALLEL_WORKERS` | `"auto"` | import worker count (`"auto"`→`min(8, cpu-1)`; `1`=sequential) |
 | `export_parallel_workers` | `WHEP_EXPORT_PARALLEL_WORKERS` | `1` | unique-list workbook-write worker count (`1`=sequential; `"auto"`/`N`=deterministic `ProcessPoolExecutor`) |
 
-The project-root override `WHEP_PROJECT_ROOT` (read by `general.paths.project_root`) forces
+The project-root override `WHEP_PROJECT_ROOT` (read by `setup.paths.project_root`) forces
 where `data/` is resolved.
 
 **Dropped from R:** `whep.run_*_pipeline.auto` — Python has no source-on-import execution,

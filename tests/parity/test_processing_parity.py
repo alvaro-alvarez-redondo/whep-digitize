@@ -22,13 +22,13 @@ from polars.testing import assert_series_equal
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.config import Config, load_pipeline_config
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.ingest.file_io.discovery import discover_files
 from whep_digitize.ingest.transform.processing import (
     ReadTransformResult,
     read_transform_pipeline_files,
 )
+from whep_digitize.setup.config import Config, load_pipeline_config
+from whep_digitize.setup.options import RuntimeOptions
 
 _SPEC = CAPTURES["processing"]
 _VALUE_COLUMNS = (

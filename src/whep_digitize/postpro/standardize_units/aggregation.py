@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 _VALUE_COLUMN = "value"
 

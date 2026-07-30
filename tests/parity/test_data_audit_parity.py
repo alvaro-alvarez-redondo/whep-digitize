@@ -22,9 +22,9 @@ import pytest
 from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
-from whep_digitize.general.config import Config
 from whep_digitize.postpro.audit.audit import audit_data_output
 from whep_digitize.postpro.audit.validation import run_master_validation
+from whep_digitize.setup.config import Config
 
 _SPEC = CAPTURES["data_audit"]
 _FIXTURE_NAME = _SPEC.fixture

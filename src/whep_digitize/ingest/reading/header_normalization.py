@@ -1,13 +1,13 @@
 """Header normalization — the Python port of ``11-header-normalization.R``.
 
-Parity-critical (the top project risk). Three functions:
+Three functions:
 
 * :func:`normalize_header_names` — the ordered normalization chain (trim -> collapse
-  whitespace -> strip separator padding -> ``Latin-ASCII; Lower`` transliterate ->
+  whitespace -> strip separator padding -> diacritic-strip + lowercase transliterate ->
   punctuation to ``_`` -> collapse ``_`` -> trim ``_``), with the R fast-path short-circuit
   for already-clean headers. The transliteration is the shared
-  :func:`whep_digitize.general.helpers.strings.transliterate_ascii_lower` so header keys and
-  match keys fold identically.
+  :func:`whep_digitize.setup.helpers.strings.transliterate_ascii_lower` (the policy's NFD
+  diacritic strip, not R's ICU ``Latin-ASCII``) so header keys and match keys fold identically.
 * :func:`resolve_canonical_header_renames` — maps normalized headers to canonical column
   names plus the ``country`` -> ``polity`` alias, with the R collision guards
   (already-exact, target-present, alias source already renamed, duplicate alias targets).
@@ -26,9 +26,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.helpers.assertions import require
-from whep_digitize.general.helpers.strings import transliterate_ascii_lower
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import transliterate_ascii_lower
 
 _constants = get_pipeline_constants()
 _patterns = _constants.patterns

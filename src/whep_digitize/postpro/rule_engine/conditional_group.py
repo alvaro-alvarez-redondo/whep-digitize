@@ -13,7 +13,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-conditional-
 4. emits a per-rule audit table and reports the changed columns **independently** — a group
    whose only effect was a source rewrite marks the source column, not the target.
 
-R mutates ``dataset_dt`` by reference (``data.table::set`` + the target-apply scatter); this
+R mutates ``dataset_df`` by reference (``data.table::set`` + the target-apply scatter); this
 port is functional and returns the updated frame in :class:`ConditionalGroupResult`. The
 cartesian join reproduces data.table's Y-then-X row order (dataset row, then rule order) via an
 explicit ``__rule_order__`` sort, which the source/target last-rule-wins reductions depend on.
@@ -26,11 +26,9 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     decode_target_rule_value,
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
     get_target_update_strategy_config,
@@ -47,6 +45,8 @@ from whep_digitize.postpro.utilities.stage_definitions import (
     get_stage_target_value_column,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 # R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
 _R_TRIMWS_CHARS = " \t\r\n"
@@ -292,7 +292,7 @@ def apply_conditional_rule_group(
     ).fill_null(False)
 
     new_dataset = dataset
-    overwrite_events = empty_last_rule_wins_overwrite_events_dt()
+    overwrite_events = empty_last_rule_wins_overwrite_events_df()
     source_changed = 0
     target_changed = 0
 

@@ -14,11 +14,11 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.numeric import format_double_r
-from whep_digitize.general.helpers.strings import normalize_filename
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.strings import normalize_filename
 
 # Fixed sheet order for lists workbooks (R ``get_lists_sheet_order``). Also the order in which
 # layers are grouped into merged sheets.
@@ -78,7 +78,7 @@ def compute_unique_column_values(
     Ports R ``compute_unique_column_values``. Missing (null) values are dropped and, when any
     were present, ``blank_label`` is prepended (it is never sorted in — R prepends after the
     sort). Sorting is code-point for text and numeric for numbers (R ``sort(method = "radix")``);
-    a float column is rendered via :func:`~whep_digitize.general.helpers.numeric.format_double_r`
+    a float column is rendered via :func:`~whep_digitize.setup.helpers.numeric.format_double_r`
     so a numeric list matches R ``as.character``. An absent column yields ``[]``.
 
     Args:

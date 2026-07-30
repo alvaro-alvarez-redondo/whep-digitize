@@ -22,8 +22,8 @@ from r_harness import FIXTURES_DIR
 from registry import CAPTURES
 
 from whep_digitize.contracts import ImportResult
-from whep_digitize.general.config import load_pipeline_config
 from whep_digitize.ingest.runner import run_import_pipeline
+from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = CAPTURES["import_stage"]
 _PINNED_YEAR = 2025

@@ -1,12 +1,12 @@
 """End-to-end integration test for the top-level ``run_pipeline`` orchestrator.
 
-Exercises the full ``general -> ingest -> postpro -> export`` wiring over the committed fixture
+Exercises the full ``setup -> ingest -> postpro -> export`` wiring over the committed fixture
 corpus + postpro rule fixtures (so the multi-pass rule engine fires), asserting a valid
 :class:`ExportResult` with the processed-data TSV and the per-column unique-list workbooks
 written to disk. Stage- and module-level *parity* (vs the R golden) is covered by
 ``tests/parity/`` — this guards the orchestration glue itself (which those stage tests bypass),
 and full-pipeline byte-parity over the frozen dataset is verified out-of-band (see
-``.claude`` docs / ``benchmarks``).
+``.claude`` docs / ``.claude/bench``).
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from pathlib import Path
 import polars as pl
 
 from whep_digitize.contracts import ExportResult
-from whep_digitize.general.options import RuntimeOptions
 from whep_digitize.pipeline import run_pipeline
+from whep_digitize.setup.options import RuntimeOptions
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 _LONG_COLUMNS = [
@@ -38,14 +38,12 @@ _LONG_COLUMNS = [
 
 
 def _assemble_import_tree(root: Path) -> None:
-    """Lay out ``<root>/data/1-import`` = fixture corpus (raw) + postpro rule fixtures."""
-    import_dir = root / "data" / "1-import"
+    """Lay out ``<root>/data/import`` = fixture corpus (raw) + postpro rule fixtures."""
+    import_dir = root / "data" / "import"
     import_dir.mkdir(parents=True)
-    shutil.copytree(_FIXTURES / "corpus", import_dir / "10-raw_import")
-    shutil.copytree(_FIXTURES / "rule_files_postpro" / "clean", import_dir / "11-clean_import")
-    shutil.copytree(
-        _FIXTURES / "rule_files_postpro" / "harmonize", import_dir / "13-harmonize_import"
-    )
+    shutil.copytree(_FIXTURES / "corpus", import_dir / "raw")
+    shutil.copytree(_FIXTURES / "rule_files_postpro" / "clean", import_dir / "clean")
+    shutil.copytree(_FIXTURES / "rule_files_postpro" / "harmonize", import_dir / "harmonize")
 
 
 def test_run_pipeline_end_to_end(tmp_path: Path) -> None:

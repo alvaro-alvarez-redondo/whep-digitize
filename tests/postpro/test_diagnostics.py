@@ -12,8 +12,6 @@ import polars as pl
 import pytest
 from openpyxl import load_workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import WhepError
 from whep_digitize.postpro.diagnostics.output import (
     build_last_rule_wins_overwrite_subset,
     build_postpro_diagnostics,
@@ -35,6 +33,8 @@ from whep_digitize.postpro.diagnostics.standardize_summaries import (
     summarize_standardize_rules,
 )
 from whep_digitize.postpro.utilities.templates import RulePayload
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import WhepError
 
 
 def _s(values: list[str | None]) -> pl.Series:

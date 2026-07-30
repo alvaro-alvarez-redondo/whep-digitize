@@ -10,7 +10,7 @@ see [constants-and-options.md](constants-and-options.md).
 
 ---
 
-## Stage 0 — general (`whep_digitize.general`) — [done]
+## Stage 0 — setup (`whep_digitize.setup`) — [done]
 
 | Module | Key API | R source | |
 |--------|---------|----------|---|
@@ -20,16 +20,15 @@ see [constants-and-options.md](constants-and-options.md).
 | `directories.py` | `create_required_directories(config)`; `ensure_directories_exist`; `delete_directory_if_exists` | `01-directories.R` | done |
 | `paths.py` | `project_root(start=None)` (the `here::here()` analogue) | `here` | done |
 | `errors.py` | `WhepError`, `ConfigurationError`, `ValidationError`, `ContractError` | `cli_abort` | done |
-| `runner.py` | `run_general_pipeline(dataset_name, root) -> Config` | `run_general_pipeline.R` | done |
+| `runner.py` | `run_setup_pipeline(dataset_name, root) -> Config` | `run_general_pipeline.R` | done |
 
-### `general.helpers` — [done]
+### `setup.helpers` — [done]
 
 | Module | Key API | R source | |
 |--------|---------|----------|---|
-| `strings.py` | `normalize_text`, `normalize_string` (series), `clean_footnote`, `clean_footnote_column`, `normalize_filename`, `transliterate_ascii_lower` (via the ICU table) | `02-string-normalization.R` | done |
-| `_latin_ascii.py` | `LATIN_ASCII_MAP` — generated ICU `Latin-ASCII` table (ICU 74.1); the exact transliteration ground truth | `stri_trans_general` | done |
+| `strings.py` | `normalize_text`, `normalize_string` (series), `clean_footnote`, `clean_footnote_column`, `normalize_filename`, `transliterate_ascii_lower` (policy NFD diacritic strip, not ICU) | `02-string-normalization.R` | done |
 | `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_r` | `02-numeric-coercion.R` | done |
-| `sorting.py` | `sort_pipeline_stage_dt(frame, sort_columns=None)` | `02-sorting.R` | done |
+| `sorting.py` | `sort_pipeline_stage_df(frame, sort_columns=None)` | `02-sorting.R` | done |
 | `frames.py` | `drop_na_value_rows(frame, value_column, *, enabled)` | `02-data-cleaning.R` | done |
 | `checkpoints.py` | `save_checkpoint`, `load_checkpoint`, `clear_checkpoints` (parquet/pickle) | `02-checkpoints.R` | done |
 | `time_format.py` | `format_elapsed_time(seconds)` | `02-time-formatting.R` | done |
@@ -70,10 +69,10 @@ sort). Stage-level parity vs R verified on the frozen corpus. Ports `r/1-import_
 | `reading/header_normalization.py` **[done]** | `normalize_header_name`, `normalize_header_names`, `validate_header_normalization`, `resolve_canonical_header_renames`, `HeaderRenames` | `11-header-normalization.R` | **HIGH** |
 | `reading/batching.py` **[done]** | `split_workbook_batches`, `resolve_import_workbook_batch_size`, `resolve_import_effective_workers`, `read_workbook_batch`, `BatchReadResult` (parallel `read_pipeline_files` deferred to runner) | `11-batching.R` | MEDIUM |
 | `transform/transform_utils.py` **[done]** | `identify_year_columns`, `normalize_key_fields`, `convert_year_columns` | `12-transform-utils.R` | **HIGH** |
-| `transform/reshape.py` **[done]** | `reshape_to_long` (unpivot), `add_metadata`, `transform_file_dt`, `resolve_commodity_name`, `build_empty_transform_result`, `TransformResult` | `12-reshape.R` | **HIGH** |
+| `transform/reshape.py` **[done]** | `reshape_to_long` (unpivot), `add_metadata`, `transform_file_df`, `resolve_commodity_name`, `build_empty_transform_result`, `TransformResult` | `12-reshape.R` | **HIGH** |
 | `transform/processing.py` **[done]** | `read_transform_pipeline_files` (fused, `ProcessPoolExecutor`, deterministic + sequential fallback), `transform_single_file`, `ReadTransformResult` | `12-processing.R` | **HIGH** |
-| `output/validate.py` **[done]** | `validate_long_dt_by_document`, `ValidationResult` (internal per-check helpers) | `13-validate.R` | **HIGH** |
-| `output/consolidate.py` **[done]** | `consolidate_audited_dt`, `validate_output_column_order`, `ConsolidateResult` | `13-output.R` | LOW-MED |
+| `output/validate.py` **[done]** | `validate_long_df_by_document`, `ValidationResult` (internal per-check helpers) | `13-validate.R` | **HIGH** |
+| `output/consolidate.py` **[done]** | `consolidate_audited_df`, `validate_output_column_order`, `ConsolidateResult` | `13-output.R` | LOW-MED |
 | `runner.py` **[done]** | `run_import_pipeline` (full wiring; checkpoint/progress deferred to Phase 5) | `run_import_pipeline.R` | MEDIUM |
 
 ---
@@ -140,14 +139,14 @@ dirs, writes processed-data TSVs + unique-list workbooks, asserts the paths cont
 
 `tests/conftest.py` provides `project_dir`, `config`, `sample_long_df` fixtures (the
 analogue of `tests/test_helper.R`). Per-stage suites mirror the package layout:
-`tests/general/` [done], `tests/contracts/` [done], `tests/ingest/` [done],
+`tests/setup/` [done], `tests/contracts/` [done], `tests/ingest/` [done],
 `tests/postpro/` [done], `tests/parity/` [done]; `tests/export/` [done] (Track D).
 `tests/test_pipeline_e2e.py` [done] exercises the top-level `run_pipeline` orchestration.
 Golden parity fixtures live under `tests/golden/` (gitignored; regenerated from R). Mark
 parity tests `@pytest.mark.parity`. Current totals: **682 tests pass** (166 parity);
 `ruff` + `mypy` + a 90% CI coverage gate green.
 
-## Benchmarks (`benchmarks/`)
+## Benchmarks (`.claude/bench/`)
 
 `bench.py` times the full `run_pipeline` on a frozen dataset and prints `PIPELINE_SECONDS: <n>`
 (min over `WHEP_BENCH_ITERATIONS` runs). It is the autocode `performance` metric

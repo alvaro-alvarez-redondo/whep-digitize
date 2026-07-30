@@ -12,11 +12,10 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from whep_digitize.general.errors import ConfigurationError, ValidationError
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     TargetUpdateStrategyConfig,
     decode_target_rule_value,
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
     get_target_update_strategy_config,
@@ -30,6 +29,7 @@ from whep_digitize.postpro.rule_engine.matching_values import (
     count_elementwise_value_changes,
     match_rule_target_condition_values,
 )
+from whep_digitize.setup.errors import ConfigurationError, ValidationError
 
 _NA_MATCH_KEY = "..NA_MATCH_KEY.."
 _NA_PLACEHOLDER = "..NA_INTERNAL.."
@@ -286,8 +286,8 @@ def test_resolve_tokenized_target_condition_columns_sorted_unique() -> None:
     assert resolve_tokenized_target_condition_columns() == ("footnotes", "notes")
 
 
-def test_empty_last_rule_wins_overwrite_events_dt_schema() -> None:
-    frame = empty_last_rule_wins_overwrite_events_dt()
+def test_empty_last_rule_wins_overwrite_events_df_schema() -> None:
+    frame = empty_last_rule_wins_overwrite_events_df()
     assert frame.height == 0
     assert frame.columns == [
         "dataset_name",

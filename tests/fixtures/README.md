@@ -31,30 +31,6 @@ keeping the committed binary footprint tiny (~37 KB total):
 
 Tiny hand-authored fixtures that force the edge cases real workbooks may not contain.
 
-### `normalize_string_inputs.json`
-
-A JSON array of raw strings (read by `jsonlite::fromJSON` in R → character vector, and by
-`json.load` in Python → `list[str | None]`). JSON is used because it is the only format that
-round-trips the **NA-vs-empty-string** distinction unambiguously: JSON `null` ⇄ R `NA` ⇄
-Python `None`, kept distinct from `""`. That distinction is what pipeline match keys hinge on.
-
-Every listed migration edge case is covered:
-
-| Edge case            | Element(s) |
-|----------------------|------------|
-| plain / lowercasing  | `"Hello World"` |
-| accented / unicode   | `"café résumé"`, `"Peña"`, `"Côte d'Ivoire"`, `"Åland"` |
-| empty string         | `""` |
-| NA / null            | `null` |
-| whitespace squish    | `"North  America"`, `"  leading  "` |
-| duplicates           | `"North  America"` ×2 (exercises the unique→match fast path) |
-| wildcard token       | `"__ANY__"` → `any` |
-| punctuation stripping| `"RICE-01"`, `"test@#$123"` |
-| anyascii-vs-ICU risk | `"groß"` (ß→ss), `"½ kg"` (½→"1 2"), `"œuvre"` (œ→oe), `"ßharp"` |
-
-The last row is the point of highest parity risk (transliteration divergence between Python
-`anyascii` and R ICU `Latin-ASCII`). See `.claude/docs/r-to-python-mapping.md`.
-
 ### `file_metadata_inputs.json`
 
 A JSON array of file-path strings fed to `extract_file_metadata` (`10-metadata.R` →
@@ -73,15 +49,16 @@ A JSON array of file-path strings fed to `extract_file_metadata` (`10-metadata.R
 ### `header_names_inputs.json`
 
 A JSON array of raw header names fed to `normalize_header_names` (`11-header-normalization.R`
-→ `ingest/reading/header_normalization.py`). Exercises the ordered regex chain and — the
-point of the fixture — the `Latin-ASCII; Lower` transliteration on accented/unicode headers,
-the top project parity risk. Because the header non-alnum pattern **keeps** `/` (unlike
-match-key normalization), it also surfaces transliterations masked elsewhere:
+→ `ingest/reading/header_normalization.py`). Exercises the ordered regex chain and the
+policy's NFD diacritic-strip transliteration on accented/unicode headers. Because the header
+non-alnum pattern **keeps** `/` (unlike match-key normalization), it also surfaces
+transliterations masked elsewhere. Only common-accent cases (where the policy and R's ICU
+agree) live here; ICU-divergent inputs (`groß`, `½`, `œuvre`, `æ`, `ø`) are covered by the
+policy tests in `tests/setup/test_helpers.py`, not this R-parity fixture.
 
 | Edge case                | Element(s) |
 |--------------------------|------------|
-| accents / diacritics     | `café au lait`, `São Paulo`, `Côte d'Ivoire`, `Zürich`, `Ñoño`, `naïve`, `Región`, `Población` |
-| ligatures / symbols      | `groß` (ß→ss), `½ unit` (½→`1/2`, `/` kept → `1/2_unit`), `œuvre` (œ→oe), `æsir` (æ→ae), `Øresund`, `Åland` |
+| accents / diacritics     | `café au lait`, `São Paulo`, `Côte d'Ivoire`, `Zürich`, `Ñoño`, `naïve`, `Åland`, `Región`, `Población` |
 | separator padding        | `Year / Period`, `value - amount`, `p - q / r` |
 | punctuation → underscore | `GDP  (current US$)`, `value %`, `a,b;c`, `test@#123` |
 | underscore collapse/trim | `a__b`, `_leading_`, `__x__` |

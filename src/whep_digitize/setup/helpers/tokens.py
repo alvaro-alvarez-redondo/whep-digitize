@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 
 _constants = get_pipeline_constants()
 _YEAR_TOKEN_RE = re.compile(_constants.patterns.yearbook_token_4digit)

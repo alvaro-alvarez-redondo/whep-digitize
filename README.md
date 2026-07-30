@@ -7,14 +7,14 @@ A deterministic, four-stage pipeline that turns WHEP source workbooks into clean
 harmonized, unit-standardized tabular data plus unique-value reference lists.
 
 ```
-general (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
+setup (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
  constants       discover        audit             processed TSV
  config          read (xlsx)     clean             unique lists (xlsx)
  helpers         wide->long      standardize units
  directories     validate        harmonize
 ```
 
-> **Status: foundation.** Stage 0 (`general`) is implemented and tested. Stages 1–3
+> **Status: foundation.** Stage 0 (`setup`) is implemented and tested. Stages 1–3
 > are scaffolded with typed contracts and are being migrated incrementally. See the
 > [migration roadmap](.claude/docs/migration-roadmap.md) for the plan and current state.
 
@@ -82,7 +82,7 @@ The autonomous optimization loop is configured in [`autocode.toml`](autocode.tom
 
 ```
 src/whep_digitize/
-  general/        # Stage 0 — constants, config, directories, helpers  [IMPLEMENTED]
+  setup/          # Stage 0 — constants, config, directories, helpers  [IMPLEMENTED]
   ingest/         # Stage 1 — file_io, reading, transform, output       [scaffold]
   postpro/        # Stage 2 — audit, clean/harmonize, rule_engine, ...   [scaffold]
   export/         # Stage 3 — processed_data, lists                      [scaffold]
@@ -99,7 +99,7 @@ tests/            # pytest suites, mirroring the package layout
 R project's per-function roxygen docs); `pathlib` over `os.path`; `polars` (immutable,
 expression-based) as the sole dataframe engine; deterministic outputs (identical inputs +
 options → identical outputs); no hard-coded literals (centralized in
-[`general/constants.py`](src/whep_digitize/general/constants.py)); validation via
+[`setup/constants.py`](src/whep_digitize/setup/constants.py)); validation via
 `pydantic`/guards; errors and progress via `rich`.
 
 See [CLAUDE.md](CLAUDE.md) and [.claude/docs/](.claude/docs/) for the full architecture,

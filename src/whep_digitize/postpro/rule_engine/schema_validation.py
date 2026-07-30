@@ -15,7 +15,7 @@ Four responsibilities:
   ``na_placeholder`` for grouping), :func:`ensure_rule_referenced_columns`, and
   :func:`check_type_compatibility`.
 
-R mutates ``dataset_dt`` by reference; this port is functional and returns new frames.
+R mutates ``dataset_df`` by reference; this port is functional and returns new frames.
 """
 
 from __future__ import annotations
@@ -26,15 +26,15 @@ from typing import TypeVar
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.utilities.stage_definitions import (
     get_canonical_rule_columns,
     get_stage_source_value_column,
     get_stage_target_value_column,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _NA_PLACEHOLDER = _CONSTANTS.na_placeholder
@@ -79,7 +79,7 @@ def _unique_preserving_order(values: Sequence[_T]) -> list[_T]:
 
 
 def coerce_rule_schema(
-    rule_dt: pl.DataFrame,
+    rule_df: pl.DataFrame,
     stage_name: str,
     rule_file_id: str,
     rule_file_path: str | None = None,
@@ -87,7 +87,7 @@ def coerce_rule_schema(
     """Coerce a rule table to the canonical schema, stripping the stage prefix.
 
     Args:
-        rule_dt: The raw rule table (columns may carry a ``clean_`` / ``harmonize_`` prefix).
+        rule_df: The raw rule table (columns may carry a ``clean_`` / ``harmonize_`` prefix).
         stage_name: The execution stage (validated).
         rule_file_id: Rule file identifier (for error messages).
         rule_file_path: Rule file path (for error messages); defaults to ``rule_file_id``.
@@ -107,7 +107,7 @@ def coerce_rule_schema(
 
     canonical_columns = get_canonical_rule_columns()
     prefix = f"{stage}_"
-    available = rule_dt.columns
+    available = rule_df.columns
     normalized = [column.removeprefix(prefix) for column in available]
 
     duplicated = _duplicated_values(normalized)
@@ -117,7 +117,7 @@ def coerce_rule_schema(
             f"normalization: {', '.join(duplicated)}"
         )
 
-    frame = rule_dt.rename(
+    frame = rule_df.rename(
         {old: new for old, new in zip(available, normalized, strict=True) if old != new}
     )
     available = frame.columns
@@ -152,14 +152,14 @@ def coerce_rule_schema(
 
 
 def normalize_rule_values_for_validation(
-    rules_dt: pl.DataFrame,
+    rules_df: pl.DataFrame,
     stage_name: str,
     na_placeholder: str = _NA_PLACEHOLDER,
 ) -> RulesForValidation:
     """Fold blank/NA rule values to an internal placeholder for validation grouping.
 
     Args:
-        rules_dt: Canonical rule table.
+        rules_df: Canonical rule table.
         stage_name: The execution stage (validated).
         na_placeholder: The internal missing-value token.
 
@@ -170,7 +170,7 @@ def normalize_rule_values_for_validation(
     require(len(na_placeholder) >= 1, "na_placeholder must be a non-empty string")
 
     allowed_na_columns = tuple(
-        column for column in _ALLOWED_NA_VALUE_COLUMNS if column in rules_dt.columns
+        column for column in _ALLOWED_NA_VALUE_COLUMNS if column in rules_df.columns
     )
     replacements = [
         pl.when(
@@ -181,20 +181,20 @@ def normalize_rule_values_for_validation(
         .otherwise(pl.col(column))
         .alias(column)
         for column in allowed_na_columns
-        if rules_dt.schema[column] == pl.String
+        if rules_df.schema[column] == pl.String
     ]
-    prepared = rules_dt.with_columns(replacements) if replacements else rules_dt
+    prepared = rules_df.with_columns(replacements) if replacements else rules_df
     return RulesForValidation(prepared, allowed_na_columns)
 
 
 def ensure_rule_referenced_columns(
-    dataset_dt: pl.DataFrame, rules_dt: pl.DataFrame
+    dataset_df: pl.DataFrame, rules_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Add any rule-referenced source/target columns missing from the dataset, as null.
 
     Args:
-        dataset_dt: The dataset (returned with any missing referenced columns added).
-        rules_dt: Canonical rule table.
+        dataset_df: The dataset (returned with any missing referenced columns added).
+        rules_df: Canonical rule table.
 
     Returns:
         The dataset with missing ``column_source`` / ``column_target`` columns initialized to null.
@@ -202,7 +202,7 @@ def ensure_rule_referenced_columns(
     Raises:
         ValidationError: If the dataset already contains duplicate column names.
     """
-    existing_columns = dataset_dt.columns
+    existing_columns = dataset_df.columns
     # A faithful mirror of the R guard. polars forbids duplicate column names at construction,
     # so this is structurally unreachable for a valid frame (kept for parity with data.table).
     duplicated = _duplicated_values(existing_columns)
@@ -212,14 +212,14 @@ def ensure_rule_referenced_columns(
             f"{', '.join(duplicated)}"
         )
 
-    if rules_dt.height == 0:
-        return dataset_dt
+    if rules_df.height == 0:
+        return dataset_df
 
     # R applies unique() to the raw values, then trims, then drops NA/empty (this order).
     referenced_raw: list[str | None] = []
     for column in ("column_source", "column_target"):
-        if column in rules_dt.columns:
-            referenced_raw.extend(rules_dt.get_column(column).cast(pl.String).to_list())
+        if column in rules_df.columns:
+            referenced_raw.extend(rules_df.get_column(column).cast(pl.String).to_list())
 
     trimmed = [None if value is None else value.strip(_R_TRIMWS_CHARS) for value in referenced_raw]
     referenced = [value for value in _unique_preserving_order(trimmed) if value]
@@ -228,8 +228,8 @@ def ensure_rule_referenced_columns(
         [column for column in referenced if column not in existing_columns]
     )
     if not missing_columns:
-        return dataset_dt
-    return dataset_dt.with_columns(
+        return dataset_df
+    return dataset_df.with_columns(
         [pl.lit(None, dtype=pl.String).alias(column) for column in missing_columns]
     )
 
@@ -285,8 +285,8 @@ def check_type_compatibility(
 
 
 def validate_canonical_rules(
-    rules_dt: pl.DataFrame,
-    dataset_dt: pl.DataFrame,
+    rules_df: pl.DataFrame,
+    dataset_df: pl.DataFrame,
     rule_file_id: str,
     stage_name: str,
     rule_file_path: str | None = None,
@@ -299,8 +299,8 @@ def validate_canonical_rules(
     subsumes the target/source conflict checks — the latter are kept for structural parity with R.
 
     Args:
-        rules_dt: Canonical rule table.
-        dataset_dt: The dataset the rules apply to.
+        rules_df: Canonical rule table.
+        dataset_df: The dataset the rules apply to.
         rule_file_id: Rule file identifier (for error messages).
         stage_name: The execution stage (validated).
         rule_file_path: Rule file path (for error messages); defaults to ``rule_file_id``.
@@ -315,23 +315,23 @@ def validate_canonical_rules(
     stage = validate_postpro_stage_name(stage_name)
 
     required_columns = get_canonical_rule_columns()
-    missing_rule_columns = [column for column in required_columns if column not in rules_dt.columns]
+    missing_rule_columns = [column for column in required_columns if column not in rules_df.columns]
     if missing_rule_columns:
         raise ValidationError(
             f"Canonical rule schema validation failed for {rule_file_id}: "
             f"{', '.join(missing_rule_columns)}"
         )
 
-    if rules_dt.height == 0:
+    if rules_df.height == 0:
         return
 
-    context = normalize_rule_values_for_validation(rules_dt, stage)
+    context = normalize_rule_values_for_validation(rules_df, stage)
     rules_for_validation = context.rules_for_validation
     allowed_na_columns = context.allowed_na_columns
 
     strict_required = [column for column in required_columns if column not in allowed_na_columns]
     columns_with_na = [
-        column for column in strict_required if rules_dt.get_column(column).null_count() > 0
+        column for column in strict_required if rules_df.get_column(column).null_count() > 0
     ]
     if columns_with_na:
         raise ValidationError(
@@ -339,13 +339,13 @@ def validate_canonical_rules(
             f"(location: {resolved_path}; stage: {stage})"
         )
 
-    _assert_referenced_columns_present(rules_dt, dataset_dt, rule_file_id, resolved_path)
+    _assert_referenced_columns_present(rules_df, dataset_df, rule_file_id, resolved_path)
     _assert_unique_and_conflict_free(rules_for_validation, stage, rule_file_id, resolved_path)
-    _assert_type_compatibility(rules_dt, dataset_dt, stage, rule_file_id, resolved_path)
+    _assert_type_compatibility(rules_df, dataset_df, stage, rule_file_id, resolved_path)
 
 
 def build_conditional_rule_dictionary(
-    rules_dt: pl.DataFrame, stage_name: str
+    rules_df: pl.DataFrame, stage_name: str
 ) -> list[pl.DataFrame]:
     """Group canonical rules by ``(column_source, column_target)`` in deterministic order.
 
@@ -357,14 +357,14 @@ def build_conditional_rule_dictionary(
     dropped, as R's ``split`` drops NA factor levels.
 
     Args:
-        rules_dt: Canonical rule table.
+        rules_df: Canonical rule table.
         stage_name: The execution stage (validated).
 
     Returns:
         One frame per present ``(column_source, column_target)`` group, in application order.
     """
     stage = validate_postpro_stage_name(stage_name)
-    if rules_dt.height == 0:
+    if rules_df.height == 0:
         return []
 
     target_value_column = get_stage_target_value_column(stage)
@@ -375,7 +375,7 @@ def build_conditional_rule_dictionary(
         "value_target_raw",
         target_value_column,
     ]
-    ordered_rules = rules_dt.sort(sort_columns, nulls_last=True, maintain_order=True)
+    ordered_rules = rules_df.sort(sort_columns, nulls_last=True, maintain_order=True)
 
     present_groups = (
         ordered_rules.filter(
@@ -417,18 +417,18 @@ def _clean_unique_columns(series: pl.Series) -> list[str]:
 
 
 def _assert_referenced_columns_present(
-    rules_dt: pl.DataFrame, dataset_dt: pl.DataFrame, rule_file_id: str, rule_file_path: str
+    rules_df: pl.DataFrame, dataset_df: pl.DataFrame, rule_file_id: str, rule_file_path: str
 ) -> None:
     """Abort if any rule source/target column is absent from the dataset."""
-    dataset_columns = set(dataset_dt.columns)
+    dataset_columns = set(dataset_df.columns)
     missing_source = [
         column
-        for column in _clean_unique_columns(rules_dt.get_column("column_source"))
+        for column in _clean_unique_columns(rules_df.get_column("column_source"))
         if column not in dataset_columns
     ]
     missing_target = [
         column
-        for column in _clean_unique_columns(rules_dt.get_column("column_target"))
+        for column in _clean_unique_columns(rules_df.get_column("column_target"))
         if column not in dataset_columns
     ]
     if missing_source or missing_target:
@@ -475,41 +475,41 @@ def _assert_unique_and_conflict_free(
 
 
 def _assert_type_compatibility(
-    rules_dt: pl.DataFrame,
-    dataset_dt: pl.DataFrame,
+    rules_df: pl.DataFrame,
+    dataset_df: pl.DataFrame,
     stage: str,
     rule_file_id: str,
     rule_file_path: str,
 ) -> None:
     """Check rule/dataset type compatibility for source, target, and source-result values."""
-    dataset_columns = set(dataset_dt.columns)
+    dataset_columns = set(dataset_df.columns)
     source_value_column = get_stage_source_value_column(stage)
 
     _check_by_column(
-        rules_dt,
+        rules_df,
         "column_source",
         "value_source_raw",
-        dataset_dt,
+        dataset_df,
         dataset_columns,
         rule_file_id,
         rule_file_path,
     )
     _check_by_column(
-        rules_dt,
+        rules_df,
         "column_target",
         "value_target_raw",
-        dataset_dt,
+        dataset_df,
         dataset_columns,
         rule_file_id,
         rule_file_path,
     )
-    rules_with_source_result = rules_dt.filter(pl.col(source_value_column).is_not_null())
+    rules_with_source_result = rules_df.filter(pl.col(source_value_column).is_not_null())
     if rules_with_source_result.height > 0:
         _check_by_column(
             rules_with_source_result,
             "column_source",
             source_value_column,
-            dataset_dt,
+            dataset_df,
             dataset_columns,
             rule_file_id,
             rule_file_path,
@@ -517,21 +517,21 @@ def _assert_type_compatibility(
 
 
 def _check_by_column(
-    rules_dt: pl.DataFrame,
+    rules_df: pl.DataFrame,
     column_name_field: str,
     value_field: str,
-    dataset_dt: pl.DataFrame,
+    dataset_df: pl.DataFrame,
     dataset_columns: set[str],
     rule_file_id: str,
     rule_file_path: str,
 ) -> None:
     """Run :func:`check_type_compatibility` per distinct referenced column (R ``by = column``)."""
-    for column in _unique_preserving_order(rules_dt.get_column(column_name_field).to_list()):
+    for column in _unique_preserving_order(rules_df.get_column(column_name_field).to_list()):
         if column is None or column not in dataset_columns:
             continue
-        group_values = rules_dt.filter(pl.col(column_name_field) == column).get_column(value_field)
+        group_values = rules_df.filter(pl.col(column_name_field) == column).get_column(value_field)
         check_type_compatibility(
-            dataset_dt.get_column(column),
+            dataset_df.get_column(column),
             group_values,
             value_field,
             rule_file_id,

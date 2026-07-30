@@ -26,10 +26,6 @@ from datetime import UTC, datetime
 import polars as pl
 
 from whep_digitize.contracts import LayerDiagnostics, MultiPassDiagnostics
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import WhepError
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.clean_harmonize.controls_cache import (
     build_stage_state_record,
     find_repeated_stage_state_pass,
@@ -40,7 +36,7 @@ from whep_digitize.postpro.clean_harmonize.stage_inputs import (
     drop_empty_footnotes_column,
 )
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
     resolve_rule_match_normalization_settings,
 )
 from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
@@ -51,6 +47,10 @@ from whep_digitize.postpro.rule_engine.schema_validation import (
 from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
 from whep_digitize.postpro.utilities.payload_cache import get_cached_stage_payload_bundle
 from whep_digitize.postpro.utilities.stage_definitions import validate_postpro_stage_name
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import WhepError
+from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _DEFAULT_DATASET_NAME = _CONSTANTS.dataset_default_name
@@ -178,7 +178,7 @@ def run_rule_stage_layer_batch(
         pass_overwrite = (
             pl.concat(pass_overwrites, how="diagonal")
             if pass_overwrites
-            else empty_last_rule_wins_overwrite_events_dt()
+            else empty_last_rule_wins_overwrite_events_df()
         )
         pass_matched = (
             int(pass_audit.get_column(_AFFECTED_ROWS).sum() or 0)
@@ -254,7 +254,7 @@ def run_rule_stage_layer_batch(
     stage_overwrite = (
         pl.concat(all_pass_overwrites, how="diagonal")
         if all_pass_overwrites
-        else empty_last_rule_wins_overwrite_events_dt()
+        else empty_last_rule_wins_overwrite_events_df()
     )
     pass_diagnostics = (
         pl.DataFrame(per_pass_rows, schema=_PASS_DIAGNOSTICS_SCHEMA)

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from whep_digitize.general.constants import get_pipeline_constants
+from whep_digitize.setup.constants import get_pipeline_constants
 
 _CONSTANTS = get_pipeline_constants()
 _CONCAT_DELIMITER = _CONSTANTS.postpro.target_update_strategies.concatenate_delimiter

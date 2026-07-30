@@ -17,7 +17,7 @@ from whep_digitize.contracts import (
     assert_export_paths_contract,
 )
 from whep_digitize.export.runner import run_export_pipeline
-from whep_digitize.general.config import Config
+from whep_digitize.setup.config import Config
 
 
 def _postpro_result() -> PostproResult:

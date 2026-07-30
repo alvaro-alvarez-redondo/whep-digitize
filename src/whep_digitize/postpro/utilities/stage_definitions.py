@@ -13,8 +13,8 @@ separately.
 
 from __future__ import annotations
 
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.errors import ValidationError
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.errors import ValidationError
 
 _CONSTANTS = get_pipeline_constants()
 

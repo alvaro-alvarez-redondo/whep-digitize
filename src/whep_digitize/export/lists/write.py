@@ -39,10 +39,10 @@ from whep_digitize.export.lists.unique_values import (
     compute_unique_column_values,
 )
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.strings import normalize_filename
-from whep_digitize.general.options import RuntimeOptions
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.strings import normalize_filename
+from whep_digitize.setup.options import RuntimeOptions
 
 # A single workbook holds at most one sheet per layer, so a merged name never exceeds Excel's
 # 31-char sheet-name limit (``raw_clean_normalize_harmonize`` is 29).

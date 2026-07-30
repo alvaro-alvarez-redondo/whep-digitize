@@ -33,9 +33,9 @@ from whep_digitize.export.lists.write import (
     export_lists,
     write_column_lists_workbook,
 )
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.options import RuntimeOptions
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.options import RuntimeOptions
 
 
 def _configure_lists(config: Config, columns: tuple[str, ...]) -> Config:

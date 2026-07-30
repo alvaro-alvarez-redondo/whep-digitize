@@ -8,7 +8,7 @@ deterministic group order, then applies footnote rules first (see
 :mod:`whep_digitize.postpro.rule_engine.conditional_group`), accumulating the audit, overwrite
 events, change count, and changed columns.
 
-R mutated ``dataset_dt`` by reference; this port is functional — each applier returns a new frame
+R mutated ``dataset_df`` by reference; this port is functional — each applier returns a new frame
 and this composes them.
 """
 
@@ -19,14 +19,14 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from whep_digitize.general.helpers.assertions import require
 from whep_digitize.postpro.rule_engine.conditional_group import apply_conditional_rule_group
 from whep_digitize.postpro.rule_engine.footnote_rules import apply_footnote_rules
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_dt,
+    empty_last_rule_wins_overwrite_events_df,
 )
 from whep_digitize.postpro.rule_engine.schema_validation import build_conditional_rule_dictionary
 from whep_digitize.postpro.utilities.stage_definitions import validate_postpro_stage_name
+from whep_digitize.setup.helpers.assertions import require
 
 _FOOTNOTES_SOURCE = "footnotes"
 _COLUMN_SOURCE = "column_source"
@@ -137,7 +137,7 @@ def apply_rule_payload(
         return RulePayloadResult(
             data=dataset,
             audit=pl.DataFrame(),
-            overwrite_events=empty_last_rule_wins_overwrite_events_dt(),
+            overwrite_events=empty_last_rule_wins_overwrite_events_df(),
             changed_value_count=0,
             changed_columns=(),
         )
@@ -193,7 +193,7 @@ def apply_rule_payload(
     combined_overwrite = (
         pl.concat(overwrite_frames, how="diagonal")
         if overwrite_frames
-        else empty_last_rule_wins_overwrite_events_dt()
+        else empty_last_rule_wins_overwrite_events_df()
     )
     return RulePayloadResult(
         data=current,

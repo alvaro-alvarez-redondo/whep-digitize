@@ -19,9 +19,6 @@ from pathlib import Path
 import polars as pl
 from openpyxl import Workbook
 
-from whep_digitize.general.config import Config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import ensure_directories_exist
 from whep_digitize.postpro.diagnostics.rule_summaries import (
     build_stage_rule_catalog_from_payloads,
     build_unmatched_rule_summary,
@@ -34,6 +31,9 @@ from whep_digitize.postpro.diagnostics.standardize_summaries import (
 )
 from whep_digitize.postpro.utilities.output_roots import initialize_postpro_output_root
 from whep_digitize.postpro.utilities.templates import load_stage_rule_payloads
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import ensure_directories_exist
 
 _CONSTANTS = get_pipeline_constants()
 _POSTPRO = _CONSTANTS.postpro
@@ -69,15 +69,15 @@ class PostproDiagnosticsSummaries:
 
 
 def build_postpro_diagnostics(
-    clean_audit_dt: pl.DataFrame,
-    harmonize_audit_dt: pl.DataFrame,
-    standardize_audit_dt: pl.DataFrame,
+    clean_audit_df: pl.DataFrame,
+    harmonize_audit_df: pl.DataFrame,
+    standardize_audit_df: pl.DataFrame,
 ) -> PostproDiagnosticsSummaries:
     """Summarize the clean / harmonize / standardize audits (R ``build_postpro_diagnostics``)."""
     return PostproDiagnosticsSummaries(
-        clean_rule_summary=summarize_stage_rules(clean_audit_dt),
-        harmonize_rule_summary=summarize_stage_rules(harmonize_audit_dt),
-        standardize_rule_summary=summarize_standardize_rules(standardize_audit_dt),
+        clean_rule_summary=summarize_stage_rules(clean_audit_df),
+        harmonize_rule_summary=summarize_stage_rules(harmonize_audit_df),
+        standardize_rule_summary=summarize_standardize_rules(standardize_audit_df),
     )
 
 
@@ -93,7 +93,7 @@ def _collapse_expr(column: str) -> pl.Expr:
 
 
 def build_last_rule_wins_overwrite_subset(
-    final_stage_dt: pl.DataFrame, overwrite_events_dt: pl.DataFrame
+    final_stage_df: pl.DataFrame, overwrite_events_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Return one row per final-stage row a ``last_rule_wins`` update overwrote.
 
@@ -102,21 +102,21 @@ def build_last_rule_wins_overwrite_subset(
     row values.
 
     Args:
-        final_stage_dt: The final post-processing frame.
-        overwrite_events_dt: The overwrite events collected during rule execution.
+        final_stage_df: The final post-processing frame.
+        overwrite_events_df: The overwrite events collected during rule execution.
 
     Returns:
         The overwrite metadata + final-stage row values (empty same-shape frame when none apply).
     """
-    final = final_stage_dt.with_row_index("row_id", offset=1).with_columns(
+    final = final_stage_df.with_row_index("row_id", offset=1).with_columns(
         pl.col("row_id").cast(pl.Int64)
     )
     final_columns = [column for column in final.columns if column != "row_id"]
 
-    if final.height == 0 or overwrite_events_dt.height == 0:
+    if final.height == 0 or overwrite_events_df.height == 0:
         return _empty_overwrite_subset(final, final_columns)
 
-    events = overwrite_events_dt
+    events = overwrite_events_df
     additions = [
         pl.lit(None, dtype=pl.String).alias(column)
         for column in _OVERWRITE_EVENT_COLUMNS
@@ -146,15 +146,15 @@ def build_last_rule_wins_overwrite_subset(
 
 
 def persist_postpro_audit(
-    clean_audit_dt: pl.DataFrame,
-    harmonize_audit_dt: pl.DataFrame,
-    standardize_audit_dt: pl.DataFrame,
-    standardize_rules_dt: pl.DataFrame,
-    final_stage_dt: pl.DataFrame,
-    last_rule_wins_overwrites_dt: pl.DataFrame,
+    clean_audit_df: pl.DataFrame,
+    harmonize_audit_df: pl.DataFrame,
+    standardize_audit_df: pl.DataFrame,
+    standardize_rules_df: pl.DataFrame,
+    final_stage_df: pl.DataFrame,
+    last_rule_wins_overwrites_df: pl.DataFrame,
     config: Config,
     *,
-    standardize_matched_rule_counts_dt: pl.DataFrame | None = None,
+    standardize_matched_rule_counts_df: pl.DataFrame | None = None,
 ) -> dict[str, Path]:
     """Write the per-stage audit workbooks + the overwrite-subset workbook.
 
@@ -163,20 +163,20 @@ def persist_postpro_audit(
     sheet.
 
     Args:
-        clean_audit_dt: The clean-stage audit.
-        harmonize_audit_dt: The harmonize-stage audit.
-        standardize_audit_dt: The standardize-stage audit.
-        standardize_rules_dt: The prepared standardize-layer rules.
-        final_stage_dt: The final post-processing frame.
-        last_rule_wins_overwrites_dt: The overwrite events.
+        clean_audit_df: The clean-stage audit.
+        harmonize_audit_df: The harmonize-stage audit.
+        standardize_audit_df: The standardize-stage audit.
+        standardize_rules_df: The prepared standardize-layer rules.
+        final_stage_df: The final post-processing frame.
+        last_rule_wins_overwrites_df: The overwrite events.
         config: The resolved pipeline configuration.
-        standardize_matched_rule_counts_dt: Optional standardize matched-rule counts.
+        standardize_matched_rule_counts_df: Optional standardize matched-rule counts.
 
     Returns:
         Mapping of workbook name → written path.
     """
     diagnostics = build_postpro_diagnostics(
-        clean_audit_dt, harmonize_audit_dt, standardize_audit_dt
+        clean_audit_df, harmonize_audit_df, standardize_audit_df
     )
     paths = initialize_postpro_output_root(config)
     ensure_directories_exist([paths.audit_dir, paths.diagnostics_dir])
@@ -190,7 +190,7 @@ def persist_postpro_audit(
     }
 
     overwrite_subset = build_last_rule_wins_overwrite_subset(
-        final_stage_dt, last_rule_wins_overwrites_dt
+        final_stage_df, last_rule_wins_overwrites_df
     )
     clean_catalog = build_stage_rule_catalog_from_payloads(
         load_stage_rule_payloads(config, "clean")
@@ -198,7 +198,7 @@ def persist_postpro_audit(
     harmonize_catalog = build_stage_rule_catalog_from_payloads(
         load_stage_rule_payloads(config, "harmonize")
     )
-    standardize_catalog = build_standardize_rule_catalog(standardize_rules_dt)
+    standardize_catalog = build_standardize_rule_catalog(standardize_rules_df)
 
     clean_unmatched = build_unmatched_rule_summary(clean_catalog, diagnostics.clean_rule_summary)
     harmonize_unmatched = build_unmatched_rule_summary(
@@ -207,7 +207,7 @@ def persist_postpro_audit(
     standardize_unmatched = build_unmatched_standardize_rule_summary(
         standardize_catalog,
         diagnostics.standardize_rule_summary,
-        standardize_matched_rule_counts_dt,
+        standardize_matched_rule_counts_df,
     )
 
     _write_sheets(

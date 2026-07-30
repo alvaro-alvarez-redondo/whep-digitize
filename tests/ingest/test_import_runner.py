@@ -11,10 +11,10 @@ from __future__ import annotations
 import pytest
 
 from whep_digitize.contracts import ImportResult
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
-from whep_digitize.general.helpers.sorting import sort_pipeline_stage_dt
 from whep_digitize.ingest.runner import run_import_pipeline
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 
 
 def test_run_import_pipeline_corpus(corpus_config: Config) -> None:
@@ -32,7 +32,7 @@ def test_run_import_pipeline_corpus(corpus_config: Config) -> None:
 def test_run_import_pipeline_output_is_sorted(corpus_config: Config) -> None:
     result = run_import_pipeline(corpus_config, current_year=2025)
     # The result is already canonically sorted -> re-sorting is a no-op.
-    assert sort_pipeline_stage_dt(result.data).equals(result.data)
+    assert sort_pipeline_stage_df(result.data).equals(result.data)
 
 
 def test_run_import_pipeline_no_files_aborts(config: Config) -> None:

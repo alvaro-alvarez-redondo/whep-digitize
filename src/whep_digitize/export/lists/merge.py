@@ -14,8 +14,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from whep_digitize.export.lists.unique_values import LISTS_SHEET_ORDER
-from whep_digitize.general.config import Config
-from whep_digitize.general.errors import ValidationError
+from whep_digitize.setup.config import Config
+from whep_digitize.setup.errors import ValidationError
 
 
 def resolve_lists_export_columns(config: Config, union_columns: Sequence[str]) -> list[str]:

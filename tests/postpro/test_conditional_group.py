@@ -11,13 +11,13 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from whep_digitize.general.errors import ValidationError
 from whep_digitize.postpro.rule_engine.conditional_group import (
     ConditionalGroupResult,
     PreparedConditionalGroup,
     apply_conditional_rule_group,
     prepare_conditional_rule_group,
 )
+from whep_digitize.setup.errors import ValidationError
 
 _RULE_COLUMNS = (
     "column_source",

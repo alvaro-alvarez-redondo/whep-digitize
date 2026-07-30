@@ -1,7 +1,7 @@
 """Stage 0 runner — the Python port of ``run_general_pipeline.R``.
 
 Builds the per-run configuration and creates the required directory tree, returning the
-:class:`~whep_digitize.general.config.Config` the downstream stages consume. Unlike the R
+:class:`~whep_digitize.setup.config.Config` the downstream stages consume. Unlike the R
 version there is no dependency check/install step — ``uv`` + ``pyproject.toml`` own the
 environment, and importing this package cannot succeed without its dependencies.
 """
@@ -10,16 +10,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whep_digitize.general.config import Config, load_pipeline_config
-from whep_digitize.general.constants import get_pipeline_constants
-from whep_digitize.general.directories import create_required_directories
-from whep_digitize.general.helpers.progress import stage_progress
-from whep_digitize.general.options import RuntimeOptions
+from whep_digitize.setup.config import Config, load_pipeline_config
+from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.directories import create_required_directories
+from whep_digitize.setup.helpers.progress import stage_progress
+from whep_digitize.setup.options import RuntimeOptions
 
-_MESSAGES = get_pipeline_constants().progress.messages["general"]
+_MESSAGES = get_pipeline_constants().progress.messages["setup"]
 
 
-def run_general_pipeline(
+def run_setup_pipeline(
     dataset_name: str | None = None,
     root: Path | str | None = None,
     options: RuntimeOptions | None = None,
@@ -32,10 +32,10 @@ def run_general_pipeline(
         options: Runtime options; defaults are used when ``None`` (gates the progress bar).
 
     Returns:
-        The resolved :class:`~whep_digitize.general.config.Config`.
+        The resolved :class:`~whep_digitize.setup.config.Config`.
     """
     resolved_options = options or RuntimeOptions()
-    with stage_progress("general", total=2, enabled=resolved_options.progress_enabled) as progress:
+    with stage_progress("setup", total=2, enabled=resolved_options.progress_enabled) as progress:
         progress.step(_MESSAGES["load_config"])
         config = load_pipeline_config(dataset_name=dataset_name, root=root)
         progress.step(_MESSAGES["create_dirs"])

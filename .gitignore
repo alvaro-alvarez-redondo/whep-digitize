@@ -12,12 +12,8 @@ dist/
 venv/
 env/
 
-# --- Tooling caches ---
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-.coverage.*
+# --- Tooling caches (ruff/mypy/pytest/coverage all redirected to .cache/ via pyproject) ---
+.cache/
 htmlcov/
 coverage.xml
 
@@ -43,8 +39,16 @@ tests/golden/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+# Ignore .vscode/ except the shared project settings (pins the .venv interpreter for
+# Positron / VS Code so the console "just works").
+.vscode/*
+!.vscode/settings.json
 *~
+
+# --- Local run wrappers (need a set-up .venv; not portable to a fresh clone).
+# Cloners use the portable path instead: `uv sync` then `uv run whep-digitize run`. ---
+whep-digitalize.py
+whep-digitalize.bat
 
 # --- Nextcloud sync artifacts ---
 *.sync-conflict-*
