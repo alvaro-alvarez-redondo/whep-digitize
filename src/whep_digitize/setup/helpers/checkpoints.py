@@ -4,6 +4,10 @@ The R pipeline optionally persists per-stage results as ``.rds`` for crash recov
 gated by ``whep.checkpointing.enabled`` (default off). The Python port prefers Parquet
 for :class:`polars.DataFrame` results (portable, fast) and falls back to pickle for
 composite objects. Checkpointing is opt-in via ``RuntimeOptions.checkpointing_enabled``.
+
+As in R, the import stage is the only wired caller
+(:func:`whep_digitize.ingest.runner.run_import_pipeline`); postpro and export do not
+checkpoint. Save/restore print the same status lines as R's ``cli`` alerts.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import polars as pl
 
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.console import alert_info, alert_success
 
 
 def _checkpoint_dir(config: Config) -> Path:
@@ -35,7 +40,8 @@ def checkpoint_path(name: str, config: Config, *, is_frame: bool) -> Path:
     Returns:
         The checkpoint file path.
     """
-    suffix = ".parquet" if is_frame else ".pkl"
+    checkpoints = get_pipeline_constants().checkpoints
+    suffix = checkpoints.frame_suffix if is_frame else checkpoints.object_suffix
     return _checkpoint_dir(config) / f"{name}{suffix}"
 
 
@@ -61,6 +67,7 @@ def save_checkpoint(name: str, data: Any, config: Config, *, enabled: bool) -> P
     else:
         with path.open("wb") as handle:
             pickle.dump(data, handle)
+    alert_info(get_pipeline_constants().checkpoints.saved_message.format(path=path))
     return path
 
 
@@ -77,14 +84,19 @@ def load_checkpoint(name: str, config: Config, *, enabled: bool) -> Any | None:
     """
     if not enabled:
         return None
+    restored_message = get_pipeline_constants().checkpoints.restored_message
     frame_path = checkpoint_path(name, config, is_frame=True)
     if frame_path.exists():
-        return pl.read_parquet(frame_path)
+        frame = pl.read_parquet(frame_path)
+        alert_success(restored_message.format(path=frame_path))
+        return frame
     object_path = checkpoint_path(name, config, is_frame=False)
     if object_path.exists():
         # Trusted, locally-written checkpoint (opt-in, under the project data dir).
         with object_path.open("rb") as handle:
-            return pickle.load(handle)
+            payload = pickle.load(handle)
+        alert_success(restored_message.format(path=object_path))
+        return payload
     return None
 
 
@@ -94,9 +106,10 @@ def clear_checkpoints(config: Config) -> None:
     Args:
         config: The pipeline configuration.
     """
+    checkpoints = get_pipeline_constants().checkpoints
     directory = _checkpoint_dir(config)
     if not directory.exists():
         return
     for path in directory.iterdir():
-        if path.suffix in {".parquet", ".pkl"}:
+        if path.suffix in {checkpoints.frame_suffix, checkpoints.object_suffix}:
             path.unlink()
