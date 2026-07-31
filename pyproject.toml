@@ -89,7 +89,7 @@ warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 cache_dir = ".cache/mypy"
 
 # Third-party modules without type stubs. Stage migrations add their own entries as they
@@ -106,9 +106,14 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+# scripts/ is on the path so the slow full-dataset parity test can import the harness
+# (scripts/parity_full_dataset.py) without an editable install of a dev-only module.
+pythonpath = ["src", "scripts"]
 cache_dir = ".cache/pytest"
-addopts = "--strict-markers --strict-config -ra"
+# `-m "not slow"` keeps the default suite fast and R-free: the full-dataset parity test needs
+# the R oracle and the ~1,339-workbook production dataset, neither of which exists in CI.
+# Run it explicitly with `pytest -m slow`.
+addopts = "--strict-markers --strict-config -ra -m \"not slow\""
 markers = [
     "parity: tests that compare Python output against R golden outputs",
     "slow: long-running tests (full-dataset / benchmark-scale)",
