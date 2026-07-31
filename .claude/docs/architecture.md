@@ -55,6 +55,32 @@ strict=False)`, the analogue of `readr::parse_double`); from the clean layer onw
 is a float while every other column stays string. Null-`value` rows are dropped by default
 (`RuntimeOptions.drop_na_values`) during import, before that coercion.
 
+## Datasets — the two that matter (do not conflate)
+
+Parity is asserted against **two different input sets**, and every parity claim in these docs
+must say which one it means.
+
+| | **Fixture corpus** | **Full production dataset** |
+|---|---|---|
+| Location | `tests/fixtures/corpus/` (committed) | `data/import/raw/` (and the R project's `data/1-import/10-raw_import/`) |
+| Size | **6 workbooks** (~37 KB) | **1,339 workbooks** (verified 2026-07-30) |
+| Contents | one smallest-per-category workbook: crops / livestock / population / inputs / land / trade | every WHEP source workbook |
+| Versioned? | yes — committed, immutable | no — lives in Nextcloud and **grows over time** |
+| Parity coverage | **automated**: `tests/parity/` + `tests/test_pipeline_e2e.py`, run in CI against committed R goldens (no R install needed) | **automated but opt-in**: `scripts/parity_full_dataset.py`, needs an executable R + the dataset (neither exists in CI) |
+| What it proves | per-module and per-stage behaviour on representative inputs | end-to-end byte-parity of the real deliverable |
+
+The fixture corpus is the *routine* gate; it is small by design, so **it cannot catch scale- or
+data-dependent divergence**. The full dataset is the real parity target, and reaching it requires
+R — R is the parity oracle and there is no reference output without running it. See
+[full-dataset-parity.md](full-dataset-parity.md).
+
+Because the production dataset grows, any count quoted here is a measurement with a date, not a
+constant. Re-measure with:
+
+```bash
+find data/import/raw -name '*.xlsx' | wc -l
+```
+
 ## Entry points
 
 - `run_pipeline(*, show_view=False, dataset_name=None, root=None, options=None) -> ExportResult`
@@ -90,6 +116,13 @@ a stage can be built and parity-tested against fixtures as long as it honors its
 - **Fixed R foot-guns:** the dead `export_config$data_suffix=".xlsx"` is renamed
   `processed_suffix=".tsv"`; the `config$defaults`/`constants$defaults` name collision is
   removed. See [constants-and-options.md](constants-and-options.md).
+- **Policy-based string normalization** — the one divergence that reaches the output.
+  `helpers.strings.transliterate_ascii_lower` implements the documented POLICY (NFD diacritic
+  strip + lowercase; the caller then drops non-alphanumerics), **not** R's ICU `Latin-ASCII`.
+  Pipeline output is therefore byte-identical to R *except* here: ~13 rows on the full dataset
+  (value sums and row counts unchanged). Accepted 2026-07-29, after byte-identity was verified
+  2026-07-24; see [r-to-python-mapping.md](r-to-python-mapping.md) risk #1 and the parity
+  timeline in [migration-roadmap.md](migration-roadmap.md).
 
 ## Data layout (gitignored, under `data/`)
 

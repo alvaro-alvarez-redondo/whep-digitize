@@ -2,8 +2,11 @@
 
 Where every function lives, by stage. Use this as a lookup index instead of grepping. Every
 stage below is **[done]** — implemented, tested, and parity-verified against R; the migration
-is **complete** (see [migration-roadmap.md](migration-roadmap.md)). Risk = the original
-migration difficulty (see [r-to-python-mapping.md](r-to-python-mapping.md)).
+is **complete** (see [migration-roadmap.md](migration-roadmap.md)). Output is byte-identical to
+R **except for the intentional normalization-policy divergence** (~13 rows on the full dataset;
+value sums and row counts unchanged) — byte-identity verified 2026-07-24, policy divergence
+accepted 2026-07-29; see [r-to-python-mapping.md](r-to-python-mapping.md) risk #1. Risk = the
+original migration difficulty (same doc).
 
 For architecture and data flow see [architecture.md](architecture.md); for constants/options
 see [constants-and-options.md](constants-and-options.md).
@@ -30,7 +33,7 @@ see [constants-and-options.md](constants-and-options.md).
 | `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_r` | `02-numeric-coercion.R` | done |
 | `sorting.py` | `sort_pipeline_stage_df(frame, sort_columns=None)` | `02-sorting.R` | done |
 | `frames.py` | `drop_na_value_rows(frame, value_column, *, enabled)` | `02-data-cleaning.R` | done |
-| `checkpoints.py` | `save_checkpoint`, `load_checkpoint`, `clear_checkpoints` (parquet/pickle) | `02-checkpoints.R` | done |
+| `checkpoints.py` | `save_checkpoint`, `load_checkpoint`, `clear_checkpoints` (parquet/pickle); wired into the import runner only, as in R | `02-checkpoints.R` | done |
 | `time_format.py` | `format_elapsed_time(seconds)` | `02-time-formatting.R` | done |
 | `tokens.py` | `extract_yearbook(parts)`, `extract_commodity(parts, start_index=None)` | `02-token-extraction.R` | done |
 | `assertions.py` | `require(condition, message)`, `require_columns(...)` | `02-assertions.R` | done |
@@ -65,7 +68,7 @@ sort). Stage-level parity vs R verified on the frozen corpus. Ports `r/1-import_
 | `file_io/discovery.py` **[done]** | `discover_files`, `discover_pipeline_files` | `10-discovery.R` | LOW |
 | `file_io/metadata.py` **[done]** | `extract_file_metadata`, `build_empty_file_metadata` | `10-metadata.R` | MEDIUM |
 | `reading/read_utils.py` **[done]** | `ReadResult`, `SafeReadResult`, `safe_execute_read`, `create_empty_read_result`, `has_read_errors`, `normalize_pipeline_read_result`, `build_read_error` | `11-read-utils.R` | LOW |
-| `reading/sheet_read.py` **[done]** | `read_excel_sheet`, `read_file_sheets`, `compute_non_empty_base_rows` | `11-sheet-read.R` | MEDIUM |
+| `reading/sheet_read.py` **[done]** | `read_excel_sheet`, `read_file_sheets`, `compute_non_empty_base_rows`, `restore_numeric_text_precision` (reads each sheet twice — all-as-text + typed — because calamine rounds a stored double when coercing it to text; DB3) | `11-sheet-read.R` | MEDIUM |
 | `reading/header_normalization.py` **[done]** | `normalize_header_name`, `normalize_header_names`, `validate_header_normalization`, `resolve_canonical_header_renames`, `HeaderRenames` | `11-header-normalization.R` | **HIGH** |
 | `reading/batching.py` **[done]** | `split_workbook_batches`, `resolve_import_workbook_batch_size`, `resolve_import_effective_workers`, `read_workbook_batch`, `BatchReadResult` (parallel `read_pipeline_files` deferred to runner) | `11-batching.R` | MEDIUM |
 | `transform/transform_utils.py` **[done]** | `identify_year_columns`, `normalize_key_fields`, `convert_year_columns` | `12-transform-utils.R` | **HIGH** |
@@ -73,7 +76,7 @@ sort). Stage-level parity vs R verified on the frozen corpus. Ports `r/1-import_
 | `transform/processing.py` **[done]** | `read_transform_pipeline_files` (fused, `ProcessPoolExecutor`, deterministic + sequential fallback), `transform_single_file`, `ReadTransformResult` | `12-processing.R` | **HIGH** |
 | `output/validate.py` **[done]** | `validate_long_df_by_document`, `ValidationResult` (internal per-check helpers) | `13-validate.R` | **HIGH** |
 | `output/consolidate.py` **[done]** | `consolidate_audited_df`, `validate_output_column_order`, `ConsolidateResult` | `13-output.R` | LOW-MED |
-| `runner.py` **[done]** | `run_import_pipeline` (full wiring; checkpoint/progress deferred to Phase 5) | `run_import_pipeline.R` | MEDIUM |
+| `runner.py` **[done]** | `run_import_pipeline` (full wiring incl. `rich` progress + the opt-in checkpoint cache) | `run_import_pipeline.R` | MEDIUM |
 
 ---
 
@@ -144,8 +147,24 @@ analogue of `tests/test_helper.R`). Per-stage suites mirror the package layout:
 `tests/test_pipeline_e2e.py` [done] exercises the top-level `run_pipeline` orchestration.
 Golden parity fixtures live under `tests/golden/` (committed — the frozen R reference; see
 `tests/golden/README.md`), so the parity suite runs in CI with no R install. Mark parity tests
-`@pytest.mark.parity`. Current totals: **712 tests pass** (188 parity, 0 skipped — in CI too);
-`ruff` + `mypy` + a 91% CI coverage gate green.
+`@pytest.mark.parity`. Current totals: **741 tests pass** (188 parity, 0 skipped — in CI too),
+1 deselected (the `slow` full-dataset test); `ruff` + `mypy` + a 92.16% coverage run against a
+91% CI gate, green.
+
+Everything in CI runs against the **6-workbook fixture corpus**, never the production dataset —
+see [architecture.md](architecture.md) → *Datasets*.
+
+## Scripts (`scripts/`)
+
+`parity_full_dataset.py` — the full-dataset R-vs-Python parity harness. Runs `run_pipeline` over
+the **1,339-workbook** production dataset staged into a temp root, then diffs processed TSVs
+(byte-level) and unique-list workbooks (content-level) against the R reference, exiting non-zero
+on any difference beyond the 13 accepted normalization-policy rows. Requires an executable R —
+exits 2 with an explanation otherwise. Also exposed as
+`tests/parity/test_full_dataset_parity.py::test_full_dataset_parity_against_r`
+(`@pytest.mark.slow`, excluded from the default suite; the divergence-classifier tests in the
+same file are pure and always run). Full detail:
+[full-dataset-parity.md](full-dataset-parity.md).
 
 ## Benchmarks (`.claude/bench/`)
 

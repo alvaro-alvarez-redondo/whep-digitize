@@ -66,11 +66,17 @@ naive port.
    decomposition (`ø`, `æ`, `œ`) are dropped like any other non-`[a-z0-9]` character — **no
    character-specific exceptions or compatibility rules are added to match R**. Verified by
    policy tests (`tests/setup/test_helpers.py::test_transliterate_ascii_lower_policy` /
-   `test_normalize_text_policy`), **not** an R golden. Real-world impact on the full 1340-workbook
-   dataset: the harmonize TSV equals R except **13 rows** where the `®`→`r` quirk is avoided
-   (`philippines`, `nicaragus`); **value sums and row counts are unchanged**. The
-   `string_normalization` R-parity spec was removed; the `header_normalization` and `matching`
-   parity fixtures were trimmed of ICU-divergent inputs (those cases now live in the policy tests).
+   `test_normalize_text_policy`), **not** an R golden. Real-world impact on the full
+   **1,339**-workbook dataset (measured by script 2026-07-30): the harmonize TSV equals R except
+   **exactly 13 rows**, every one of them the `®`→` r` quirk being avoided in `polity` —
+   `philippines r`→`philippines` (4 rows), `uruguay r`→`uruguay` (4), `nicaragus r`→`nicaragus`
+   (2), `brazil r`→`brazil` (2), `australia r`→`australia` (1). **Value sums and row counts are
+   unchanged.** `unique_polity.xlsx` correspondingly holds 5 fewer unique values (3,939 vs 3,944),
+   since each affected value collapses onto one Python already had. The `string_normalization`
+   R-parity spec was removed; the `header_normalization` and `matching` parity fixtures were
+   trimmed of ICU-divergent inputs (those cases now live in the policy tests). Enforced
+   end-to-end by `scripts/parity_full_dataset.py` — see
+   [full-dataset-parity.md](full-dataset-parity.md).
 2. **`melt` vs `unpivot` column-drop semantics** + the R attribute-carried `whep_year_columns`.
    Recompute year columns explicitly; verify `unpivot` drops exactly the non-id/non-measure
    columns `melt` did.

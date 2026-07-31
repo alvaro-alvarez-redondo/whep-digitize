@@ -8,7 +8,32 @@ Session state for the migration + `/autocode` loop. Durable notes only (no scrat
 > non-alnum step) — no ICU table, no `anyascii`, no character-specific overrides. Removes ICU
 > quirks such as `Philippines®` → `philippines r` (now `philippines`). Value sums / row counts
 > unchanged; verified by policy tests, not R goldens. Historical entries below that describe the
-> `anyascii` / ICU-table approach are SUPERSEDED. See [r-to-python-mapping.md](docs/r-to-python-mapping.md) risk #1.
+> `anyascii` / ICU-table approach are SUPERSEDED — each such claim is left in place (history is
+> not rewritten) but carries an inline `⚠ SUPERSEDED 2026-07-29` marker stating what the code
+> actually does now. See [r-to-python-mapping.md](docs/r-to-python-mapping.md) risk #1.
+>
+> **What this does to the parity guarantee:** full-pipeline byte-identity with R was first
+> verified **2026-07-24** (then a 742-workbook snapshot), *before* this change. The guarantee
+> now reads: **byte-identical to R except for the intentional normalization-policy divergence**
+> — **13 rows** on the full **1,339**-workbook dataset (measured 2026-07-30), value sums and row
+> counts unchanged. Every byte-identity claim in the historical entries below carries the same
+> carve-out. See the *Parity timeline* note under *Definition of done* in
+> [migration-roadmap.md](docs/migration-roadmap.md).
+>
+> **Dataset sizes in this file are measurements, not constants.** The production dataset lives in
+> Nextcloud and changes; historical entries quote whatever it was on the day (729, 742, 1,360 at
+> various points; **1,339** on 2026-07-30 — it is not monotonic). Anything that must be current
+> is re-measured with `find data/import/raw -name '*.xlsx' | wc -l`. The **6-workbook fixture
+> corpus** (`tests/fixtures/corpus/`) is a different thing entirely and never changes; see
+> [architecture.md](docs/architecture.md) → *Datasets*.
+>
+> **Full-dataset parity is scripted (2026-07-30):** `scripts/parity_full_dataset.py` +
+> `pytest -m slow` replaced the unversioned manual diff. Its first run confirmed the 13 accepted
+> rows exactly and surfaced **DB3** — a 3-row float divergence that is *not* the normalization
+> policy. **DB3 was fixed 2026-07-31** (calamine's lossy float→text coercion at the ingest read),
+> and the harness now **exits 0**: 13 accepted rows, 0 rejected, `value` sums exactly equal. See
+> [full-dataset-parity.md](docs/full-dataset-parity.md); the deferred-bugs list in
+> [session-prompts.md](docs/session-prompts.md) is empty again.
 
 ## Phase 0 — Foundation + Stage 0 — ✅ complete (2026-07-20)
 
@@ -72,6 +97,16 @@ R-reference change — see `tests/golden/README.md`).
 matched byte-for-byte by the polars port over every edge case (incl. `ß`→`ss`, `½`→`1 2`,
 `œ`→`oe`) — the top-ranked parity risk, de-risked.
 
+> ⚠ **SUPERSEDED 2026-07-29** — see the normalization-policy note at the top of this file.
+> String normalization no longer targets R/ICU parity, so those ICU expansions are not what the
+> port produces and there is no longer a `string_normalization` CaptureSpec, golden, or
+> `test_string_normalization_parity.py` (`tests/parity/registry.py` carries a note in their
+> place). Current behavior (`setup/helpers/strings.transliterate_ascii_lower`): NFD decompose →
+> drop combining marks → lowercase. `ß`, `½`, `œ` have **no canonical decomposition**, so they
+> survive transliteration unchanged and are then dropped by the non-alphanumeric step —
+> `Straße`→`stra e`, `½ kg`→`kg`, `œuvre`→`uvre`. Covered by the policy tests in
+> `tests/setup/test_helpers.py`.
+
 **Frozen-corpus location + capture command:**
 
 ```bash
@@ -117,9 +152,10 @@ parity-critical):
 
 - **`normalize_header_names`** (+ singular `normalize_header_name`) — the exact ordered
   chain: trim → collapse whitespace → strip padding around `/`/`-` → `Latin-ASCII; Lower`
-  transliterate → non-`[a-z0-9-/]` runs to `_` → collapse `_` → trim `_`. Reproduces the R
-  fast-path short-circuit (already-clean vector with no collapsible/leading/trailing `_`
-  returns verbatim). `None`/`NA` pass through positionally.
+  transliterate [⚠ SUPERSEDED 2026-07-29 — that step is now the policy NFD diacritic strip +
+  lowercase, not ICU; see the note at the top of this file] → non-`[a-z0-9-/]` runs to `_` →
+  collapse `_` → trim `_`. Reproduces the R fast-path short-circuit (already-clean vector with
+  no collapsible/leading/trailing `_` returns verbatim). `None`/`NA` pass through positionally.
 - **`resolve_canonical_header_renames`** → `HeaderRenames(old, new)` — canonical match +
   `country`→`polity` alias with ALL R collision guards ported exactly: `has_exact` skip,
   alias target-present, alias-source-already-renamed, and `duplicated(alias_new)` (computed
@@ -133,6 +169,9 @@ parity-critical):
 **Shared transliteration:** promoted `strings._to_ascii_lower` → public
 `strings.transliterate_ascii_lower` (behaviour-preserving) so header keys and match keys
 fold through ONE implementation — the single home for any future ICU-divergence override.
+[⚠ The promotion still holds and is still the single implementation; the "ICU-divergence
+override" framing is SUPERSEDED 2026-07-29 — that function now implements the policy outright
+and holds no override table and no per-character exceptions.]
 
 **Parity (top project risk de-risked):** new `header_normalization` `CaptureSpec` + committed
 fixture `synthetic/header_names_inputs.json` (accents/ligatures/symbols: café, São, Zürich,
@@ -143,6 +182,19 @@ preserved by the header pattern, the case masked in string-normalization). **No 
 needed.** Renames goldens cover all guards; `validate_dups` covers detection (captured
 cli-free). Non-ASCII kept in the JSON fixture (not R script literals) to avoid Windows
 cp1252 corruption.
+
+> ⚠ **SUPERSEDED 2026-07-29** (the `anyascii`-vs-ICU divergence hunt and the `½`→`1/2_unit`
+> result) — see the normalization-policy note at the top of this file. `anyascii` is gone: it is
+> imported nowhere in `src/`, is no longer a `pyproject.toml` dependency, and survives only as a
+> stale `uv.lock` entry. Header normalization calls the same policy
+> `transliterate_ascii_lower` (NFD + drop combining marks + lowercase), so `½` (U+00BD has only
+> a *compatibility* decomposition, which NFD does not apply) is never expanded — it reaches the
+> non-`[a-z0-9-/]` step intact and is replaced together with the adjacent space:
+> **`"½ unit"` → `"unit"`**, not `1/2_unit`. The symbol / ligature / non-decomposable cases (`½`, `œuvre`,
+> `æsir`, `groß`, `Øresund`) were dropped from `synthetic/header_names_inputs.json` when the
+> policy landed; the committed R golden still matches because what remains (`café`, `São`,
+> `Zürich`, `Ñoño`, `naïve`, `Åland`, …) is accent folding, where ICU and the policy agree.
+> Renames / `validate_dups` goldens and the cp1252 note are unaffected.
 
 **Gates:** ruff clean · mypy strict clean (59 files) · **126 tests pass** (+38: 33
 functional + 5 parity). Pre-existing `ruff format` nit in `tests/parity/r_harness.py` still
@@ -246,6 +298,19 @@ fraction/`±`/`Ŋ` remaps over Latin-1 + super/subscripts + number forms). Regre
 `tests/setup/test_helpers.py`; the golden parity tests guard the rest. All prior parity
 goldens (string/header/transform) still pass unchanged.
 
+> ⚠ **SUPERSEDED 2026-07-29** — see the normalization-policy note at the top of this file. Both
+> halves of this paragraph describe code that no longer exists: **`anyascii` was removed** (no
+> import in `src/`, not a `pyproject.toml` dependency, only a stale `uv.lock` entry), and with
+> it **the ICU-derived override table** — `strings.transliterate_ascii_lower` now holds no
+> codepoint tables, no fraction/`±`/`Ŋ` remaps, and no character-specific exceptions at all. It
+> is: ASCII fast path → else NFD decompose → drop combining marks → lowercase. The cell that
+> motivated the override needs no special handling under the policy: `¹` has no canonical
+> decomposition, so it passes transliteration unchanged and the non-alnum step drops it —
+> `"belgian congo¹"` → `belgian congo`, i.e. the ICU-matching value, reached with **zero**
+> overrides. The `tests/setup/test_helpers.py` regression tests were rewritten as policy tests
+> (`½`→`½`, `¹`→`¹`, `®`→`®` at the transliterate step; `Philippines®`→`philippines` after
+> normalization). Verified against the code 2026-07-30.
+
 **Deferred:** the non-fused two-stage `process_files` / `transform_files_list` (R has both;
 the fused path is what the runner uses) — will be added with the runner if needed.
 
@@ -326,7 +391,9 @@ First two rule-engine modules (bottom of the Stage 2 critical-path DAG), ported 
   `count_elementwise_value_changes` (the element-wise change count driving multi-pass
   convergence).
 - **Parity risks hit:** #5 NA↔NA folding to `na_match_key` (both match paths) and #1
-  `Latin-ASCII; Lower` transliteration inside match keys (reuses `strings.normalize_string`).
+  `Latin-ASCII; Lower` transliteration inside match keys (reuses `strings.normalize_string`)
+  [⚠ naming SUPERSEDED 2026-07-29 — match keys still route through `strings.normalize_string`,
+  but that is now the policy NFD fold, not ICU `Latin-ASCII; Lower`].
 - **R quirk reproduced (not fixed):** in the tokenized path an empty-string current value never
   matches — R keys the token lookup by the current value and base R cannot retrieve a list
   element by an empty-string name (`list[[""]]` → `NULL`). Documented + regression-tested.
@@ -334,6 +401,10 @@ First two rule-engine modules (bottom of the Stage 2 critical-path DAG), ported 
   (16 rows: unicode diacritics/ligatures/`ß`/`½`, Greek in the no-transliteration concat path,
   NA/empty/wildcard/duplicate). 8 goldens; `tests/parity/test_matching_parity.py` matches R
   byte-for-byte. Unit suite `tests/postpro/test_matching.py`.
+  [⚠ Fixture description SUPERSEDED 2026-07-29 — the policy commit trimmed the three
+  ICU-divergent rows (`Œuvre; Straße` ×2 and the `½ kg` row carrying the Greek `Ω/α/β` concat
+  values), leaving **13 rows**: accented Latin only in the match-key path, with `½`/`ß`
+  surviving as inert `target` literals. The goldens and the byte-for-byte result still hold.]
 
 **Gates:** ruff clean · ruff-format clean · mypy strict clean (82 files) · **318 tests pass**
 (+47: 39 unit + 8 parity). Next on the critical path: `rule_engine/target_apply.py`
@@ -772,6 +843,67 @@ branch); `processed_data/export.py` re-points to it (behavior unchanged).
 **Gates:** ruff clean · mypy strict clean (137 files) · **634 tests pass** (+54: 36 unit + 19
 parity, −1 stale) · 125 parity across 22 golden modules. **Track D complete.** Remaining: E1
 (postpro runner) → E2/E3 integration wiring of `run_pipeline`.
+
+## Checkpointing wired into the import stage — ✅ (2026-07-30)
+
+Closed the half-migration flagged since Phase 1: `setup/helpers/checkpoints.py` and
+`RuntimeOptions.checkpointing_enabled` existed, but no runner read either — so
+`WHEP_CHECKPOINTING_ENABLED=true` silently did nothing. **Supersedes the "checkpoint cache
+deferred" note in the Phase 1 entry above.**
+
+- **`ingest/runner.py`** — mirrors `run_import_pipeline.R`: `load_checkpoint` runs *before*
+  discovery (a hit returns the cached `ImportResult` and skips the stage, including its
+  empty-folder abort), `save_checkpoint` runs after the progress block closes. A payload that
+  is not an `ImportResult` (stale/foreign file) is ignored and the stage recomputes — R would
+  hand it downstream, but a cache may never change results.
+- **`setup/constants.py`** — new `checkpoints` group: `import_stage_name="import_pipeline"`,
+  `.parquet`/`.pkl` suffixes, and R's save/restore status text (the helper now prints the
+  `cli_alert_info`/`cli_alert_success` analogues, as R does).
+- **Scope matches R:** import only — postpro and export do not checkpoint.
+- **Output parity unaffected:** default is off, and a checkpoint only replays a prior run's
+  result; first-run values are untouched either way.
+
+**Tests:** +3 in `tests/ingest/test_import_runner.py` — save/restore round-trip (proved by
+restoring into a config whose raw folder is empty, which otherwise aborts), flag-off writes no
+`.checkpoints` dir, flag-off ignores an existing checkpoint. Flags are passed explicitly so a
+stray `WHEP_*` env var cannot flip them.
+
+## DB3 fixed — the ingest read lost float precision — ✅ (2026-07-31)
+
+The 3 rows `scripts/parity_full_dataset.py` rejected on 2026-07-30 are gone; the harness **exits
+0** (13 accepted policy rows, 0 rejected, `value` sums exactly equal by `Decimal` compare).
+
+**The original diagnosis was wrong.** DB3 was logged as a unit-conversion float divergence with R
+"carrying ~28 ulps of accumulated error", i.e. Python being *more* accurate. The arithmetic is in
+fact identical in both engines (`value * factor + offset`, fold applied first). The real cause is
+one layer earlier: `r_iia_1938_trade_666_673_cotton.xlsx` **stores** `0.09999999999999964` and
+`0.1999999999999993` (spreadsheet subtraction artefacts) in a `1000 quintals` column.
+
+- readxl `col_types = "text"` renders the shortest round-tripping string, so R multiplied the
+  stored double — verified by running readxl on the file: it yields `"0.09999999999999964"`.
+- **calamine's text coercion rounds to ~12 significant digits**, so Python multiplied `0.1`.
+  Python was not more accurate; it had silently discarded source precision at the read.
+- `x1000` then lifted the loss above the 15-significant-digit render threshold, so it surfaced in
+  the TSV as `100` vs `99.9999999999996`.
+
+**Fix** (`ingest/reading/sheet_read.py`): each sheet is read twice — all-as-text as before, then
+with dtype inference — and `restore_numeric_text_precision` rewrites **only** the text cells that
+fail to parse back to the exact stored number, using the shortest round-tripping rendering (what
+readxl emits; integral values keep no `.0`). Cells calamine rendered faithfully pass through
+byte-for-byte, so **no existing golden moved**. fastexcel's per-column "could not determine dtype"
+log is silenced for the typed read via a scoped level change.
+
+The bug class is wider than the 3 rows: a 120-workbook sample holds 2 more lossy cells whose
+error stays below the render threshold (`92.2` for `92.19999999999999`). Those are now correct too.
+
+**Cost:** full-dataset run 11s → 14s (the second read is cheaper than the text read, ~0.6x).
+
+**Tests:** +5 in `tests/ingest/test_reading.py` — the repair rewrites only lossy cells, is a no-op
+on faithful ones, drops a trailing `.0`, ignores misaligned reads, and an end-to-end read of a
+workbook storing `0.09999999999999964` yields that exact text and `x1000` → `99.9999999999996`.
+
+**Gates:** ruff + ruff-format + mypy strict clean · **749 tests pass** · `pytest -m slow` green ·
+`scripts/parity_full_dataset.py` exits 0.
 
 ## Baseline metrics (autocode)
 

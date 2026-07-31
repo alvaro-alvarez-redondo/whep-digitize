@@ -6,7 +6,8 @@ description: Port one R module to Python/polars with verified output parity.
 # Migration
 
 The core recurring task: migrate an R module from `whep-digitalization` to a Python module
-in `whep-digitize`, preserving behavior **byte-for-byte** where outputs are compared.
+in `whep-digitize`, preserving behavior **byte-for-byte** where outputs are compared — except
+where a documented policy deliberately diverges (see *Parity discipline* below).
 
 ## Principles
 

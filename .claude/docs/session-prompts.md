@@ -295,10 +295,11 @@ the bug, its impact, why it was deferred, known risks, and when to revisit, plus
 prompt. **Remove an entry only when the bug is fixed.** Intentional R-divergences that cannot
 change pipeline output are documented inline / in `progress.md`, not here.
 
-*None currently.* (DB1 — CI fork deadlock — fixed in PR #10, 2026-07-23. DB2 — `read_rule_table`
-CSV parity — fixed in PR #11, 2026-07-23.)
-
----
+**The list is currently empty.** (DB1 — CI fork deadlock — fixed in PR #10, 2026-07-23. DB2 —
+`read_rule_table` CSV parity — fixed in PR #11, 2026-07-23. DB3 — unit-conversion float
+divergence on 3 rows — fixed 2026-07-31: root cause was **not** the conversion arithmetic but
+calamine's lossy float→text coercion in `ingest/reading/sheet_read.py`; see
+[full-dataset-parity.md](full-dataset-parity.md) and the progress-log entry.)
 
 *Regenerate/adjust this list from [migration-roadmap.md](migration-roadmap.md) if the plan
 changes. Flip each module's [codebase-map.md](codebase-map.md) status and append a
