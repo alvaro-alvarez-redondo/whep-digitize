@@ -6,16 +6,29 @@ drops rows empty across every base column, and tags each surviving row with the 
 the ``variable`` column. Sheets are row-bound with a diagonal concat (R ``rbindlist(use.names,
 fill)``).
 
-Parity note: readxl and calamine disagree on trailing/blank source rows (readxl keeps them,
+Parity note 1: readxl and calamine disagree on trailing/blank source rows (readxl keeps them,
 calamine drops them), but the base-column non-empty filter removes exactly those rows, so the
 filtered output is byte-identical (verified on the corpus — see the parity test).
+
+Parity note 2 (float precision): calamine's own text coercion **rounds** a stored double to
+about 12 significant digits, while readxl renders the shortest string that round-trips it. A
+cell holding ``0.09999999999999964`` therefore reached the pipeline as ``"0.1"``, and a later
+``*1000`` unit standardization turned an R ``99.9999999999996`` into a Python ``100``. Each
+sheet is consequently read **twice** — once all-as-text, once with dtype inference — and
+:func:`restore_numeric_text_precision` rewrites only those text cells that do not round-trip to
+the exact stored number. Every other cell is passed through verbatim, so the repair cannot move
+a value the text read already got right. Residual limitation: a column holding *both* text and
+numbers infers as ``String``, so its numeric cells keep calamine's rounded text — recovering
+those would need a reader that exposes per-cell types.
 
 R source: ``r/1-import_pipeline/11-reading/11-sheet-read.R``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import logging
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 import fastexcel
@@ -33,6 +46,104 @@ from whep_digitize.ingest.reading.read_utils import (
 )
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.helpers.assertions import require
+
+# fastexcel logs one line per column it cannot type ("could not determine dtype ... falling back
+# to string"). That inference is advisory here — only its numeric columns are consulted — so the
+# log is silenced for the duration of the typed read rather than printed once per column, per
+# sheet, per workbook.
+_FASTEXCEL_DTYPE_LOGGER = "fastexcel.types.dtype"
+
+
+@contextmanager
+def _quiet_dtype_inference() -> Iterator[None]:
+    """Silence fastexcel's per-column dtype-fallback log, restoring the previous level after."""
+    logger = logging.getLogger(_FASTEXCEL_DTYPE_LOGGER)
+    previous = logger.level
+    logger.setLevel(logging.CRITICAL)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous)
+
+
+def _shortest_round_trip_text(value: float | int) -> str:
+    """Render a number as the shortest string that parses back to it (the readxl rendering).
+
+    Integral doubles lose the ``.0`` (``30.0`` -> ``"30"``), which is what both readxl and
+    calamine emit for a whole-number cell.
+
+    Args:
+        value: The exact number read from the cell.
+
+    Returns:
+        The shortest round-tripping decimal text.
+    """
+    if isinstance(value, int):
+        return str(value)
+    text = repr(value)
+    return text.removesuffix(".0")
+
+
+def restore_numeric_text_precision(text_df: pl.DataFrame, typed_df: pl.DataFrame) -> pl.DataFrame:
+    """Repair text cells that calamine rounded when stringifying a numeric cell.
+
+    For every numeric column of ``typed_df``, a text cell is rewritten only when it fails to
+    parse back to the exact stored number — so a cell calamine rendered faithfully is passed
+    through byte-for-byte and the R goldens are unaffected. The rewrite uses the shortest
+    round-tripping rendering, which is what readxl's ``col_types = "text"`` produces.
+
+    Args:
+        text_df: The all-as-text read (the frame the pipeline uses).
+        typed_df: The same sheet read with dtype inference; only its numeric columns are read.
+
+    Returns:
+        ``text_df``, or a copy with the lossy cells rewritten. Returns ``text_df`` unchanged when
+        the two reads disagree on height (nothing can be aligned safely).
+    """
+    if text_df.height == 0 or text_df.height != typed_df.height:
+        return text_df
+
+    repaired: list[pl.Series] = []
+    for name, dtype in typed_df.schema.items():
+        if not dtype.is_numeric() or name not in text_df.columns:
+            continue
+        text_col = text_df.get_column(name)
+        if text_col.dtype != pl.String:
+            continue
+        exact = typed_df.get_column(name)
+        round_tripped = text_col.cast(pl.Float64, strict=False)
+        lossy = exact.is_not_null() & (
+            round_tripped.is_null() | (round_tripped != exact.cast(pl.Float64))
+        )
+        if not bool(lossy.any()):
+            continue
+        repaired.append(
+            pl.Series(
+                name,
+                [
+                    _shortest_round_trip_text(value) if flag else text
+                    for text, value, flag in zip(
+                        text_col.to_list(), exact.to_list(), lossy.to_list(), strict=True
+                    )
+                ],
+                dtype=pl.String,
+            )
+        )
+    if not repaired:
+        return text_df
+    return text_df.with_columns(repaired)
+
+
+def _read_sheet_text(file_path: Path | str, sheet_name: str) -> pl.DataFrame:
+    """Read one sheet all-as-text with calamine's float rounding repaired (see the module note)."""
+    text_df = pl.read_excel(
+        file_path, sheet_name=sheet_name, engine="calamine", infer_schema_length=0
+    )
+    with _quiet_dtype_inference():
+        typed_df = pl.read_excel(
+            file_path, sheet_name=sheet_name, engine="calamine", infer_schema_length=None
+        )
+    return restore_numeric_text_precision(text_df, typed_df)
 
 
 def compute_non_empty_base_rows(frame: pl.DataFrame, base_cols: Sequence[str]) -> pl.Series:
@@ -75,9 +186,7 @@ def read_excel_sheet(file_path: Path | str, sheet_name: str, config: Config) -> 
     require(len(base_cols) >= 1, "config.column_required must be non-empty")
 
     safe = safe_execute_read(
-        lambda: pl.read_excel(
-            file_path, sheet_name=sheet_name, engine="calamine", infer_schema_length=0
-        ),
+        lambda: _read_sheet_text(file_path, sheet_name),
         f"failed to read sheet '{sheet_name}' in file",
         str(file_path),
     )

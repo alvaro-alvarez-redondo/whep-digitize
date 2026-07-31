@@ -36,9 +36,11 @@ from whep_digitize.ingest.reading.sheet_read import (
     compute_non_empty_base_rows,
     read_excel_sheet,
     read_file_sheets,
+    restore_numeric_text_precision,
 )
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.numeric import format_double_r
 from whep_digitize.setup.options import RuntimeOptions
 
 _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
@@ -170,6 +172,62 @@ def test_read_excel_sheet_missing_file(config: Config, tmp_path: Path) -> None:
     assert result.data.width == 0
     assert has_read_errors(result)
     assert "failed to read sheet" in result.errors[0]
+
+
+# ------------------------------------------------- float-precision repair (DB3 regression)
+
+
+def test_restore_numeric_text_precision_rewrites_only_lossy_cells() -> None:
+    # calamine renders ~12 significant digits: the first cell round-trips, the second does not.
+    text = pl.DataFrame({"v": ["0.5", "0.1", "7.1"], "note": ["a", "b", "c"]})
+    typed = pl.DataFrame({"v": [0.5, 0.09999999999999964, 7.1], "note": ["a", "b", "c"]})
+    repaired = restore_numeric_text_precision(text, typed)
+    assert repaired.get_column("v").to_list() == ["0.5", "0.09999999999999964", "7.1"]
+    assert repaired.get_column("note").to_list() == ["a", "b", "c"]
+
+
+def test_restore_numeric_text_precision_is_noop_when_faithful() -> None:
+    text = pl.DataFrame({"v": ["0.5", "30", None]})
+    typed = pl.DataFrame({"v": [0.5, 30.0, None]})
+    repaired = restore_numeric_text_precision(text, typed)
+    assert repaired.get_column("v").to_list() == ["0.5", "30", None]
+
+
+def test_restore_numeric_text_precision_drops_trailing_dot_zero() -> None:
+    # A lossy *integral* value must be rewritten the way readxl renders it: no ".0".
+    text = pl.DataFrame({"v": ["1.23456789012e+14"]})
+    typed = pl.DataFrame({"v": [123456789012345.0]})
+    repaired = restore_numeric_text_precision(text, typed)
+    assert repaired.get_column("v").to_list() == ["123456789012345"]
+
+
+def test_restore_numeric_text_precision_ignores_misaligned_reads() -> None:
+    text = pl.DataFrame({"v": ["0.1"]})
+    typed = pl.DataFrame({"v": [0.09999999999999964, 1.0]})
+    assert restore_numeric_text_precision(text, typed).get_column("v").to_list() == ["0.1"]
+
+
+def test_read_excel_sheet_preserves_stored_double(config: Config, tmp_path: Path) -> None:
+    # DB3: the workbook stores 0.09999999999999964; calamine's text coercion rounds it to "0.1",
+    # which a x1000 unit standardization then turns into 100 where R writes 99.9999999999996.
+    wb = _write_xlsx(
+        tmp_path / "imprecise.xlsx",
+        {
+            "exports": pl.DataFrame(
+                {
+                    "continent": ["asia"],
+                    "country": ["indes neerlandaises"],
+                    "unit": ["1000 quintals"],
+                    "footnotes": ["lint"],
+                    "1933": [0.09999999999999964],
+                }
+            )
+        },
+    )
+    result = read_excel_sheet(wb, "exports", config)
+    cell = result.data.get_column("1933").item(0)
+    assert cell == "0.09999999999999964"  # readxl col_types="text" renders exactly this
+    assert format_double_r(float(cell) * 1000) == "99.9999999999996"  # what R writes
 
 
 def test_read_file_sheets_multi_sheet(config: Config, tmp_path: Path) -> None:
