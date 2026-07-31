@@ -10,7 +10,8 @@ Exercises the port of ``23-schema-validation.R`` over a frozen fixture and asser
 * ``validate_canonical_rules`` abort behavior — valid rules pass; duplicate keys and
   missing dataset columns abort (captured from R with ``try()``).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

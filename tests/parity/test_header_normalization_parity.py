@@ -1,14 +1,16 @@
 """Parity test: Python header normalization must match the R golden byte-for-byte.
 
-The core check is ``normalize_header_names`` over the frozen header fixture — the ordered
-regex chain + ``Latin-ASCII; Lower`` transliteration, the top project parity risk. The
-divergence hunt on the accented/unicode fixture (café, São, Zürich, Ñoño, Øresund, Åland,
-groß, ½, œuvre, æsir, …) found **zero** ``anyascii``-vs-ICU differences, so no override is
-needed (see ``.claude/docs/r-to-python-mapping.md`` risk #1). The renames goldens cover the
-canonical/alias collision guards; ``validate_dups`` covers collision detection.
+The core check is ``normalize_header_names`` over the frozen header fixture — the ordered regex
+chain + transliteration, the top project parity risk. R folds with ICU ``Latin-ASCII``; the port
+implements the NFD diacritic-strip POLICY instead (see ``.claude/docs/r-to-python-mapping.md``
+risk #1), so the fixture holds only inputs where the two agree — accents and diacritics (café,
+São, Zürich, Ñoño, naïve, Åland, …). The ICU-divergent cases (``groß``, ``½``, ``œuvre``,
+``æsir``, ``Øresund``) are pinned by the policy tests in ``tests/setup/test_helpers.py``, not
+here. The renames goldens cover the canonical/alias collision guards; ``validate_dups`` covers
+collision detection.
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing, so the suite still runs without R.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

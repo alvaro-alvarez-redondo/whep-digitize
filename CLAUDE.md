@@ -5,7 +5,13 @@ whep-digitize — Python/Polars port of the WHEP digitization pipeline (the R pr
 workbooks: setup (0) → ingest (1) → postpro (2) → export (3).
 
 **This is a migration project.** The R repo (sibling `whep-digitalization/`) is the source
-of truth; the goal is byte-for-byte output parity. Stage 0 is implemented; stages 1–3 are
+of truth; the goal is byte-for-byte output parity **except for the intentional
+normalization-policy divergence** (13 rows on the full **1,339-workbook** dataset; value sums and
+row counts unchanged — see [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) risk #1).
+Automated CI parity covers only the **6-workbook fixture corpus**; the full dataset is checked by
+`scripts/parity_full_dataset.py`, which needs R — see
+[full-dataset-parity.md](.claude/docs/full-dataset-parity.md).
+Stage 0 is implemented; stages 1–3 are
 scaffolded with typed contracts. See [migration-roadmap.md](.claude/docs/migration-roadmap.md).
 
 ## How to work
@@ -44,6 +50,9 @@ scaffolded with typed contracts. See [migration-roadmap.md](.claude/docs/migrati
   idioms, **ranked parity risks**. Read before porting anything.
 - [migration-roadmap.md](.claude/docs/migration-roadmap.md) — phases, DAG, parallel tracks,
   effort, parity strategy.
+- [full-dataset-parity.md](.claude/docs/full-dataset-parity.md) — the scripted R-vs-Python check
+  on the **full 1,339-workbook dataset** (`scripts/parity_full_dataset.py`), how differences are
+  judged, and the current measured result. The CI suite only covers the 6-workbook fixture corpus.
 - [constants-and-options.md](.claude/docs/constants-and-options.md) — `get_pipeline_constants()`
   surface + `RuntimeOptions` / `WHEP_*` env vars.
 - [conventions.md](.claude/docs/conventions.md) — run/test, environment, determinism,
@@ -80,6 +89,10 @@ python -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_vi
 .venv/Scripts/python.exe -m pytest -q
 .venv/Scripts/python.exe -m ruff check .
 .venv/Scripts/python.exe -m mypy
+
+# Full-dataset R-vs-Python parity (needs R + the production dataset; excluded from `pytest -q`)
+.venv/Scripts/python.exe scripts/parity_full_dataset.py
+.venv/Scripts/python.exe -m pytest -m slow
 ```
 
 See [conventions.md](.claude/docs/conventions.md) for the environment specifics

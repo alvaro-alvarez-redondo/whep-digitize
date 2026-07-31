@@ -6,8 +6,9 @@ the clean and harmonize stages it asserts the converged data columns, the ``stop
 ``passes_executed`` / ``converged`` multi-pass diagnostics, and the ``matched_count`` all match R.
 
 Each stage rewrites ``unit`` on pass 1 and no-ops on pass 2, so it converges (``changed_value_count
-== 0``) in two passes — the common convergence path. If a golden is absent (fresh checkout —
-goldens are gitignored), the test skips.
+== 0``) in two passes — the common convergence path. Goldens are committed, so this runs on any
+checkout — CI included. A missing one still skips here; ``test_goldens_present.py`` is what makes
+that a hard failure.
 """
 
 from __future__ import annotations

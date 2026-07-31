@@ -174,13 +174,25 @@ on TSVs; logical layout — sheet names + values — on xlsx, which no writer re
   (`executor.map` submission order) and independent of worker count; graceful sequential
   fallback. Workbook `created` date pinned so repeated runs are byte-identical.
 - ✅ Gated `rich.progress` bars for each stage runner (`RuntimeOptions.progress_enabled`).
-- ✅ **End-to-end parity** on the real (frozen) dataset: R + Python run on the same inputs;
-  processed TSV **byte-identical**, unique-list workbooks **content-identical** (see the DoD
-  note on workbook bytes). The transliteration divergence found here was later superseded by a
-  policy decision: normalization implements the NFD diacritic-strip POLICY, not R's ICU.
+- ✅ **End-to-end parity** on the real (frozen) dataset, first measured **2026-07-24**: R + Python
+  run on the same inputs; processed TSV **byte-identical**, unique-list workbooks
+  **content-identical** (see the DoD note on workbook bytes). That measurement predates the
+  normalization-policy change accepted **2026-07-29**: normalization now implements the NFD
+  diacritic-strip POLICY, not R's ICU `Latin-ASCII`, so R-vs-Python output differs **by design**
+  wherever a policy-affected string occurs (13 rows on the full **1,339**-workbook dataset; value
+  sums and row counts unchanged). Authoritative description:
+  [r-to-python-mapping.md](r-to-python-mapping.md) risk #1.
+- ✅ **Re-measured 2026-07-30** by the scripted harness `scripts/parity_full_dataset.py` (Part B
+  of the parity-automation work), which replaced the unversioned manual diff procedure. Result on
+  1,339 workbooks / 592,719 rows: the 13 accepted normalization rows exactly, plus **3 rows of a
+  genuine float divergence** (DB3), which the harness correctly rejected. DB3 was **fixed
+  2026-07-31** — calamine's lossy float→text coercion at the ingest read, not the conversion
+  arithmetic — and the **2026-07-31 re-run exits 0**: 13 accepted rows, 0 rejected, `value` sums
+  exactly equal. Full detail: [full-dataset-parity.md](full-dataset-parity.md).
 
-**Exit (met):** `whep-digitize run` produces byte-identical processed TSVs (content-identical
-workbooks) to the R pipeline on the frozen dataset.
+**Exit (met):** `whep-digitize run` produces processed TSVs byte-identical to the R pipeline
+(content-identical workbooks) on the frozen dataset, **except for the intentional
+normalization-policy divergence** — see the parity-timeline note under *Definition of done*.
 
 ### Phase 6 — Performance, CI, docs — ✅ DONE
 
@@ -223,43 +235,128 @@ give the most parity scrutiny — are:
 
 ## Parity strategy
 
+0. **Know which dataset a claim is about.** The **fixture corpus** (`tests/fixtures/corpus/`,
+   **6 workbooks**, committed) backs the routine CI suite; the **full production dataset**
+   (`data/import/raw/`, **1,339 workbooks** as of 2026-07-30, growing) backs the end-to-end
+   claim and needs R. See [architecture.md](architecture.md) → *Datasets*.
 1. **Freeze inputs.** The live dataset grows; snapshot a fixed corpus (plus small synthetic
    fixtures covering edge cases) for all A/Bs and parity tests.
 2. **Golden files from R.** Use the `parity-check` skill to run the R function and save
-   outputs under `tests/golden/<module>/`. Goldens are gitignored (regenerable) but their
-   generating fixtures are committed.
+   outputs under `tests/golden/<module>/`. Goldens are committed alongside their generating
+   fixtures — that is what lets CI run the parity suite without an R install.
 3. **Module-level parity** during each port (`@pytest.mark.parity`), then **stage-level**,
    then **end-to-end** in Phase 5.
 4. **Normalization** follows the documented POLICY (NFD diacritic strip), NOT R's ICU
    `Latin-ASCII` — divergence on symbols/ligatures is intentional; pin it with policy tests.
 
+### Accepted limitation — stage goldens replicate the R orchestration inline
+
+The `import_stage` and `postpro_stage` captures in `tests/parity/registry.py` do **not** call R's
+real entry points. Their preambles (`_STAGE_PREAMBLE`, `_POSTPRO_STAGE_PREAMBLE`) reconstruct the
+orchestration by calling the same underlying R leaf functions in sequence.
+
+**Why the real entry points cannot be captured.** `run_import_pipeline()` and
+`run_postpro_pipeline_batch()` are structurally hostile to a golden-capture harness: they
+auto-source their stage scripts through `here::here()` (which requires the R project root as cwd,
+whereas the harness sources by absolute path so captures are cwd-independent), they **auto-run at
+`source()` time** via `run_import_pipeline_auto()` / `run_postpro_pipeline_auto()`, they publish
+results into `.GlobalEnv` through `assign_environment_values()` instead of returning them to a
+caller the harness can bind, and they read/write checkpoints against a real `config$paths` tree
+that the harness replaces with a minimal list over the committed fixtures.
+
+**What this does and does not buy.** The leaf functions invoked in the preambles *are* the real R
+ones, so per-step behaviour is genuinely pinned by execution. What is **not** pinned is the
+**orchestration wiring** — step order, what feeds what, and where the canonical sorts fall. A
+divergence between the reconstruction and R's actual runner would yield a self-consistent, and
+therefore green, golden. **The wiring is verified by review against the R source, not by
+execution**, and that review must be repeated whenever either R runner changes.
+
+One further caveat, specific to postpro: the preamble hand-inlines step 1
+(`audit_data_output()`) as `copy(raw)` + `readr::parse_double(value)`, because the real function
+requires an audit output root and writes a styled workbook. That is the single place where a
+*leaf* function is reimplemented rather than invoked, so it carries the same review obligation.
+
+**Review status — 2026-07-30 (both sequences match):**
+
+| | Verified against | Result |
+|---|---|---|
+| `ingest/runner.py` | `r/1-import_pipeline/run_import_pipeline.R` | matches on every data-affecting step |
+| `_STAGE_PREAMBLE` | same | matches; omits only checkpoint, script sourcing, the zero-file abort, worker/`future::plan` resolution, and progress |
+| `postpro/runner.py` | `r/2-postpro_pipeline/run_postpro_pipeline.R` | matches all 9 steps, including the three post-layer sorts |
+| `_POSTPRO_STAGE_PREAMBLE` | same | executes steps 6–8 with the real leaves; inlines step 1 (verified equivalent to its return value); omits steps 2–5 and 9, none of which mutate the frames |
+
+Known non-output divergences found by that review, recorded rather than "fixed": the import
+runner's four post-read progress ticks use different labels and anchor points than R's (R:
+`reading` → *reads* → `transforming`/`splitting`/`validating`; Python: *reads* →
+`dropping`/`validating`/`splitting`/`sorting`, and `splitting` reads "consolidating validation
+groups" vs R's "splitting validation groups") — both budgets still total `2n + 4`, and progress
+text reaches no output artifact. R also asserts `assert_directory_exists()` on the raw import
+folder before loading the checkpoint; Python surfaces a missing folder as the empty-folder
+`ValidationError` instead — same abort, different message.
+
 ## Risks & mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| Transliteration divergence silently breaks rule matching | Golden-test `normalize_string` on real accented data first; explicit overrides + regression tests for divergences |
+| Transliteration divergence silently breaks rule matching | Resolved by decision (2026-07-29): normalization follows the POLICY, not ICU — pin it with policy tests, **no** character-specific overrides; impact bounded and recorded (~13 rows, sums/counts unchanged) |
 | `melt`→`unpivot` drops/keeps different columns | Recompute year columns explicitly; assert column set in parity tests |
 | Non-deterministic ordering across workers | `sort_pipeline_stage_df` everywhere; parity test sequential vs parallel |
 | Rule-engine complexity (7 HIGH modules) underestimated | Start earliest; migrate strictly bottom-up; heavy fixture coverage per module |
 | R `serialize()` cycle detection has no portable analogue | Replace with deterministic content hash; rely on the cheap `changed_value_count==0` early stop as primary convergence signal |
 | Live dataset drift invalidates goldens | Freeze the corpus; regenerate goldens only on an intentional, recorded refresh |
 
-## Definition of done (whole migration) — ✅ VERIFIED (2026-07-24)
+## Definition of done (whole migration) — ✅ met
 
-`whep-digitize run` on the frozen dataset reproduces the R pipeline's output:
+`whep-digitize run` on the full production dataset reproduces the R pipeline's output
+**byte-identical to R except for the intentional normalization-policy divergence** (13 rows;
+value sums and row counts unchanged).
 
-- ✅ **Processed TSVs byte-identical** to R (`data.table::fwrite` vs polars `write_csv`),
-  verified on the frozen 742-workbook dataset (265,231 rows, 31,354,078 bytes).
-- ✅ **Unique-list workbooks content-identical** — every sheet, order, and cell. Raw-byte
+**Which dataset:** every claim below is about the **full production dataset** —
+**1,339 workbooks**, 592,719 harmonized rows (measured 2026-07-31). The 6-workbook fixture corpus
+backs the CI suite, not these claims. See [architecture.md](architecture.md) → *Datasets*.
+
+- ✅ **Processed TSVs byte-identical** to R (`data.table::fwrite` vs polars `write_csv`) **apart
+  from the normalization-policy divergence**. First verified **2026-07-24** (then 742 workbooks /
+  265,231 rows / 31,354,078 bytes — a pre-policy-change measurement); **re-verified 2026-07-31**
+  on 1,339 workbooks / 592,719 rows by `scripts/parity_full_dataset.py`, which exits 0 with 13
+  accepted rows, 0 rejected, and exactly equal `value` sums.
+- ✅ **No open defects.** The one the harness caught (DB3 — 3 rows where R wrote
+  `99.9999999999996` and Python `100`) was **fixed 2026-07-31**: the cause was calamine rounding
+  a stored double to ~12 significant digits when coercing it to text at the ingest read, which a
+  later `x1000` standardization amplified. `ingest/reading/sheet_read.py` now restores the exact
+  stored value; see [full-dataset-parity.md](full-dataset-parity.md).
+- ✅ **Unique-list workbooks content-identical** — every sheet and cell, with the normalization
+  carve-out: `unique_polity.xlsx` has 5 fewer rows because the five policy-affected values
+  collapse onto entries Python already had. The other 9 workbooks match exactly. Raw-byte
   identity is *not achievable* across R `writexl` and Python `xlsxwriter` (different ZIP
   writers), so content-identity is the workbook parity target; the Python workbooks are
   byte-reproducible run-to-run (pinned `created` date).
 - ✅ **Module + stage + e2e tests pass** — module parity + stage parity (`import_stage`,
   `postpro_stage`) in `tests/parity/`, plus the `run_pipeline` end-to-end integration test
-  (`tests/test_pipeline_e2e.py`); full-pipeline byte-parity re-verified out-of-band on the
-  frozen dataset (method recorded in the session memory).
+  (`tests/test_pipeline_e2e.py`). The R-parity suite stays green because normalization is no
+  longer held to R: the `string_normalization` spec was removed and the `header_normalization` /
+  `matching` fixtures were trimmed of ICU-divergent inputs, which are now pinned by policy tests
+  (`tests/setup/test_helpers.py`) instead of R goldens.
+- ✅ **Full-dataset parity is automated, not manual** — `scripts/parity_full_dataset.py` plus the
+  opt-in `pytest -m slow` wrapper replaced the unversioned manual diff procedure. See
+  [full-dataset-parity.md](full-dataset-parity.md).
 - ✅ **ruff + ruff format + mypy(strict) + pytest green in CI**, with a 90% coverage gate.
 - ✅ **`uv.lock` committed** and in sync with `pyproject.toml`.
-- ✅ **Docs current** (this file, `codebase-map`, `r-to-python-mapping`, `constants-and-options`).
+- ✅ **Docs current** (this file, `codebase-map`, `r-to-python-mapping`, `constants-and-options`,
+  `full-dataset-parity`).
 
-The migration is **complete**.
+> **Parity timeline.** Byte-identity was verified **2026-07-24**, *before* the change that
+> intentionally broke it. On **2026-07-29** string/header normalization was switched to the
+> documented POLICY — NFD diacritic strip + lowercase + drop non-alphanumerics — instead of R's
+> ICU `Latin-ASCII`, and the resulting divergence was **accepted**: on the full **1,339**-workbook
+> dataset the harmonize output differs from R in **13 rows**, all of them ICU's `®`→`(R)`
+> expansion (`philippines r`→`philippines` ×4, `uruguay r`→`uruguay` ×4, `nicaragus r` ×2,
+> `brazil r` ×2, `australia r` ×1), while **value sums and row counts are unchanged**. On
+> **2026-07-30** this was re-measured by script and confirmed at exactly 13 rows — and the same
+> run surfaced DB3, an unrelated 3-row float divergence, fixed **2026-07-31**. The authoritative
+> description of the policy and its exact impact is
+> [r-to-python-mapping.md](r-to-python-mapping.md) risk #1; the harness and its results are
+> documented in [full-dataset-parity.md](full-dataset-parity.md).
+
+The migration is **complete**: the only remaining R-vs-Python difference is the intentional
+normalization-policy divergence.

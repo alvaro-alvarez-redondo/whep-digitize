@@ -6,8 +6,8 @@ reordered data all equal R's ``validate_long_df_by_document`` output. ``current_
 to 2025 to match the R capture's ``Sys.Date`` override, so the plausible-year range in the
 messages is deterministic.
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

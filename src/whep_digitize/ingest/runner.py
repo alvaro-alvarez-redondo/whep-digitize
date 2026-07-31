@@ -4,11 +4,13 @@ Discovers the raw workbooks, reads + transforms them (fused, per batch), drops n
 rows, validates every document group, consolidates the validated long tables, sorts to the
 canonical row order, and returns a typed :class:`~whep_digitize.contracts.ImportResult`.
 
+Mirroring R, the stage is checkpointed (opt-in, default off): a restored checkpoint short-circuits
+the whole stage before discovery, and a completed run is saved on the way out. The checkpoint is a
+cache of a prior run, so it never changes first-run output.
+
 Divergences from R (documented, output-preserving): R auto-sources its stage scripts via
-``here::here`` and auto-runs on source — Python calls the ported functions directly. R's
-checkpoint load/save (``load/save_pipeline_checkpoint``, a cache) and ``progressr`` progress
-bars are not wired here (progress lands with the stage runners in Phase 5); neither changes
-the result. Parallelism is handled inside ``read_transform_pipeline_files``.
+``here::here`` and auto-runs on source — Python calls the ported functions directly.
+Parallelism is handled inside ``read_transform_pipeline_files``.
 
 R source: ``r/1-import_pipeline/run_import_pipeline.R``.
 """
@@ -23,12 +25,14 @@ from whep_digitize.ingest.transform.processing import read_transform_pipeline_fi
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
+from whep_digitize.setup.helpers.checkpoints import load_checkpoint, save_checkpoint
 from whep_digitize.setup.helpers.frames import drop_na_value_rows
 from whep_digitize.setup.helpers.progress import stage_progress
 from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 from whep_digitize.setup.options import RuntimeOptions
 
 _MESSAGES = get_pipeline_constants().progress.messages["import"]
+_CHECKPOINT_NAME = get_pipeline_constants().checkpoints.import_stage_name
 
 
 def run_import_pipeline(
@@ -47,11 +51,22 @@ def run_import_pipeline(
     Returns:
         An :class:`ImportResult` with the validated + consolidated long frame (canonically
         sorted), the combined wide frame, and reading / validation / consolidation diagnostics.
+        With ``options.checkpointing_enabled`` set, a checkpoint from a previous run is returned
+        as-is and no work is done.
 
     Raises:
         ValidationError: If the import folder contains no workbooks (R aborts likewise).
     """
     resolved_options = options or RuntimeOptions()
+
+    # R loads the checkpoint before discovery, so a hit skips discovery (and its empty-folder
+    # abort) entirely. A payload of any other type is a stale/foreign checkpoint: recompute
+    # rather than hand it downstream — the checkpoint is only a cache of a prior result.
+    cached = load_checkpoint(
+        _CHECKPOINT_NAME, config, enabled=resolved_options.checkpointing_enabled
+    )
+    if isinstance(cached, ImportResult):
+        return cached
 
     file_list = discover_pipeline_files(config)
     if file_list.height == 0:
@@ -80,7 +95,7 @@ def run_import_pipeline(
         progress.step(_MESSAGES["sorting"])
         data = sort_pipeline_stage_df(consolidated.data)
 
-    return ImportResult(
+    result = ImportResult(
         data=data,
         wide_raw=fused.transformed.wide_raw,
         diagnostics=ImportDiagnostics(
@@ -89,3 +104,8 @@ def run_import_pipeline(
             warnings=consolidated.warnings,
         ),
     )
+    # R saves outside its progress block, so the status line lands after the bar is torn down.
+    save_checkpoint(
+        _CHECKPOINT_NAME, result, config, enabled=resolved_options.checkpointing_enabled
+    )
+    return result

@@ -41,6 +41,8 @@ def test_pinned_scalar_values() -> None:
     assert constants.performance.import_workbook_batch_size == 32
     assert constants.performance.import_parallel_workers == "auto"
     assert constants.defaults.notes_value is None
+    # R checkpoints only the import stage, under this name.
+    assert constants.checkpoints.import_stage_name == "import_pipeline"
 
 
 def test_audit_numeric_string_pattern() -> None:

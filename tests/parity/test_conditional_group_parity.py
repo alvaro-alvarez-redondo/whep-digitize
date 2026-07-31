@@ -11,7 +11,8 @@ audit table all equal R's output:
 * **NM** — no match: nothing changes, empty audit.
 
 Guards the cartesian-join ordering (parity risk #4/#7) and the in-place ``set`` -> functional
-scatter (#10). If a golden is absent (fresh checkout — goldens are gitignored), the test skips.
+scatter (#10). Goldens are committed, so this runs on any checkout — CI included. A missing one
+still skips here; ``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

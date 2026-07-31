@@ -23,8 +23,14 @@ setup (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
 ## Why this port exists
 
 The R pipeline is mature and correct but hard to onboard, package, and deploy. This
-Python port targets the same outputs **byte-for-byte** (verified by parity tests against
-R golden files) while gaining: a real package + lockfile (`uv`), static typing (`mypy`),
+Python port reproduces the same outputs **byte-for-byte — except for one intentional
+divergence** (verified by parity tests against R golden files): string/header normalization
+follows a documented policy (NFD diacritic strip + lowercase) instead of R's ICU
+`Latin-ASCII`, which changes **~13 rows on the full dataset**, leaving value sums and row
+counts unchanged. Byte-identity was verified 2026-07-24, before that policy was accepted on
+2026-07-29; see [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) risk #1.
+
+In exchange the port gains: a real package + lockfile (`uv`), static typing (`mypy`),
 one fast columnar engine (`polars`), and a modern test/CI story.
 
 The migration is designed to be **incremental and parallelizable** — each R module maps

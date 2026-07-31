@@ -9,8 +9,8 @@ prefix-folded by standardize), so it is compared through :func:`format_double_r`
 ``as.character`` rendering. Both clean and harmonize converge in two passes (clean rewrites
 ``milk``'s unit; harmonize rewrites ``date``'s post-standardize unit).
 
-If a golden is absent (fresh checkout — goldens are gitignored), the test skips with the
-regeneration command rather than failing.
+Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
+``test_goldens_present.py`` is what makes that a hard failure.
 """
 
 from __future__ import annotations

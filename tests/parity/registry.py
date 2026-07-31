@@ -77,10 +77,41 @@ _LISTS_02 = "r/3-export_pipeline/31-lists/02-build-path-and-unique-values.R"
 _LISTS_03 = "r/3-export_pipeline/31-lists/03-resolve-and-compare.R"
 _LISTS_04 = "r/3-export_pipeline/31-lists/04-cache-and-write.R"
 
-# Stage-level (run_import_pipeline) golden: the orchestration body is replicated inline over
-# the whole corpus (R's run_import_pipeline auto-sources via here::here + auto-runs, which the
-# harness cannot do; the ported logic is the discover -> fused read+transform -> drop_na ->
-# validate -> consolidate -> sort sequence). Sys.Date is pinned for deterministic year ranges.
+# ---------------------------------------------------------------------------------------------
+# ACCEPTED PARITY-STRATEGY LIMITATION — the stage-level preambles below (`_STAGE_PREAMBLE` and
+# `_POSTPRO_STAGE_PREAMBLE`) RECONSTRUCT R's stage orchestration INLINE. They do not call R's
+# real entry points.
+#
+# Why the real entry points cannot be captured. `run_import_pipeline()` and
+# `run_postpro_pipeline_batch()` are unusable from a golden-capture harness because they:
+#   * auto-source their stage scripts via `here::here()`, which requires the R project root as
+#     the working directory — the harness deliberately sources by ABSOLUTE path so captures do
+#     not depend on cwd (see r_harness.py);
+#   * auto-run at source() time (`run_import_pipeline_auto()` / `run_postpro_pipeline_auto()` are
+#     invoked at the bottom of each file), so merely sourcing them fires a whole pipeline run;
+#   * assign their results into `.GlobalEnv` via `assign_environment_values()` rather than
+#     returning them to a caller the harness can bind; and
+#   * read/write checkpoints and a real config tree (`config$paths$...`) that the harness
+#     replaces with a minimal hand-built list over the committed fixtures.
+#
+# What this costs. The LEAF functions invoked below are the real R ones, so the per-step
+# behaviour is genuinely pinned. What is NOT pinned by execution is the ORCHESTRATION WIRING —
+# step order, what feeds what, and where the canonical sorts fall. A divergence between this
+# reconstruction and R's actual runner would produce a self-consistent (and therefore green)
+# golden. **The wiring is verified by review against the R source, not by execution.**
+# Last reviewed 2026-07-30 against `r/1-import_pipeline/run_import_pipeline.R` and
+# `r/2-postpro_pipeline/run_postpro_pipeline.R`: both sequences match. Re-review both preambles
+# whenever either R runner changes. See .claude/docs/migration-roadmap.md -> "Parity strategy".
+# ---------------------------------------------------------------------------------------------
+
+# Stage-level (run_import_pipeline) golden: the orchestration body is replicated inline over the
+# whole corpus. Mirrors R's data-affecting sequence exactly — discover_files -> fused
+# read+transform -> drop_na_value_rows -> validate_long_dt_by_document -> the empty-list branch
+# -> consolidate_audited_dt -> sort_pipeline_stage_dt. Deliberately omitted, none of which can
+# change the captured frames: the checkpoint load/save (a cache of a prior run), the stage-script
+# sourcing (the harness sources explicitly), the zero-file abort (the corpus is non-empty), the
+# worker/`future::plan` resolution (sequential output is identical), and the progress ticks.
+# Sys.Date is pinned for deterministic year ranges.
 _STAGE_PREAMBLE = (
     "Sys.Date <- function() as.Date('2025-06-15')\n"
     "config <- list("
@@ -542,6 +573,33 @@ _POSTPRO_STAGE_EXPORTS: dict[str, str] = {
     "harmonize_converged": "as.character(harm_mp$converged)",
     "harmonize_matched": "as.character(harm_diag$matched_count)",
 }
+# Stage-level (run_postpro_pipeline_batch) golden — see the ACCEPTED PARITY-STRATEGY LIMITATION
+# block above. Of R's nine steps this preamble executes the three that shape the captured frames
+# (clean -> standardize -> harmonize, each followed by sort_pipeline_stage_dt) using the real leaf
+# functions, and handles the rest as follows:
+#
+#   step 1 audit_data_output()      -- NOT CALLED; hand-inlined as copy(raw) + parse_double(value).
+#                                      This is the one place a LEAF function is reimplemented
+#                                      rather than invoked, so it deserves the extra scrutiny:
+#                                      `audit_data_output()` needs `config$paths$data$audit$
+#                                      audit_dir` and writes a styled invalid-cell workbook, which
+#                                      the harness has no root for. Verified 2026-07-30 against
+#                                      r/2-postpro_pipeline/20-data_audit/20-audit-orchestration.R
+#                                      that its RETURN VALUE is exactly
+#                                      `as.data.table(dataset_dt)` with `value` parsed via
+#                                      `suppressWarnings(readr::parse_double(as.character(value)))`
+#                                      when a `value` column exists — every other statement in it
+#                                      (load_audit_config, prepare_audit_root,
+#                                      run_master_validation, the findings row_index remap,
+#                                      export_validation_audit_report) is a side effect that never
+#                                      touches the returned frame. Re-verify if that function's
+#                                      return changes.
+#   steps 2-5 get_postpro_output_paths / generate_postpro_rule_templates /
+#             collect_postpro_preflight / assert_postpro_preflight
+#                                   -- NOT CALLED: path resolution, template writing, and an
+#                                      assert-only gate; none mutate the dataset.
+#   step 9 persist_postpro_audit()  -- NOT CALLED: writes audit workbooks from the finished
+#                                      frames; cannot feed back into them.
 _POSTPRO_STAGE_PREAMBLE = (
     "mk <- function(x) as.character(x)\n"
     "raw <- data.table::data.table(\n"
@@ -612,9 +670,10 @@ CAPTURES: dict[str, CaptureSpec] = {
             "validate_dups": _VALIDATE_DUPS,
         },
         description=(
-            "Header normalization: the ordered regex chain + Latin-ASCII;Lower transliteration "
-            "(top parity risk: anyascii vs ICU on accented/unicode headers), canonical + "
-            "country->polity alias renames with all collision guards, and collision detection."
+            "Header normalization: the ordered regex chain + transliteration on accented headers "
+            "(R folds with ICU Latin-ASCII, the port with the NFD policy; the fixture keeps only "
+            "inputs where the two agree), canonical + country->polity alias renames with all "
+            "collision guards, and collision detection."
         ),
     ),
     "sheet_read": CaptureSpec(

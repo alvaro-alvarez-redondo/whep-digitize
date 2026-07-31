@@ -29,6 +29,7 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `sorting.stage_row_order` | the 12-column canonical order |
 | `files` | workbook file names |
 | `paths` | relative dir names under `data/` |
+| `checkpoints` | `import_stage_name="import_pipeline"`, `.parquet`/`.pkl` suffixes, save/restore status text |
 | `tokens.commodity_start_index` | `7` (1-based, R convention) |
 | `time_units` | `seconds_per_minute`, `seconds_per_hour` |
 | `postpro` | rule columns, wildcard `__ANY__`, `rule_match_normalization`, `target_update_strategies` (default `last_rule_wins`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
@@ -56,9 +57,15 @@ instance to `run_pipeline(options=...)` or let stages construct the default.
 |--------|---------|---------|----------|
 | `drop_na_values` | `WHEP_DROP_NA_VALUES` | `True` | drop null-`value` rows during import |
 | `progress_enabled` | `WHEP_PROGRESS_ENABLED` | `True` | show the `rich` progress display |
-| `checkpointing_enabled` | `WHEP_CHECKPOINTING_ENABLED` | `False` | persist per-stage checkpoints |
+| `checkpointing_enabled` | `WHEP_CHECKPOINTING_ENABLED` | `False` | cache the import stage: restore a prior `ImportResult` instead of re-running, save one on completion |
 | `import_parallel_workers` | `WHEP_IMPORT_PARALLEL_WORKERS` | `"auto"` | import worker count (`"auto"`→`min(8, cpu-1)`; `1`=sequential) |
 | `export_parallel_workers` | `WHEP_EXPORT_PARALLEL_WORKERS` | `1` | unique-list workbook-write worker count (`1`=sequential; `"auto"`/`N`=deterministic `ProcessPoolExecutor`) |
+
+`checkpointing_enabled` is wired in `ingest.runner.run_import_pipeline` only — as in R, postpro
+and export do not checkpoint. The restore happens before file discovery, so a hit skips the whole
+stage (including its empty-folder abort); files land in `data/.checkpoints/` (git-ignored). It is a
+cache of a prior run, so it never changes first-run output — clear it with
+`helpers.checkpoints.clear_checkpoints` when the raw inputs change.
 
 The project-root override `WHEP_PROJECT_ROOT` (read by `setup.paths.project_root`) forces
 where `data/` is resolved.

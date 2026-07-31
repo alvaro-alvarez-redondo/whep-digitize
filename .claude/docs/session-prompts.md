@@ -50,7 +50,8 @@ via Rscript (C:/Program Files/R/R-4.6.0) and writes deterministic outputs to
 tests/golden/<module>/. Document the frozen-corpus location and capture command in
 .claude/progress.md. Do not migrate any module yet — just stand up the harness and prove it
 round-trips one trivial R function (e.g. normalize_string) to a golden file that a polars
-test can read. Keep tests/golden gitignored; commit the fixtures.
+test can read. Commit both the fixtures and tests/golden (the goldens are the frozen R
+reference; committing them is what lets CI enforce parity without an R install).
 ```
 
 ---
@@ -294,10 +295,11 @@ the bug, its impact, why it was deferred, known risks, and when to revisit, plus
 prompt. **Remove an entry only when the bug is fixed.** Intentional R-divergences that cannot
 change pipeline output are documented inline / in `progress.md`, not here.
 
-*None currently.* (DB1 — CI fork deadlock — fixed in PR #10, 2026-07-23. DB2 — `read_rule_table`
-CSV parity — fixed in PR #11, 2026-07-23.)
-
----
+**The list is currently empty.** (DB1 — CI fork deadlock — fixed in PR #10, 2026-07-23. DB2 —
+`read_rule_table` CSV parity — fixed in PR #11, 2026-07-23. DB3 — unit-conversion float
+divergence on 3 rows — fixed 2026-07-31: root cause was **not** the conversion arithmetic but
+calamine's lossy float→text coercion in `ingest/reading/sheet_read.py`; see
+[full-dataset-parity.md](full-dataset-parity.md) and the progress-log entry.)
 
 *Regenerate/adjust this list from [migration-roadmap.md](migration-roadmap.md) if the plan
 changes. Flip each module's [codebase-map.md](codebase-map.md) status and append a

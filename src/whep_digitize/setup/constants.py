@@ -203,6 +203,22 @@ class PathNames:
 
 
 @dataclass(frozen=True, slots=True)
+class Checkpoints:
+    """Crash-recovery checkpoint settings (opt-in via ``RuntimeOptions.checkpointing_enabled``).
+
+    Only the import stage checkpoints, matching R (``run_import_pipeline`` is the sole caller of
+    ``load/save_pipeline_checkpoint``). The R files were ``.rds``; the port writes Parquet for
+    frames and pickle for composite results such as :class:`~whep_digitize.contracts.ImportResult`.
+    """
+
+    import_stage_name: str = "import_pipeline"
+    frame_suffix: str = ".parquet"
+    object_suffix: str = ".pkl"
+    saved_message: str = "Checkpoint saved: {path}"
+    restored_message: str = "Checkpoint restored: {path}"
+
+
+@dataclass(frozen=True, slots=True)
 class Tokens:
     """Filename token-parsing constants. ``commodity_start_index`` is 1-based (R)."""
 
@@ -441,6 +457,7 @@ class Constants:
     sorting: Sorting = field(default_factory=Sorting)
     files: Files = field(default_factory=Files)
     paths: PathNames = field(default_factory=PathNames)
+    checkpoints: Checkpoints = field(default_factory=Checkpoints)
     tokens: Tokens = field(default_factory=Tokens)
     time_units: TimeUnits = field(default_factory=TimeUnits)
     postpro: Postpro = field(default_factory=Postpro)

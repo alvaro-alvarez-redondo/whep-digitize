@@ -1,9 +1,10 @@
 # Test fixtures — the frozen parity corpus
 
 Fixed inputs for R→Python parity checks. **Committed and immutable**: the R golden outputs
-under `tests/golden/` (gitignored, regenerable) are captured from *these exact bytes*, so a
+under `tests/golden/` (committed alongside them) are captured from *these exact bytes*, so a
 Python port is compared against R on identical inputs. Do not edit a fixture without
-re-capturing the affected goldens (`python tests/parity/capture.py <module>`).
+re-capturing the affected goldens (`python tests/parity/capture.py <module>`) and committing
+both halves together.
 
 ## `corpus/` — real raw workbooks
 
@@ -64,15 +65,16 @@ policy tests in `tests/setup/test_helpers.py`, not this R-parity fixture.
 | underscore collapse/trim | `a__b`, `_leading_`, `__x__` |
 | empty / null / fast-path | `""`, `null`, `continent`, `hemisphere`, `a-b`, `x/y` |
 
-The divergence hunt on these found **zero** `anyascii`-vs-ICU differences, so no override is
-needed (verified in `tests/parity/test_header_normalization_parity.py`).
+Every input here folds identically under R's ICU `Latin-ASCII` and the port's NFD diacritic
+strip, which is why an R golden can still pin this module (verified in
+`tests/parity/test_header_normalization_parity.py`).
 
 ## Regenerating goldens
 
 Goldens are derived from these fixtures via the R source of truth:
 
     .venv/Scripts/python.exe tests/parity/capture.py            # all modules
-    .venv/Scripts/python.exe tests/parity/capture.py string_normalization
+    .venv/Scripts/python.exe tests/parity/capture.py file_metadata
 
 Then verify the Python port matches:
 

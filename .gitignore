@@ -30,10 +30,11 @@ data/
 *.log
 scratch/
 
-# --- Golden parity outputs (regenerated from R via tests/parity/capture.py; never committed) ---
-# The frozen INPUT fixtures under tests/fixtures/ ARE committed; only the R-derived outputs
-# here are ignored (any format: .json/.tsv/.parquet/.xlsx).
-tests/golden/
+# --- Golden parity outputs ---
+# tests/golden/ IS committed, together with the frozen INPUT fixtures under tests/fixtures/.
+# The goldens are the frozen R reference: committing them is what lets the parity suite run in
+# CI (no R install, no whep-digitalization checkout). They are regenerated only on a deliberate
+# R-reference change, via `python tests/parity/capture.py`. See tests/golden/README.md.
 
 # --- OS / editor ---
 .DS_Store
