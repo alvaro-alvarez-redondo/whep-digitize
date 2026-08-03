@@ -121,7 +121,9 @@ def export_frame() -> pl.DataFrame:
 
 
 @pytest.mark.parity
-def test_write_processed_table_matches_r_bytes(export_frame: pl.DataFrame, tmp_path: Path) -> None:
+def test_write_processed_table_matches_reference_bytes(
+    export_frame: pl.DataFrame, tmp_path: Path
+) -> None:
     assert export_frame.schema["value"] == pl.Float64  # the numeric-formatting path is exercised
     expected = _retarget_record_separators(_golden_bytes(), _PLATFORM_EOL)
     assert _PLATFORM_EOL in expected  # the eol convention is pinned, not normalized away

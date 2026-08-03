@@ -21,7 +21,7 @@ from whep_digitize.postpro.diagnostics.rule_summaries import _anti_join_null_saf
 from whep_digitize.setup.helpers.strings import normalize_string
 
 # The whitespace class trimmed from values: space, tab, CR, LF.
-_R_TRIMWS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 _STD_CHAR_COLUMNS = (
     "rule_file_identifier",
     "commodity_key",
@@ -59,7 +59,7 @@ def _blank_to_null(column: str) -> pl.Expr:
     """Cast to String and map a whitespace-only / empty value to null."""
     text = pl.col(column).cast(pl.String)
     return (
-        pl.when(text.str.strip_chars(_R_TRIMWS).str.len_chars() == 0)
+        pl.when(text.str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
         .then(pl.lit(None, dtype=pl.String))
         .otherwise(text)
         .alias(column)

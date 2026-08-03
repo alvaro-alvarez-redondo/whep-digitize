@@ -58,7 +58,7 @@ class _ErrorRecord(NamedTuple):
     message: str
 
 
-def _r_str(value: object) -> str:
+def _message_text(value: object) -> str:
     """Coerce a value for message embedding, rendering ``None`` as the literal ``"NA"``."""
     return "NA" if value is None else str(value)
 
@@ -176,7 +176,7 @@ def _duplicate_errors(work: pl.DataFrame, doc_rank_map: dict[object, int]) -> li
     )
     records: list[_ErrorRecord] = []
     for group_index, row in enumerate(duplicates.iter_rows(named=True), start=1):
-        key_description = ", ".join(f"{col} = {_r_str(row[col])}" for col in key_columns)
+        key_description = ", ".join(f"{col} = {_message_text(row[col])}" for col in key_columns)
         message = (
             f"duplicate entries detected (count {row['duplicate_count']}) for {key_description}"
         )

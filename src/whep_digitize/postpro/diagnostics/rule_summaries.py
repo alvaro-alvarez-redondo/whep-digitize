@@ -21,7 +21,7 @@ import polars as pl
 from whep_digitize.postpro.utilities.templates import RulePayload
 
 # The whitespace class trimmed from values: space, tab, CR, LF.
-_R_TRIMWS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 # Sentinel that folds null keys so null matches null under polars joins.
 _NA_SENTINEL = "\x00__whep_diag_na__"
 
@@ -199,7 +199,7 @@ def _blank_to_null(column: str) -> pl.Expr:
     """Cast to String and map a whitespace-only / empty value to null."""
     text = pl.col(column).cast(pl.String)
     return (
-        pl.when(text.str.strip_chars(_R_TRIMWS).str.len_chars() == 0)
+        pl.when(text.str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
         .then(pl.lit(None, dtype=pl.String))
         .otherwise(text)
         .alias(column)

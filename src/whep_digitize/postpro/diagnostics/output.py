@@ -35,7 +35,7 @@ from whep_digitize.setup.directories import ensure_directories_exist
 
 _CONSTANTS = get_pipeline_constants()
 _POSTPRO = _CONSTANTS.postpro
-_R_TRIMWS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 _OVERWRITE_META_COLUMNS = (
     "row_id",
     "overwrite_event_count",
@@ -81,7 +81,7 @@ def build_postpro_diagnostics(
 
 def _collapse_expr(column: str) -> pl.Expr:
     """Aggregate a group's values into a sorted, unique, ``; ``-joined string (null if empty)."""
-    text = pl.col(column).cast(pl.String).str.strip_chars(_R_TRIMWS)
+    text = pl.col(column).cast(pl.String).str.strip_chars(_TRIM_CHARS)
     kept = text.filter(text.is_not_null() & (text.str.len_chars() > 0))
     return (
         pl.when(kept.len() == 0)
