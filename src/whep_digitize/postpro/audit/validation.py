@@ -38,7 +38,7 @@ _NUMERIC_STRING_PATTERN = _CONSTANTS.patterns.audit_numeric_string
 _VALUE_COLUMN = _CONSTANTS.defaults.value_column
 # The whitespace class used for blank detection: space, tab, CR, LF only — deliberately not the
 # full Unicode whitespace set, so exotic separators are not silently treated as blank.
-_R_TRIMWS_CHARS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 # Internal row-index column (1-based), prefixed to never collide with a dataset column.
 _ROW_INDEX_INTERNAL = "__whep_audit_row_index__"
 
@@ -105,7 +105,7 @@ def audit_character_non_empty(dataset: pl.DataFrame, column_name: str) -> pl.Dat
     require(column_name in dataset.columns, f"column '{column_name}' is missing from the dataset")
 
     column = pl.col(column_name).cast(pl.String)
-    mask = column.is_null() | (column.str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0)
+    mask = column.is_null() | (column.str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
     invalid = _invalid_row_indices(dataset, mask)
     return _findings(
         invalid, column_name, AUDIT_TYPE_CHARACTER_NON_EMPTY, CHARACTER_NON_EMPTY_MESSAGE

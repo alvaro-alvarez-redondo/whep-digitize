@@ -1,7 +1,5 @@
 r"""Postpro / diagnostics — clean/harmonize rule summaries.
 
-The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-rule-summaries.R``:
-
 * :func:`summarize_stage_rules` — normalize a clean/harmonize stage audit into a canonical,
   row-per-record matched-rule summary (``value_source``/``value_target`` filled from the
   ``*_result`` columns; ``affected_rows`` NA→0; deterministic sort);
@@ -10,7 +8,7 @@ The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-rule-summari
 * :func:`build_unmatched_rule_summary` — the catalog rows that never matched (an anti-join on the
   rule key), emitted with ``affected_rows = 0``.
 
-Parity note: R ``merge`` treats ``NA`` as matchable (``NA`` joins ``NA``); polars joins do not, so
+Null-key note: polars joins do not match null to null, so
 the anti-join folds null keys to a sentinel first (:func:`_anti_join_null_safe`).
 """
 
@@ -22,9 +20,9 @@ import polars as pl
 
 from whep_digitize.postpro.utilities.templates import RulePayload
 
-# R ``trimws()`` default whitespace class.
+# The whitespace class trimmed from values: space, tab, CR, LF.
 _R_TRIMWS = " \t\r\n"
-# Sentinel folding null keys so an NA joins an NA (R merge semantics) under polars joins.
+# Sentinel that folds null keys so null matches null under polars joins.
 _NA_SENTINEL = "\x00__whep_diag_na__"
 
 _STAGE_SUMMARY_COLUMNS = (
@@ -71,7 +69,7 @@ _UNMATCHED_KEY = (
 def _anti_join_null_safe(
     left: pl.DataFrame, right_keys: pl.DataFrame, keys: Sequence[str]
 ) -> pl.DataFrame:
-    """Anti-join ``left`` against ``right_keys`` treating null == null (R ``merge`` semantics)."""
+    """Anti-join ``left`` against ``right_keys``, treating null as equal to null."""
     fold_names = [f"__key_{index}__" for index in range(len(keys))]
     folded_left = left.with_columns(
         pl.col(key).cast(pl.String).fill_null(_NA_SENTINEL).alias(fold)
@@ -86,9 +84,6 @@ def _anti_join_null_safe(
 
 def summarize_stage_rules(audit_df: pl.DataFrame) -> pl.DataFrame:
     """Normalize a clean/harmonize stage audit into the canonical matched-rule summary.
-
-    The Python port of R ``summarize_stage_rules`` (the ``stage_name`` argument was unused in R
-    and is dropped).
 
     Args:
         audit_df: The stage audit table.
@@ -124,8 +119,6 @@ def summarize_stage_rules(audit_df: pl.DataFrame) -> pl.DataFrame:
 def build_stage_rule_catalog_from_payloads(rule_payloads: Sequence[RulePayload]) -> pl.DataFrame:
     """Flatten rule payloads into the canonical, deduplicated rule catalog.
 
-    The Python port of R ``build_stage_rule_catalog_from_payloads``.
-
     Args:
         rule_payloads: The stage's rule payloads (from ``load_stage_rule_payloads``).
 
@@ -152,8 +145,6 @@ def build_unmatched_rule_summary(
     rule_catalog_df: pl.DataFrame, matched_rule_summary_df: pl.DataFrame
 ) -> pl.DataFrame:
     """Return the catalog rules that never matched (anti-join), with ``affected_rows = 0``.
-
-    The Python port of R ``build_unmatched_rule_summary``.
 
     Args:
         rule_catalog_df: The canonical rule catalog.
@@ -205,7 +196,7 @@ def _ensure_columns(frame: pl.DataFrame, columns: Sequence[str]) -> pl.DataFrame
 
 
 def _blank_to_null(column: str) -> pl.Expr:
-    """Cast to String and map a whitespace-only / empty value to null (R trim → NA)."""
+    """Cast to String and map a whitespace-only / empty value to null."""
     text = pl.col(column).cast(pl.String)
     return (
         pl.when(text.str.strip_chars(_R_TRIMWS).str.len_chars() == 0)

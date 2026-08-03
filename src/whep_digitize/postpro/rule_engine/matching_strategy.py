@@ -39,7 +39,7 @@ _NA_MATCH_KEY = _CONSTANTS.na_match_key
 # The whitespace class used for blank detection: space, tab, CR, LF only. Declared explicitly
 # because the polars/Python default strip also removes exotic Unicode whitespace, which would
 # silently treat more values as blank than intended.
-_R_TRIMWS_CHARS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 # Sentinel column name used to run a single-column expression over a bare Series.
 _SERIES_SENTINEL = "__whep_value__"
 
@@ -120,7 +120,7 @@ def encode_target_rule_value(values: pl.Series, na_placeholder: str = _NA_PLACEH
     def build(column: pl.Expr) -> pl.Expr:
         string_column = column.cast(pl.String)
         is_blank = string_column.is_null() | (
-            string_column.str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0
+            string_column.str.strip_chars(_TRIM_CHARS).str.len_chars() == 0
         )
         return pl.when(is_blank).then(pl.lit(na_placeholder)).otherwise(string_column)
 

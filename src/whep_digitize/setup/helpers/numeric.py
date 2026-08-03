@@ -15,7 +15,7 @@ from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 import polars as pl
 
 # Doubles are rendered at 15 significant figures wherever they become text.
-_R_SIGNIFICANT_DIGITS = 15
+_SIGNIFICANT_DIGITS = 15
 
 
 def coerce_numeric(value: str | float | int | bool | None) -> float | None:
@@ -84,7 +84,7 @@ def format_double_r(value: float) -> str | None:
     if value == 0.0:  # collapses -0.0 to "0"
         return "0"
     with localcontext() as ctx:
-        ctx.prec = _R_SIGNIFICANT_DIGITS
+        ctx.prec = _SIGNIFICANT_DIGITS
         ctx.rounding = ROUND_HALF_EVEN
         rounded = +Decimal(value)  # round the exact binary value to 15 significant figures
     text = format(rounded, "f")  # fixed notation; never scientific

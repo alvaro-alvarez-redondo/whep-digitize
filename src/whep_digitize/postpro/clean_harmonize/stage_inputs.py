@@ -18,7 +18,7 @@ _CONSTANTS = get_pipeline_constants()
 _CONCAT_DELIMITER = _CONSTANTS.postpro.target_update_strategies.concatenate_delimiter
 # The whitespace class used for token trimming: space, tab, CR, LF only — deliberately not the
 # full Unicode whitespace set.
-_R_TRIMWS_CHARS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 _ANNOTATION_COLUMNS = ("notes", "footnotes")
 _FOOTNOTES_COLUMN = "footnotes"
 
@@ -31,9 +31,9 @@ def _canonicalize_cell(value: str, delimiter: str) -> str | None:
     appearance and the result is then code-point sorted, which is equivalently just a code-point
     sort of the distinct tokens (UTF-8 byte order equals code-point order).
     """
-    if value.strip(_R_TRIMWS_CHARS) == "":
+    if value.strip(_TRIM_CHARS) == "":
         return None
-    tokens = [token.strip(_R_TRIMWS_CHARS) for token in value.split(";")]
+    tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
     non_empty = [token for token in tokens if token]
     if not non_empty:
         return None

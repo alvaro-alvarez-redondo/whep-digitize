@@ -1,15 +1,11 @@
 """Postpro / standardize_units — stage orchestration.
 
-The Python port of ``r/2-postpro_pipeline/24-standardize_units/24-standardize-orchestration.R``
-(plus the xlsx rule readers from ``24-rules-setup.R`` that live at this IO boundary):
-
 * rule loading — ``ensure_standardize_template_exists`` / ``read_standardize_rule_workbook`` /
   ``read_all_standardize_rule_files`` / ``load_units_standardization_rules``;
 * ``build_standardize_layer_audit`` — merge prepared rules with the engine's matched-rule counts
   into the deterministic audit table;
 * ``run_standardize_units_layer_batch`` — load rules → apply → optional duplicate-group
-  aggregation → diagnostics + audit, returning a typed :class:`StandardizeLayerResult` (R attached
-  these as ``data.table`` attributes).
+  aggregation → diagnostics + audit, returning a typed :class:`StandardizeLayerResult`.
 
 Rule workbooks are read all-as-text (``pl.read_excel(engine="calamine", infer_schema_length=0)``);
 ``prepare_standardize_rules`` / the audit coerce the numeric columns, so the read type does not
@@ -64,7 +60,7 @@ _AUDIT_SCHEMA: dict[str, type[pl.DataType]] = {
 
 @dataclass(frozen=True, slots=True)
 class RuleFilesPayload:
-    """Loaded raw rule rows plus their source file paths (R ``read_all_standardize_rule_files``)."""
+    """Loaded raw rule rows plus their source file paths."""
 
     rules: pl.DataFrame
     source_paths: tuple[str, ...]
@@ -72,7 +68,7 @@ class RuleFilesPayload:
 
 @dataclass(frozen=True, slots=True)
 class LoadedStandardizeRules:
-    """Prepared rules + provenance (R ``load_units_standardization_rules``)."""
+    """Prepared rules + provenance."""
 
     layer_rules: pl.DataFrame
     source_paths: tuple[str, ...]
@@ -81,7 +77,7 @@ class LoadedStandardizeRules:
 
 @dataclass(frozen=True, slots=True)
 class StandardizeDiagnostics:
-    """Standardize-layer diagnostics (R attaches these on the ``layer_diagnostics`` attribute)."""
+    """Standardize-layer diagnostics for one layer run."""
 
     matched_count: int
     unmatched_count: int
@@ -98,7 +94,7 @@ class StandardizeDiagnostics:
 
 @dataclass(frozen=True, slots=True)
 class StandardizeLayerResult:
-    """Result of :func:`run_standardize_units_layer_batch` (R ``data.table`` attributes)."""
+    """Result of :func:`run_standardize_units_layer_batch`."""
 
     data: pl.DataFrame
     diagnostics: StandardizeDiagnostics
@@ -126,8 +122,6 @@ def read_standardize_rule_workbook(
     rule_path: Path, excluded_sheet_names: tuple[str, ...] = _EXCLUDED_SHEETS
 ) -> pl.DataFrame:
     """Read every non-excluded rule sheet whose columns match the schema, row-bound in order.
-
-    The Python port of R ``read_standardize_rule_workbook``.
 
     Args:
         rule_path: The workbook path.
@@ -178,10 +172,7 @@ def read_standardize_rule_workbook(
 
 
 def read_all_standardize_rule_files(config: Config) -> RuleFilesPayload:
-    """Discover and read every standardization rule workbook (deterministically ordered).
-
-    The Python port of R ``read_all_standardize_rule_files``.
-    """
+    """Discover and read every standardization rule workbook (deterministically ordered)."""
     standardization_dir = config.paths.data.import_.standardization
     ensure_directories_exist([standardization_dir])
     rule_paths = sorted(
@@ -208,7 +199,7 @@ def read_all_standardize_rule_files(config: Config) -> RuleFilesPayload:
 
 
 def load_units_standardization_rules(config: Config) -> LoadedStandardizeRules:
-    """Ensure the template exists, read + prepare the conversion rules (R ``load_units_...``)."""
+    """Ensure the template exists, read + prepare the conversion rules."""
     template_path = ensure_standardize_template_exists(config)
     payload = read_all_standardize_rule_files(config)
     prepared = prepare_standardize_rules(payload.rules)
@@ -222,8 +213,6 @@ def build_standardize_layer_audit(
     source_paths: tuple[str, ...],
 ) -> pl.DataFrame:
     """Merge prepared rules with matched-rule counts into the standardize audit table.
-
-    The Python port of R ``build_standardize_layer_audit``.
 
     Args:
         layer_rules_df: Prepared conversion rules.
@@ -274,7 +263,7 @@ def attach_standardize_diagnostics(
     rows_before_aggregation: int | None = None,
     rows_after_aggregation: int | None = None,
 ) -> StandardizeDiagnostics:
-    """Build the standardize-layer diagnostics (R ``attach_standardize_diagnostics``)."""
+    """Build the standardize-layer diagnostics."""
     audit_rows = [matched_count] if matched_count > 0 else []
     audit_df = pl.DataFrame(
         {"affected_rows": pl.Series("affected_rows", audit_rows, dtype=pl.Int64)}
@@ -313,8 +302,6 @@ def run_standardize_units_layer_batch(
     aggregate_after_standardize: bool = True,
 ) -> StandardizeLayerResult:
     """Run the standardize-units layer: load rules, apply, aggregate, build diagnostics + audit.
-
-    The Python port of R ``run_standardize_units_layer_batch``.
 
     Args:
         clean_df: The clean-layer dataset.

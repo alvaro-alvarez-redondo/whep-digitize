@@ -1,7 +1,5 @@
 r"""Postpro / diagnostics — standardize rule summaries.
 
-The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-standardize-summaries.R``:
-
 * :func:`build_standardize_rule_catalog` — standardize-layer rules → the standardize audit
   catalog (meaningful rows only, deduplicated);
 * :func:`summarize_standardize_rules` — normalize a standardize audit into the matched-rule
@@ -12,7 +10,7 @@ The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-standardize-
   when its normalized ``(commodity_key, unit_source)`` appears there (so an ``all commodity`` rule
   applied to any commodity is matched); otherwise the matched-rule summary keys are used.
 
-Null keys are folded to a sentinel before the anti-join to reproduce R ``merge`` NA-matching.
+Null keys are folded to a sentinel before the anti-join so null matches null.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ import polars as pl
 from whep_digitize.postpro.diagnostics.rule_summaries import _anti_join_null_safe
 from whep_digitize.setup.helpers.strings import normalize_string
 
-# R ``trimws()`` default whitespace class.
+# The whitespace class trimmed from values: space, tab, CR, LF.
 _R_TRIMWS = " \t\r\n"
 _STD_CHAR_COLUMNS = (
     "rule_file_identifier",
@@ -58,7 +56,7 @@ _STD_SUMMARY_SCHEMA: dict[str, type[pl.DataType]] = {c: _std_dtype(c) for c in _
 
 
 def _blank_to_null(column: str) -> pl.Expr:
-    """Cast to String and map a whitespace-only / empty value to null (R trim → NA)."""
+    """Cast to String and map a whitespace-only / empty value to null."""
     text = pl.col(column).cast(pl.String)
     return (
         pl.when(text.str.strip_chars(_R_TRIMWS).str.len_chars() == 0)
@@ -70,8 +68,6 @@ def _blank_to_null(column: str) -> pl.Expr:
 
 def build_standardize_rule_catalog(layer_rules_df: pl.DataFrame) -> pl.DataFrame:
     """Convert standardize-layer rules to the standardize audit catalog (deduplicated).
-
-    The Python port of R ``build_standardize_rule_catalog``.
 
     Args:
         layer_rules_df: The prepared standardize-layer rules.
@@ -109,8 +105,6 @@ def build_standardize_rule_catalog(layer_rules_df: pl.DataFrame) -> pl.DataFrame
 def summarize_standardize_rules(audit_df: pl.DataFrame) -> pl.DataFrame:
     """Normalize a standardize audit into the canonical matched-rule summary.
 
-    The Python port of R ``summarize_standardize_rules``.
-
     Args:
         audit_df: The standardize audit table.
 
@@ -140,7 +134,7 @@ def build_unmatched_standardize_rule_summary(
 ) -> pl.DataFrame:
     """Return the standardize rules that never matched, with ``affected_rows = 0``.
 
-    The Python port of R ``build_unmatched_standardize_rule_summary``, including the
+    the
     normalized-key counts branch.
 
     Args:

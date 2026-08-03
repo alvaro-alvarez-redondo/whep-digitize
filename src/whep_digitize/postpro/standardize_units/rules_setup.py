@@ -1,7 +1,7 @@
 """Postpro / standardize_units — conversion-rule preparation.
 
 The Python port of the rule-preparation half of
-``r/2-postpro_pipeline/24-standardize_units/24-rules-setup.R``: legacy-header aliasing, schema +
+legacy-header aliasing, schema +
 conversion validation (normalized-key dedupe, finite factor/offset, chained-rule guard), and
 materializing the numeric + normalized-key columns the engine joins on.
 
@@ -23,7 +23,7 @@ from whep_digitize.setup.helpers.strings import normalize_string
 _CONSTANTS = get_pipeline_constants()
 _ALL_COMMODITY = _CONSTANTS.postpro.standardization.all_commodity_key
 _REQUIRED_COLUMNS = _CONSTANTS.postpro.standardization.required_rule_columns
-# Legacy rule headers -> canonical names (R ``rename_mapping``; iteration order preserved).
+# Legacy rule headers -> canonical names.
 _LEGACY_ALIASES: dict[str, str] = {
     "commodity": "commodity_key",
     "source_unit": "unit_source",
@@ -41,8 +41,6 @@ def validate_rule_schema(
     rule_df: pl.DataFrame, required_columns: tuple[str, ...], rule_label: str
 ) -> None:
     """Assert every required column is present and free of missing values.
-
-    The Python port of R ``validate_rule_schema``.
 
     Args:
         rule_df: The rule table (at least one row).
@@ -73,7 +71,7 @@ def validate_rule_schema(
 def normalize_conversion_rule_columns(conversion_df: pl.DataFrame) -> pl.DataFrame:
     """Rename legacy conversion-rule headers to the canonical names.
 
-    The Python port of R ``normalize_conversion_rule_columns``: a legacy alias is renamed only
+    a legacy alias is renamed only
     when its canonical target is not already present; two aliases mapping to the same canonical
     column are rejected (they would create a duplicate-named column).
 
@@ -106,7 +104,7 @@ def normalize_conversion_rule_columns(conversion_df: pl.DataFrame) -> pl.DataFra
 def validate_conversion_rules(conversion_df: pl.DataFrame) -> None:
     """Validate the conversion-rule schema, key uniqueness, finiteness, and chained-rule guard.
 
-    The Python port of R ``validate_conversion_rules``. Uniqueness and chained detection use the
+    Uniqueness and chained detection use the
     **normalized** keys the engine joins on (so case/punctuation variants cannot slip through).
 
     Args:
@@ -163,7 +161,7 @@ def validate_conversion_rules(conversion_df: pl.DataFrame) -> None:
 def prepare_standardize_rules(raw_rules_df: pl.DataFrame) -> pl.DataFrame:
     """Normalize headers, validate, and materialize the engine's numeric + key columns.
 
-    The Python port of R ``prepare_standardize_rules``: adds ``unit_factor_num`` /
+    adds ``unit_factor_num`` /
     ``unit_offset_num`` (coerced) and ``commodity_match_key`` / ``unit_source_key`` (normalized).
 
     Args:

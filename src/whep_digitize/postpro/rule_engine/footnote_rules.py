@@ -1,11 +1,10 @@
 """Apply footnote-sourced rules with split / match / reconstruct semantics.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-footnote-rules.R``
-(``apply_footnote_rules``) — the hardest single module in the rule engine. For rules whose
+``apply_footnote_rules`` is the most intricate module in the rule engine. For rules whose
 ``column_source == "footnotes"`` it:
 
-1. splits each row's ``;``-delimited footnotes into long tokens (R ``strsplit`` semantics:
-   ``NA`` -> one ``NA`` token, ``""`` -> zero tokens, a trailing empty field is dropped);
+1. splits each row's ``;``-delimited footnotes into long tokens (null -> one null token,
+   ``""`` -> zero tokens, a single trailing empty field is dropped);
 2. cartesian-joins each footnote token to the rules on the source match key;
 3. for rules that target a data column, keeps the match only when the current target value also
    satisfies the rule's target condition;
@@ -18,7 +17,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-footnote-rul
    columns (``"footnotes"`` only when the footnote text actually changed, plus each mutated
    target column), and emits a per-rule audit table.
 
-R mutates ``dataset_df`` in place; this port is functional and returns the updated frame in
+``dataset_df`` is never mutated: the flow is functional and returns the updated frame in
 :class:`FootnoteRulesResult`.
 """
 
@@ -49,8 +48,8 @@ from whep_digitize.postpro.utilities.stage_definitions import (
 )
 from whep_digitize.setup.helpers.assertions import require
 
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class trimmed from values: space, tab, CR, LF.
+_TRIM_CHARS = " \t\r\n"
 _RULE_ORDER = "__whep_rule_order__"
 _MATCHED = "__whep_matched__"
 _AUDIT_KEY = (
@@ -64,10 +63,10 @@ _AUDIT_KEY = (
 
 @dataclass(frozen=True, slots=True)
 class FootnoteRulesResult:
-    """Result of applying footnote rules (R ``list(data, audit, ...)``).
+    """Result of applying footnote rules.
 
     Attributes:
-        data: The updated dataset (R mutated its argument in place; this port returns it).
+        data: The updated dataset (returned; the input frame is never mutated).
         audit: One row per applied rule effect (empty when nothing changed).
         overwrite_events: Last-rule-wins overwrite diagnostics from the target updates.
         changed_value_count: Total target + footnote-text cell changes.
@@ -81,30 +80,34 @@ class FootnoteRulesResult:
     changed_columns: tuple[str, ...]
 
 
-def _r_strsplit(cell: str | None) -> list[str | None]:
-    """Split ``cell`` on ``;`` with R ``strsplit(x, ";", fixed = TRUE)`` semantics."""
+def _split_footnote_cell(cell: str | None) -> list[str | None]:
+    """Split ``cell`` on ``;``: null -> one null token, ``""`` -> no tokens.
+
+    A single trailing empty field is dropped (``"a;"`` -> ``["a"]``); leading and internal
+    empties are kept (``";;"`` -> ``["", ""]``). See docs/pipeline-behaviors.md.
+    """
     if cell is None:
         return [None]
     if cell == "":
         return []
     parts: list[str | None] = list(cell.split(";"))
     if parts and parts[-1] == "":
-        parts = parts[:-1]  # R drops the trailing empty field
+        parts = parts[:-1]  # a single trailing empty field is dropped
     return parts
 
 
 def _explode_footnotes(footnotes: pl.Series) -> pl.DataFrame:
-    """Explode the footnotes column into one row per ``;`` token (R long format)."""
+    """Explode the footnotes column into one row per ``;`` token."""
     row_ids: list[int] = []
     raws: list[str | None] = []
     indices: list[int] = []
     tokens: list[str | None] = []
     for row_id, cell in enumerate(footnotes.to_list(), start=1):
-        for index, raw in enumerate(_r_strsplit(cell), start=1):
+        for index, raw in enumerate(_split_footnote_cell(cell), start=1):
             row_ids.append(row_id)
             raws.append(raw)
             indices.append(index)
-            stripped = None if raw is None else raw.strip(_R_TRIMWS_CHARS)
+            stripped = None if raw is None else raw.strip(_TRIM_CHARS)
             tokens.append(stripped if stripped else None)
     return pl.DataFrame(
         {
@@ -123,7 +126,7 @@ def _build_normalize_rules(
     target_value_column: str,
     footnote_normalization: bool,
 ) -> pl.DataFrame:
-    """Build the deduplicated, keyed footnote-rule table (R ``normalize_rules``)."""
+    """Build the deduplicated, keyed footnote-rule table."""
     value_source_raw = rules.get_column("value_source_raw")
     normalize_rules = pl.DataFrame(
         {
@@ -154,9 +157,7 @@ def _build_normalize_rules(
             decoded_target,
         )
         .with_columns(
-            pl.when(
-                pl.col("value_source_result").str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0
-            )
+            pl.when(pl.col("value_source_result").str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
             .then(pl.lit(None, dtype=pl.String))
             .otherwise(pl.col("value_source_result"))
             .alias("value_source_result")

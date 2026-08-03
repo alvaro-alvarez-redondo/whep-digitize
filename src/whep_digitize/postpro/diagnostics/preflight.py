@@ -1,6 +1,6 @@
 """Postpro / diagnostics — preflight checks.
 
-The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-preflight.R``: deterministic
+deterministic
 checks that the rule directories exist, the rule files follow the ``clean_`` / ``harmonize_``
 naming convention, and the dataset carries the expected columns — collected into a result and
 optionally asserted (aborting with the collected issues).
@@ -24,7 +24,7 @@ _DEFAULT_EXPECTED_COLUMNS = ("unit", "value", "commodity")
 
 @dataclass(frozen=True, slots=True)
 class PreflightResult:
-    """Result of :func:`collect_postpro_preflight` (R ``list(passed, issues, checks)``).
+    """Result of :func:`collect_postpro_preflight`.
 
     Attributes:
         passed: Whether every check passed (no issues).
@@ -54,8 +54,6 @@ def collect_postpro_preflight(
     expected_columns: Sequence[str] = _DEFAULT_EXPECTED_COLUMNS,
 ) -> PreflightResult:
     """Run the post-processing preflight checks.
-
-    The Python port of R ``collect_postpro_preflight``.
 
     Args:
         config: The resolved pipeline configuration.
@@ -109,8 +107,6 @@ def collect_postpro_preflight(
 
 def assert_postpro_preflight(preflight_result: PreflightResult) -> None:
     """Abort when preflight failed, listing the collected issues.
-
-    The Python port of R ``assert_postpro_preflight``.
 
     Args:
         preflight_result: The result from :func:`collect_postpro_preflight`.
