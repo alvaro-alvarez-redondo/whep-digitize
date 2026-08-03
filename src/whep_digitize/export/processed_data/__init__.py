@@ -1,11 +1,10 @@
-r"""Export / processed_data — ports ``r/3-export_pipeline/30-processed_data/``.
+r"""Export / processed_data — the processed-data TSV family.
 
-* :mod:`~whep_digitize.export.processed_data.layers` (``02-collect-layer-tables.R``) —
-  detect ``_raw`` / ``_clean`` / ``_normalize`` / ``_harmonize`` objects, excluding
-  ``_wide_raw`` and ``_post_processed``.
-* :mod:`~whep_digitize.export.processed_data.export` (``01`` + ``03`` + ``04``) — filter to
+* :mod:`~whep_digitize.export.processed_data.layers` — detect ``_raw`` / ``_clean`` /
+  ``_normalize`` / ``_harmonize`` objects, excluding ``_wide_raw`` and ``_post_processed``.
+* :mod:`~whep_digitize.export.processed_data.export` — filter to
   ``config.export_config.export_layers`` (default ``harmonize``), build ``{stem}.tsv`` paths,
-  and write byte-for-byte like ``data.table::fwrite(sep = "\t")``.
+  and write them tab-separated under a fixed byte-level contract.
 """
 
 from __future__ import annotations

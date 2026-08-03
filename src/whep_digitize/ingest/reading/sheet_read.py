@@ -1,27 +1,25 @@
-"""Sheet-level reading — the Python port of ``11-sheet-read.R``.
+"""Sheet-level reading.
 
-Reads each worksheet all-as-text (``pl.read_excel(engine="calamine", infer_schema_length=0)``
-— the readxl ``col_types="text"`` analogue), normalizes and canonically renames the headers,
-drops rows empty across every base column, and tags each surviving row with the sheet name as
-the ``variable`` column. Sheets are row-bound with a diagonal concat (R ``rbindlist(use.names,
-fill)``).
+Reads each worksheet all-as-text (``pl.read_excel(engine="calamine", infer_schema_length=0)``),
+normalizes and canonically renames the headers, drops rows empty across every base column, and
+tags each surviving row with the sheet name as the ``variable`` column. Sheets are row-bound
+with a diagonal concat, so a sheet contributing extra columns still binds (missing values null).
 
-Parity note 1: readxl and calamine disagree on trailing/blank source rows (readxl keeps them,
-calamine drops them), but the base-column non-empty filter removes exactly those rows, so the
-filtered output is byte-identical (verified on the corpus — see the parity test).
+Note 1 (trailing blank rows): calamine drops trailing/blank source rows instead of surfacing
+them as all-null rows. That cannot affect the output, because the base-column non-empty filter
+below removes exactly those rows anyway — which is what makes the filtered frame stable no
+matter how the reader treats sheet padding (covered by the reading tests on the fixture corpus).
 
-Parity note 2 (float precision): calamine's own text coercion **rounds** a stored double to
-about 12 significant digits, while readxl renders the shortest string that round-trips it. A
-cell holding ``0.09999999999999964`` therefore reached the pipeline as ``"0.1"``, and a later
-``*1000`` unit standardization turned an R ``99.9999999999996`` into a Python ``100``. Each
-sheet is consequently read **twice** — once all-as-text, once with dtype inference — and
+Note 2 (float precision): calamine's own text coercion **rounds** a stored double to about 12
+significant digits rather than rendering the shortest string that round-trips it. A cell holding
+``0.09999999999999964`` therefore reached the pipeline as ``"0.1"``, and a later ``*1000`` unit
+standardization turned ``99.9999999999996`` into ``100``. Each sheet is consequently read
+**twice** — once all-as-text, once with dtype inference — and
 :func:`restore_numeric_text_precision` rewrites only those text cells that do not round-trip to
 the exact stored number. Every other cell is passed through verbatim, so the repair cannot move
 a value the text read already got right. Residual limitation: a column holding *both* text and
 numbers infers as ``String``, so its numeric cells keep calamine's rounded text — recovering
 those would need a reader that exposes per-cell types.
-
-R source: ``r/1-import_pipeline/11-reading/11-sheet-read.R``.
 """
 
 from __future__ import annotations
@@ -67,10 +65,10 @@ def _quiet_dtype_inference() -> Iterator[None]:
 
 
 def _shortest_round_trip_text(value: float | int) -> str:
-    """Render a number as the shortest string that parses back to it (the readxl rendering).
+    """Render a number as the shortest string that parses back to it.
 
-    Integral doubles lose the ``.0`` (``30.0`` -> ``"30"``), which is what both readxl and
-    calamine emit for a whole-number cell.
+    Integral doubles lose the ``.0`` (``30.0`` -> ``"30"``), which is what calamine emits for a
+    whole-number cell, so a repaired cell stays textually consistent with an unrepaired one.
 
     Args:
         value: The exact number read from the cell.
@@ -89,8 +87,7 @@ def restore_numeric_text_precision(text_df: pl.DataFrame, typed_df: pl.DataFrame
 
     For every numeric column of ``typed_df``, a text cell is rewritten only when it fails to
     parse back to the exact stored number — so a cell calamine rendered faithfully is passed
-    through byte-for-byte and the R goldens are unaffected. The rewrite uses the shortest
-    round-tripping rendering, which is what readxl's ``col_types = "text"`` produces.
+    through byte-for-byte. The rewrite uses the shortest round-tripping rendering.
 
     Args:
         text_df: The all-as-text read (the frame the pipeline uses).
@@ -149,8 +146,8 @@ def _read_sheet_text(file_path: Path | str, sheet_name: str) -> pl.DataFrame:
 def compute_non_empty_base_rows(frame: pl.DataFrame, base_cols: Sequence[str]) -> pl.Series:
     """Boolean mask of rows with a non-null, non-blank value in at least one base column.
 
-    Mirrors R ``compute_non_empty_base_rows``: ``Reduce(|, !is.na(v) & trimws(v) != "")`` over
-    the base columns. With no base columns every row is dropped (R ``logical(nrow)``).
+    A row is kept when at least one base column is non-null and still non-blank after trimming.
+    With no base columns the mask is all-``False``, so every row is dropped.
 
     Args:
         frame: The frame to evaluate (base columns must be present and String-typed).
@@ -225,7 +222,7 @@ def read_excel_sheet(file_path: Path | str, sheet_name: str, config: Config) -> 
 
     keep_mask = compute_non_empty_base_rows(read_df, base_cols)
     filtered = read_df.filter(keep_mask)
-    # R `filtered_df[, variable := sheet_name]`: overwrite in place if present, else append.
+    # `variable` overwrites an existing column of that name, otherwise it is appended.
     filtered = filtered.with_columns(pl.lit(sheet_name, dtype=pl.String).alias("variable"))
     return ReadResult(data=filtered, errors=errors)
 
@@ -241,9 +238,9 @@ def read_file_sheets(
         sheet_names: Optional explicit sheet names; when ``None`` they are discovered.
 
     Returns:
-        A :class:`ReadResult` whose data is the diagonal concat of every sheet's rows (R
-        ``rbindlist(use.names = TRUE, fill = TRUE)``), with a non-ASCII-sheet-name warning and
-        each sheet's errors collected.
+        A :class:`ReadResult` whose data is the diagonal concat of every sheet's rows (union of
+        columns, missing values null), with a non-ASCII-sheet-name warning and each sheet's
+        errors collected.
     """
     require(len(str(file_path)) >= 1, "file_path must be a non-empty path")
     require(len(config.column_required) >= 1, "config.column_required must be non-empty")

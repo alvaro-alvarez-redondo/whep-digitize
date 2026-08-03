@@ -1,28 +1,23 @@
-"""Centralized pipeline constants — the Python port of ``get_pipeline_constants()``.
+"""Centralized pipeline constants, reached through :func:`get_pipeline_constants`.
 
 This module is the single source of truth for every literal the pipeline depends on
 (regex patterns, column groups, canonical ordering, post-processing rule settings,
-performance thresholds, path names, defaults). It mirrors
-``r/0-general_pipeline/01-setup/01-constants.R``.
+performance thresholds, path names, defaults).
 
-Design notes (Python-native divergences from the R original, all deliberate):
+Design notes:
 
 * Constants are immutable nested :func:`dataclasses.dataclass` (``frozen=True``);
   sequences are tuples and mappings are :class:`types.MappingProxyType`. This enforces
-  the R contract "treat constants as immutable" at the type level.
-* :func:`get_pipeline_constants` is memoized with :func:`functools.lru_cache`, mirroring
-  the R global cache (``.pipeline_constants_cache``).
+  the "treat constants as immutable" contract at the type level.
+* :func:`get_pipeline_constants` is memoized with :func:`functools.lru_cache`, so the
+  constant set is built once per process and shared by every caller.
 * Transliteration is not stored as a constant — it is implemented in
   :mod:`whep_digitize.setup.helpers.strings` as the normalization policy's NFD diacritic
-  strip (deliberately not R's ICU ``Latin-ASCII``). See the note in
-  ``.claude/docs/r-to-python-mapping.md``.
-* R runtime-only constants are dropped: source-time auto-run option names (Python uses
-  explicit calls), the declared R-package list (``uv`` owns dependencies), and the ANSI
-  progress palette (``rich`` handles theming).
-* The R ``export_config$data_suffix = ".xlsx"`` was dead code (processed export always
-  wrote ``.tsv``); it is renamed :attr:`ExportConfig.processed_suffix` = ``".tsv"`` to
-  reflect actual behavior. Likewise the R ``config$defaults`` / ``constants$defaults``
-  name collision is removed — all operational defaults live in :class:`Defaults`.
+  strip.
+* Dependency declarations belong to ``pyproject.toml`` (``uv`` owns them) and progress
+  theming is left to ``rich``, so neither has a constant here.
+* :attr:`ExportConfig.processed_suffix` is ``".tsv"`` — the extension the processed export
+  actually writes. All operational defaults live in the single :class:`Defaults` group.
 """
 
 from __future__ import annotations
@@ -71,12 +66,12 @@ class Patterns:
     header_normalize_fast_path: str = r"^[a-z0-9](?:[a-z0-9/_-]*[a-z0-9])?$"
     year_column: str = r"^\d{4}(-\d{4})?$"
     yearbook_token_4digit: str = r"^\d{4}$"
-    # Audit numeric-string validator (20-audit-validation.R). Deliberately stricter than the
-    # float parser: rejects negatives / scientific / signs, so "-3.5" is flagged yet parses
-    # (parity risk #8).
+    # Audit numeric-string validator. Deliberately stricter than the float parser: rejects
+    # negatives / scientific notation / signs, so "-3.5" is flagged by the audit even though
+    # it parses fine.
     audit_numeric_string: str = r"^[0-9]+(\.[0-9]+)?$"
     # Leading numeric multiplier in a unit string ("1000 head"): group 1 = the number (digits,
-    # dots/commas, optional exponent), group 2 = the base unit (24-standardize-engine.R, risk #9).
+    # dots/commas, optional exponent), group 2 = the base unit.
     standardize_multiplier_prefix: str = r"^(\s*[0-9][0-9.,]*(?:[eE][+-]?[0-9]+)?)[ _-]+(.+)$"
     footnote_non_alnum: str = r"[^a-z0-9 ;/*().,#%:-]+"
     file_extension: str = r"\.[a-z0-9]+$"
@@ -87,7 +82,7 @@ class HeaderNormalization:
     """Header-canonicalization replacements and the source->canonical alias map."""
 
     whitespace_replacement: str = " "
-    # R used the ``$1`` backreference; Python ``re`` uses ``\1``.
+    # Backreference to group 1, in Python ``re`` replacement syntax.
     separator_replacement: str = r"\1"
     non_alnum_replacement: str = "_"
     trim_underscore_replacement: str = ""
@@ -119,7 +114,7 @@ class Defaults:
     list_blank_label: str = "(blank)"
     unknown_filename: str = "unknown"
     value_column: str = "value"
-    # R ``config$defaults$notes_value = NA_character_`` -> Python None.
+    # The default ``notes`` value is "no note at all", i.e. null.
     notes_value: str | None = None
 
 
@@ -140,7 +135,7 @@ class ObjectNames:
 
 @dataclass(frozen=True, slots=True)
 class Columns:
-    """Column-role groups. ``id_vars`` (R ``columns$id``) is the wide->long melt id set."""
+    """Column-role groups. ``id_vars`` is the identifier set of the wide->long reshape."""
 
     base: tuple[str, ...] = ("continent", "polity", "unit", "footnotes")
     id_vars: tuple[str, ...] = (
@@ -206,9 +201,9 @@ class PathNames:
 class Checkpoints:
     """Crash-recovery checkpoint settings (opt-in via ``RuntimeOptions.checkpointing_enabled``).
 
-    Only the import stage checkpoints, matching R (``run_import_pipeline`` is the sole caller of
-    ``load/save_pipeline_checkpoint``). The R files were ``.rds``; the port writes Parquet for
-    frames and pickle for composite results such as :class:`~whep_digitize.contracts.ImportResult`.
+    Only the import stage checkpoints: :func:`~whep_digitize.ingest.runner.run_import_pipeline`
+    is the sole caller of the save/load helpers. Frames are written as Parquet and composite
+    results such as :class:`~whep_digitize.contracts.ImportResult` as pickle.
     """
 
     import_stage_name: str = "import_pipeline"
@@ -220,9 +215,9 @@ class Checkpoints:
 
 @dataclass(frozen=True, slots=True)
 class Tokens:
-    """Filename token-parsing constants. ``commodity_start_index`` is 1-based (R)."""
+    """Filename token-parsing constants. ``commodity_start_index`` is 1-based."""
 
-    # R uses parts[7:] (1-based). Python slicing subtracts 1: parts[commodity_start_index-1:].
+    # 1-based, so Python slicing subtracts 1: parts[commodity_start_index - 1 :].
     commodity_start_index: int = 7
 
 
@@ -282,7 +277,7 @@ class MultiPass:
 class RuntimeCache:
     """Rule-payload bundle disk+memory cache (disabled by default).
 
-    The R cache used ``.rds``; the Python port uses ``.parquet`` for portability.
+    The on-disk cache file is ``.parquet`` for portability.
     """
 
     enabled: bool = False
@@ -330,7 +325,7 @@ class Postpro:
     standardize_audit_file_name: str = "standardize_audit.xlsx"
     last_rule_wins_overwrites_file_name: str = "postpro_last_rule_wins_overwrites.xlsx"
     rule_match_wildcard_token: str = "__ANY__"
-    # The 6 canonical rule columns (R get_canonical_rule_columns()); value_source optional.
+    # The 6 canonical rule columns; value_source is optional.
     canonical_rule_columns: tuple[str, ...] = (
         "column_source",
         "value_source_raw",
@@ -339,7 +334,7 @@ class Postpro:
         "value_target_raw",
         "value_target",
     )
-    # Unified source/target result-value columns (R get_stage_{source,target}_value_column()).
+    # Unified source/target result-value column names, shared by every rule stage.
     stage_source_value_column: str = "value_source"
     stage_target_value_column: str = "value_target"
     stage_names: tuple[str, ...] = ("clean", "harmonize")
@@ -354,7 +349,7 @@ class Postpro:
 
 @dataclass(frozen=True, slots=True)
 class ErrorHighlightStyle:
-    """Excel style for invalid audit cells (mirrors the R openxlsx style)."""
+    """Excel style applied to invalid audit cells."""
 
     fg_fill: str = "#FFB84D"
     font_colour: str = "#000000"
@@ -372,7 +367,7 @@ class ExportConfig:
     lists_to_export: tuple[str, ...] = FIXED_EXPORT_COLUMNS
     lists_workbook_name: str = "whep_unique_lists_raw"
     export_layers: tuple[str, ...] = ("harmonize",)
-    # R export_config$data_suffix=".xlsx" was dead; processed export writes .tsv.
+    # The processed export writes .tsv, not a workbook.
     processed_suffix: str = ".tsv"
     error_highlight: ErrorHighlightStyle = field(default_factory=ErrorHighlightStyle)
 
@@ -469,8 +464,8 @@ class Constants:
 def get_pipeline_constants() -> Constants:
     """Return the cached, immutable pipeline constants.
 
-    Mirrors the R ``get_pipeline_constants()`` global cache: the :class:`Constants`
-    instance is built once and reused. Treat the result as immutable (it is frozen).
+    The :class:`Constants` instance is built once per process and reused by every caller.
+    Treat the result as immutable (it is frozen).
 
     Returns:
         The singleton :class:`Constants` instance.

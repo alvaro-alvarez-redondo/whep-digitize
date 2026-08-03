@@ -1,22 +1,16 @@
-"""Stage 2 runner — the Python port of ``run_postpro_pipeline.R``.
+"""Stage 2 runner.
 
-Runs the deterministic 9-step post-processing orchestration (R
-``run_postpro_pipeline_batch``): audit the raw import frame, resolve the audit output roots,
-generate the rule templates, collect + assert the preflight checks, then run the clean →
-standardize-units → harmonize layers (each sorted to the canonical row order), and finally
-persist the per-stage audit workbooks. Returns a typed
+Runs the deterministic 9-step post-processing orchestration: audit the raw import frame, resolve
+the audit output roots, generate the rule templates, collect + assert the preflight checks, then
+run the clean → standardize-units → harmonize layers (each sorted to the canonical row order),
+and finally persist the per-stage audit workbooks. Returns a typed
 :class:`~whep_digitize.contracts.PostproResult` carrying the clean / normalize / harmonize
-frames and the aggregate diagnostics (R attached ``clean`` / ``normalize`` and the
-``pipeline_diagnostics`` list as ``data.table`` attributes of the harmonized table).
+frames and the aggregate diagnostics.
 
-Divergences from R (documented, output-preserving): R auto-sources its stage scripts and
-auto-runs on source — Python calls the ported functions directly. R's ``progressr`` nine hard
-``progress()`` ticks are reproduced with a gated :func:`stage_progress` bar (the per-pass pulses
-are dropped — cosmetic only). The R diagnostics ``outputs`` list nested the persisted audit paths
-under ``audit_output_path``; the typed contract's flat ``Mapping[str, Path]`` lifts those four
-paths to the top level alongside the resolved directories, the template, and the data-audit path.
-
-R source: ``r/2-postpro_pipeline/run_postpro_pipeline.R``.
+Progress reporting emits nine hard ticks through a gated :func:`stage_progress` bar — one per
+orchestration step, with no per-pass pulses. The diagnostics ``outputs`` mapping is flat: the
+four persisted audit paths sit at the top level alongside the resolved directories, the
+template, and the data-audit path.
 """
 
 from __future__ import annotations
@@ -63,18 +57,17 @@ def run_postpro_pipeline(
 ) -> PostproResult:
     """Audit, clean, standardize units, and harmonize the raw import frame.
 
-    The Python port of R ``run_postpro_pipeline_batch`` — the nine deterministic steps:
-    audit → resolve output roots → templates → collect preflight → assert preflight → clean →
-    standardize → harmonize → persist. Each layer frame is sorted to the canonical row order
-    (R ``sort_pipeline_stage_df``) before feeding the next stage.
+    The nine deterministic steps: audit → resolve output roots → templates → collect preflight →
+    assert preflight → clean → standardize → harmonize → persist. Each layer frame is sorted to
+    the canonical row order by :func:`sort_pipeline_stage_df` before feeding the next stage.
 
     Args:
         raw: The raw long frame from the ingest stage.
         config: The resolved pipeline configuration.
-        dataset_name: Dataset identifier for audit/event metadata; defaults to the constant
-            default (R ``get_pipeline_constants()$dataset_default_name``) when ``None``.
-        options: Runtime options; accepted for cross-stage signature parity (the R
-            post-processing stage takes no options and reads its controls from ``config``).
+        dataset_name: Dataset identifier for audit/event metadata; defaults to
+            ``get_pipeline_constants().dataset_default_name`` when ``None``.
+        options: Runtime options; accepted for a uniform cross-stage signature. This stage takes
+            no options of its own and reads every control from ``config``.
 
     Returns:
         A :class:`PostproResult` with the harmonized / clean / normalize frames and the
@@ -92,7 +85,7 @@ def run_postpro_pipeline(
         progress.step(_MESSAGES["audit"])
         audited = audit_data_output(raw, config).audited
 
-        # 2. resolve the audit output roots (the tree is created by step 3, mirroring R).
+        # 2. resolve the audit output roots (the directory tree itself is created by step 3).
         progress.step(_MESSAGES["init_dirs"])
         audit_paths = get_postpro_output_paths(config)
 
@@ -167,7 +160,7 @@ def _build_output_paths(
     persisted_paths: dict[str, Path],
     config: Config,
 ) -> dict[str, Path]:
-    """Assemble the flat diagnostics ``outputs`` mapping (R ``diagnostics$outputs``)."""
+    """Assemble the flat diagnostics ``outputs`` path mapping."""
     return {
         **persisted_paths,
         "audit_root_dir": audit_paths.audit_root_dir,

@@ -21,16 +21,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_frame_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.conditional_group import (
     ConditionalGroupResult,
     apply_conditional_rule_group,
 )
 
-_SPEC = CAPTURES["conditional_group"]
+_SPEC = GOLDENS["conditional_group"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

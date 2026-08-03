@@ -1,13 +1,11 @@
-r"""Unique-list cache, workbook write, and orchestration (ports ``04-cache-and-write.R``).
+r"""Unique-list cache, workbook write, and orchestration.
 
 Precomputes per-(layer, column) unique values, then writes one ``unique_<column>.xlsx`` workbook
 per configured column. Each workbook has one sheet per distinct layer value-set (identical layers
-merged, e.g. ``raw_clean_normalize_harmonize``), no header row, one value per row — matching R
-``writexl::write_xlsx(sheet_payloads, col_names = FALSE)``.
+merged, e.g. ``raw_clean_normalize_harmonize``), no header row, one value per row.
 
-Parallelism note: R writes workbooks in parallel only when a non-default ``future`` plan is set;
-the pipeline's default plan is sequential, so this port defaults to sequential (deterministic).
-When ``RuntimeOptions.export_parallel_workers`` requests it, the per-column workbooks are written
+Parallelism note: workbook writes are sequential by default. When
+``RuntimeOptions.export_parallel_workers`` requests it, the per-column workbooks are written
 across a :class:`~concurrent.futures.ProcessPoolExecutor` — deterministically: the workbooks are
 independent files and ``executor.map`` preserves submission order, so the returned mapping and
 every file's bytes are identical to the sequential path regardless of the worker count (with a
@@ -48,8 +46,8 @@ from whep_digitize.setup.options import RuntimeOptions
 # 31-char sheet-name limit (``raw_clean_normalize_harmonize`` is 29).
 _UniqueCache = dict[str, dict[str, list[str]]]
 
-# "spawn" for worker parity with the ingest pool (a fresh interpreter per worker; the default on
-# Windows/macOS). Workbook writes are independent, so this only parallelizes the file IO.
+# "spawn" to match the ingest pool: a fresh interpreter per worker, the default on Windows/macOS.
+# Workbook writes are independent, so this only parallelizes the file IO.
 _MP_SPAWN_CONTEXT = multiprocessing.get_context("spawn")
 
 # xlsxwriter stamps the wall-clock time into ``docProps/core.xml`` (created/modified) and the zip
@@ -63,8 +61,8 @@ def build_column_unique_cache(
 ) -> _UniqueCache:
     """Precompute unique values for every ``(layer, column)`` pair.
 
-    Ports R ``build_column_unique_cache``. Only the given columns are computed (the caller passes
-    the resolved export columns, so the high-cardinality ``value`` column is never summarized).
+    Only the given columns are computed (the caller passes the resolved export columns, so the
+    high-cardinality ``value`` column is never summarized).
 
     Args:
         layer_by_sheet: Layer frames keyed by sheet label.
@@ -88,9 +86,8 @@ def write_column_lists_workbook(
 ) -> Path:
     """Write one column's ``unique_<column>.xlsx`` with merged deterministic layer sheets.
 
-    Ports R ``write_column_lists_workbook``. All-equal layers collapse to a single
-    ``raw_clean_normalize_harmonize`` sheet; partially equal layers merge into concatenated
-    names. Sheets have no header and one value per row.
+    All-equal layers collapse to a single ``raw_clean_normalize_harmonize`` sheet; partially equal
+    layers merge into concatenated names. Sheets have no header and one value per row.
 
     Args:
         column_name: The column to write.
@@ -125,9 +122,9 @@ def export_lists(
 ) -> dict[str, Path]:
     """Export one ``unique_<column>.xlsx`` workbook per configured, present column.
 
-    Ports R ``export_lists``. Detects the layer tables, groups them by sheet, resolves the
-    configured export columns present across layers, guards against two columns normalizing to
-    the same filename, and writes each workbook. Writes run sequentially by default; when
+    Detects the layer tables, groups them by sheet, resolves the configured export columns
+    present across layers, guards against two columns normalizing to the same filename, and
+    writes each workbook. Writes run sequentially by default; when
     ``options.export_parallel_workers`` requests more than one worker they run across a
     ``ProcessPoolExecutor`` in a deterministic, order-preserving way (identical output either way).
 
@@ -217,7 +214,7 @@ def _export_lists_parallel(
 
 
 def _write_lists_workbook(path: Path, sheet_payloads: Mapping[str, Sequence[str]]) -> None:
-    """Write a no-header, one-value-per-row multi-sheet workbook (R ``write_xlsx`` equivalent).
+    """Write a no-header, one-value-per-row multi-sheet workbook.
 
     The ``created`` property is pinned to :data:`_WORKBOOK_EPOCH` so repeated runs over the same
     data produce byte-identical files (xlsxwriter would otherwise embed the current time).

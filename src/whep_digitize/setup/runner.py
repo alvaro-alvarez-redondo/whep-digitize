@@ -1,9 +1,9 @@
-"""Stage 0 runner — the Python port of ``run_general_pipeline.R``.
+"""Stage 0 runner — bootstraps a pipeline run.
 
 Builds the per-run configuration and creates the required directory tree, returning the
-:class:`~whep_digitize.setup.config.Config` the downstream stages consume. Unlike the R
-version there is no dependency check/install step — ``uv`` + ``pyproject.toml`` own the
-environment, and importing this package cannot succeed without its dependencies.
+:class:`~whep_digitize.setup.config.Config` the downstream stages consume. There is no
+dependency check/install step — ``uv`` + ``pyproject.toml`` own the environment, and
+importing this package cannot succeed without its dependencies.
 """
 
 from __future__ import annotations

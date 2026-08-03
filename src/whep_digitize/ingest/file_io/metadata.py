@@ -1,4 +1,4 @@
-"""File-name metadata extraction — the Python port of ``10-metadata.R``.
+"""File-name metadata extraction.
 
 Parses the WHEP positional file-name convention into ``yearbook`` and ``commodity``
 tokens, flags non-ASCII file names, and returns a typed metadata frame. The positional
@@ -6,9 +6,6 @@ parsing is delegated to :mod:`whep_digitize.setup.helpers.tokens` (``yearbook`` 
 second token joined to the first 4-digit token; ``commodity`` = tokens 7 onward with the
 extension stripped from the last one) so discovery and any future caller share one
 convention.
-
-R source: ``r/1-import_pipeline/10-file_io/10-metadata.R``
-(``extract_file_metadata``, ``build_empty_file_metadata``).
 """
 
 from __future__ import annotations
@@ -22,9 +19,9 @@ from whep_digitize.setup.helpers.assertions import require
 from whep_digitize.setup.helpers.tokens import extract_commodity, extract_yearbook
 
 # Column order + dtypes shared by build_empty_file_metadata and extract_file_metadata so
-# the two frames are identical in shape (mirrors the R data.table: five character columns
-# plus the logical is_ascii). Declared as a schema so all-null token columns still land as
-# String rather than being inferred as Null.
+# the two frames are identical in shape (five String columns plus the Boolean is_ascii).
+# Declared as a schema so all-null token columns still land as String rather than being
+# inferred as Null.
 _METADATA_SCHEMA = pl.Schema(
     {
         "file_path": pl.String(),
@@ -42,9 +39,9 @@ _NON_ASCII_MESSAGE_PREFIX = "non-ascii file name detected: "
 def build_empty_file_metadata() -> pl.DataFrame:
     """Return a zero-row file-metadata frame with the canonical schema.
 
-    The empty-result analogue of :func:`extract_file_metadata`, returned by
+    The empty-result counterpart of :func:`extract_file_metadata`, returned by
     :func:`~whep_digitize.ingest.file_io.discovery.discover_files` when an import folder
-    holds no workbooks (R ``build_empty_file_metadata``).
+    holds no workbooks.
 
     Returns:
         An empty :class:`polars.DataFrame` with columns ``file_path``, ``file_name``,
@@ -59,8 +56,7 @@ def extract_file_metadata(file_paths: Sequence[str]) -> pl.DataFrame:
     For each path the base file name is parsed positionally into ``yearbook`` and
     ``commodity`` (see :mod:`whep_digitize.setup.helpers.tokens`), checked for ASCII
     encoding, and — when non-ASCII — annotated with an ``error_message``. ``file_path`` is
-    retained verbatim (R ``as.character(file_paths)``); tokens that cannot be formed are
-    ``None`` (R ``NA_character_``).
+    retained verbatim; tokens that cannot be formed are ``None``.
 
     Args:
         file_paths: One or more file paths (typically the forward-slash output of
@@ -71,7 +67,7 @@ def extract_file_metadata(file_paths: Sequence[str]) -> pl.DataFrame:
         one row per input path in input order.
 
     Raises:
-        ValidationError: If ``file_paths`` is empty (R ``checkmate`` ``min.len = 1``).
+        ValidationError: If ``file_paths`` is empty.
     """
     require(len(file_paths) >= 1, "file_paths must contain at least one path")
 

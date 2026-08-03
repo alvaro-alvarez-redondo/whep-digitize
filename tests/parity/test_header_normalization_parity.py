@@ -19,8 +19,7 @@ import json
 from collections.abc import Mapping
 
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.ingest.reading.header_normalization import (
     normalize_header_names,
@@ -28,7 +27,7 @@ from whep_digitize.ingest.reading.header_normalization import (
     validate_header_normalization,
 )
 
-_SPEC = CAPTURES["header_normalization"]
+_SPEC = GOLDENS["header_normalization"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

@@ -1,12 +1,10 @@
-"""Runtime options — the Python port of the ``whep.*`` R option flags.
+"""Runtime options — the per-run behavior toggles.
 
-In R, behavior is toggled through ``options(whep.* = ...)`` read at call sites. In Python
-these become a :class:`RuntimeOptions` settings object, overridable via ``WHEP_*``
-environment variables (e.g. ``WHEP_DROP_NA_VALUES=false``).
+Behavior is toggled through the :class:`RuntimeOptions` settings object, overridable via
+``WHEP_*`` environment variables (e.g. ``WHEP_DROP_NA_VALUES=false``).
 
-Deliberate divergence: the R ``whep.run_*_pipeline.auto`` flags exist only because
-sourcing an R file auto-executes it. Python modules have no import-time side effects, so
-those flags are dropped — stages are invoked by explicit function calls.
+There is no "auto-run on import" toggle: modules have no import-time side effects, and
+every stage is invoked by an explicit function call.
 """
 
 from __future__ import annotations
@@ -21,19 +19,17 @@ class RuntimeOptions(BaseSettings):
 
     Attributes:
         drop_na_values: Drop rows whose ``value`` is null during import
-            (R ``whep.drop_na_values``, default ``True``).
+            (default ``True``).
         progress_enabled: Show the ``rich`` progress display
-            (R ``whep.progress.enabled``, default ``True``).
+            (default ``True``).
         checkpointing_enabled: Persist per-stage checkpoints for crash recovery
-            (R ``whep.checkpointing.enabled``, default ``False``).
+            (default ``False``).
         import_parallel_workers: Worker count for parallel import; ``"auto"`` resolves
-            to ``min(auto_max, cpu_count - 1)`` and ``1`` forces sequential
-            (R ``whep.import.parallel_workers``).
+            to ``min(auto_max, cpu_count - 1)`` and ``1`` forces sequential.
         export_parallel_workers: Worker count for the per-column unique-list workbook writes;
             ``1`` (default) forces sequential, ``"auto"`` / ``N > 1`` write across a
             ``ProcessPoolExecutor`` (deterministic — the workbooks are independent). Sequential
-            by default because R's default ``future`` plan is sequential and the workbooks are
-            small.
+            by default because the workbooks are small, so the process pool rarely pays off.
     """
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(

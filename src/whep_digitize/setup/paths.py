@@ -1,9 +1,8 @@
-"""Project-root resolution — the Python equivalent of R's ``here::here()``.
+"""Project-root resolution.
 
-``here::here()`` anchors all pipeline paths at the project root (identified by a marker
-such as ``.git`` or a project file). This module reproduces that behavior so ``data/``
-is always resolved relative to the repository root, independent of the current working
-directory.
+Every pipeline path is anchored at the project root, identified by a marker such as
+``pyproject.toml`` or ``.git``, so ``data/`` is always resolved relative to the repository
+root, independent of the current working directory.
 """
 
 from __future__ import annotations

@@ -17,15 +17,14 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.ingest.reading.read_utils import ReadResult
 from whep_digitize.ingest.reading.sheet_read import read_excel_sheet
 from whep_digitize.setup.config import load_pipeline_config
 
-_SPEC = CAPTURES["sheet_read"]
+_SPEC = GOLDENS["sheet_read"]
 _CORPUS_REL = "corpus/fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx"
 
 # Golden export key -> the frame column it captured (year columns get filesystem-safe keys).

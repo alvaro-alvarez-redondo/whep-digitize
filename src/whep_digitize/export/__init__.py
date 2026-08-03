@@ -1,4 +1,4 @@
-"""Stage 3 — export (ports ``r/3-export_pipeline/``).
+"""Stage 3 — export.
 
 Writes processed-data TSVs (only the ``harmonize`` layer by default) and per-column
 unique-value list workbooks. Public entry point:

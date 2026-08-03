@@ -1,15 +1,12 @@
-"""Read-result plumbing — the Python port of ``11-read-utils.R``.
+"""Read-result plumbing.
 
-The R reading stage threads everything through a ``list(data, errors)`` (or
-``list(result, errors)``) so a bad sheet or file *collects* an error and contributes empty
-data instead of aborting the run. This module provides the typed equivalents —
-:class:`ReadResult` (``data`` + ``errors``) and :class:`SafeReadResult` (``result`` +
-``errors``) — plus the safe-execution wrapper and the error/merge helpers.
+The reading stage threads every outcome through a data-plus-errors pair so a bad sheet or
+file *collects* an error and contributes empty data instead of aborting the run. This module
+provides the typed carriers — :class:`ReadResult` (``data`` + ``errors``) and
+:class:`SafeReadResult` (``result`` + ``errors``) — plus the safe-execution wrapper and the
+error/merge helpers.
 
-Error messages are deterministic strings; R's ``cli::format_error`` box formatting is not
-reproduced (errors follow the Python messaging convention — see ``r-to-python-mapping.md``).
-
-R source: ``r/1-import_pipeline/11-reading/11-read-utils.R``.
+Error messages are deterministic single-line strings.
 """
 
 from __future__ import annotations
@@ -41,7 +38,7 @@ class SafeReadResult(Generic[_T]):
 
 
 def build_read_error(context_message: str, file_path: str, details: str) -> str:
-    """Format a contextual read-error message (R ``build_read_error``).
+    """Format a contextual read-error message.
 
     Args:
         context_message: What was being attempted.
@@ -60,8 +57,7 @@ def safe_execute_read(
 ) -> SafeReadResult[_T]:
     """Run ``operation``, capturing any exception as a formatted read error.
 
-    The Python analogue of R ``safe_execute_read``'s ``tryCatch``: read failures are
-    collected, not raised, so the pipeline degrades gracefully.
+    Read failures are collected, not raised, so the pipeline degrades gracefully.
 
     Args:
         operation: The zero-argument read to attempt.
@@ -80,21 +76,21 @@ def safe_execute_read(
 
 
 def create_empty_read_result(errors: Sequence[str] = ()) -> ReadResult:
-    """Return an empty (0x0) read result with optional errors (R ``create_empty_read_result``)."""
+    """Return an empty (0x0) read result with optional errors."""
     return ReadResult(data=pl.DataFrame(), errors=tuple(errors))
 
 
 def has_read_errors(read_result: ReadResult | SafeReadResult[Any]) -> bool:
-    """Whether a read or safe result carries any error (R ``has_read_errors``)."""
+    """Whether a read or safe result carries any error."""
     return len(read_result.errors) > 0
 
 
 def normalize_pipeline_read_result(safe_result: SafeReadResult[ReadResult]) -> ReadResult:
     """Flatten a safe-execution result whose payload is a :class:`ReadResult`, merging errors.
 
-    Mirrors R ``normalize_pipeline_read_result``: when the inner read failed
-    (``result is None``) return an empty frame carrying the outer errors; otherwise keep the
-    inner data and concatenate the outer errors ahead of the inner errors.
+    When the inner read failed (``result is None``) an empty frame carrying the outer errors is
+    returned; otherwise the inner data is kept and the outer errors are concatenated ahead of
+    the inner errors.
 
     Args:
         safe_result: The output of :func:`safe_execute_read` wrapping a read.

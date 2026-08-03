@@ -1,19 +1,16 @@
 r"""Postpro / clean_harmonize — multi-pass controls and cycle detection.
 
-The Python port of ``r/2-postpro_pipeline/22-clean_harmonize_data/22-controls-cache.R``.
-
 * :func:`resolve_stage_multi_pass_controls` — the per-stage multi-pass settings (enabled,
   max_passes, cycle_policy, diagnostics_verbosity) from the centralized constants.
-* Cycle detection — R fingerprinted each pass state with ``serialize()`` (byte-identical
-  compare). This port replaces that with a **deterministic content hash** (parity risk #6):
-  ``df.hash_rows()`` folded to one digest, screened by a cheap fingerprint (row count, columns,
-  dtypes, per-column null count + byte length). A fingerprint mismatch proves two states differ;
-  matching fingerprints fall through to the exact content-hash comparison. Convergence rests
-  mainly on the cheap ``changed_value_count == 0`` early stop; this is the safety net.
+* Cycle detection — two-tier, so repeated states are caught without hashing every pass in full:
 
-The R schema-validation memoization cache (also ``serialize()``-based) is intentionally not
-ported — it is off by default and only skips redundant, side-effect-free re-validation, so it
-cannot change output.
+  1. A **cheap fingerprint** (row count, plus per-column name, dtype, null count, and total
+     UTF-8 byte length). A fingerprint mismatch is conclusive proof that two states differ.
+  2. Only when fingerprints match does the comparison fall through to an **exact content hash**
+     (``df.hash_rows()`` folded to one digest), which is both order- and column-sensitive.
+
+  Convergence rests mainly on the cheap ``changed_value_count == 0`` early stop in the layer
+  runner; this record-and-compare machinery is the safety net for oscillating rule sets.
 """
 
 from __future__ import annotations
@@ -39,7 +36,7 @@ _Fingerprint = tuple[int, tuple[_ColumnFingerprint, ...]]
 
 @dataclass(frozen=True, slots=True)
 class MultiPassControls:
-    """Resolved multi-pass controls for one stage (R ``resolve_stage_multi_pass_controls``).
+    """Resolved multi-pass controls for one stage.
 
     Attributes:
         enabled: Whether multi-pass convergence is enabled for the stage.
@@ -65,9 +62,8 @@ class StageStateRecord:
 def resolve_stage_multi_pass_controls(config: object, stage_name: str) -> MultiPassControls:
     """Resolve the multi-pass controls for a stage from the centralized constants.
 
-    The Python port of R ``resolve_stage_multi_pass_controls``. R merged optional
-    ``config$postpro$multi_pass`` overrides; the typed Config exposes the frozen constants, so
-    this reads them directly (``config`` is accepted for signature parity).
+    The multi-pass settings are frozen constants rather than per-run configuration, so this
+    reads them directly. ``config`` is accepted only to keep the resolver signatures uniform.
 
     Args:
         config: The pipeline configuration (unused; the settings live in the constants).
@@ -120,7 +116,7 @@ def _content_hash(dataset: pl.DataFrame) -> _ContentHash:
 
 
 def build_stage_state_record(dataset: pl.DataFrame) -> StageStateRecord:
-    """Snapshot a pass state as a fingerprint + exact content hash (R ``build_stage_state_record``).
+    """Snapshot a pass state as a cheap fingerprint plus an exact content hash.
 
     Args:
         dataset: The pass-state dataset.
@@ -138,9 +134,9 @@ def find_repeated_stage_state_pass(
 ) -> int | None:
     """Return the earliest pass index whose state matches ``candidate_record``, else ``None``.
 
-    The Python port of R ``find_repeated_stage_state_pass``: fingerprints screen out definite
-    non-matches; a fingerprint match falls through to the exact content-hash comparison, so the
-    verdict is identical to comparing full serializations.
+    Fingerprints screen out definite non-matches cheaply; only a fingerprint match falls through
+    to the exact content-hash comparison, so the verdict is as strong as comparing full frame
+    contents while rarely paying for it.
 
     Args:
         state_records: Prior pass-state records.

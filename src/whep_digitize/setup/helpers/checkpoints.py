@@ -1,13 +1,13 @@
-"""Crash-recovery checkpoints — the Python port of ``02-checkpoints.R``.
+"""Crash-recovery checkpoints — optional persistence of per-stage results.
 
-The R pipeline optionally persists per-stage results as ``.rds`` for crash recovery,
-gated by ``whep.checkpointing.enabled`` (default off). The Python port prefers Parquet
-for :class:`polars.DataFrame` results (portable, fast) and falls back to pickle for
-composite objects. Checkpointing is opt-in via ``RuntimeOptions.checkpointing_enabled``.
+Per-stage results can be persisted so a crashed run resumes instead of restarting: Parquet
+for :class:`polars.DataFrame` results (portable, fast), falling back to pickle for
+composite objects. Checkpointing is opt-in via ``RuntimeOptions.checkpointing_enabled``
+(default off).
 
-As in R, the import stage is the only wired caller
+The import stage is the only wired caller
 (:func:`whep_digitize.ingest.runner.run_import_pipeline`); postpro and export do not
-checkpoint. Save/restore print the same status lines as R's ``cli`` alerts.
+checkpoint. Save and restore each emit a console status line.
 """
 
 from __future__ import annotations

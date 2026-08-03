@@ -1,11 +1,8 @@
-"""Output consolidation — the Python port of ``13-output.R``.
+"""Output consolidation.
 
-Row-binds the audited long tables into one frame, fills any missing target-schema columns with
-null, and reorders columns to the configured canonical order (extras last). ``rbindlist(...,
-use.names, fill)`` becomes ``pl.concat(how="diagonal")``.
-
-R source: ``r/1-import_pipeline/13-output/13-output.R``
-(``consolidate_audited_df``, ``validate_output_column_order``).
+Row-binds the audited long tables into one frame with ``pl.concat(how="diagonal")`` (union of
+columns, missing values null), fills any missing target-schema columns with null, and reorders
+columns to the configured canonical order (extras last).
 """
 
 from __future__ import annotations
@@ -19,7 +16,7 @@ import polars as pl
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.helpers.assertions import require
 
-# The full canonical output schema every consolidated frame must contain (R target_schema).
+# The full canonical output schema every consolidated frame must contain.
 _TARGET_SCHEMA = (
     "hemisphere",
     "continent",
@@ -38,7 +35,7 @@ _TARGET_SCHEMA = (
 
 @dataclass(frozen=True, slots=True)
 class ConsolidateResult:
-    """Consolidation output (R ``list(data, warnings)``)."""
+    """Consolidation output: the combined frame plus any warnings raised."""
 
     data: pl.DataFrame
     warnings: tuple[str, ...]
@@ -74,7 +71,7 @@ def consolidate_audited_df(
     """Row-bind audited long tables, fill missing schema columns, and enforce column order.
 
     Args:
-        frames: Frames to combine (``None`` entries are skipped, R ``Filter(Negate(is.null))``).
+        frames: Frames to combine (``None`` entries are skipped).
         config: Pipeline configuration (``column_order``).
 
     Returns:

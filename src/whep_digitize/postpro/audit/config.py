@@ -1,10 +1,9 @@
-"""Postpro / audit configuration — ports ``r/2-postpro_pipeline/20-data_audit/20-audit-config.R``.
+"""Postpro / audit configuration.
 
 Audit-config validation, the standardized empty audit-findings schema (with the audit-type
 identifiers and messages the validators emit), audit-root preparation, and audit output-path
-resolution. The R original raised via ``checkmate`` / ``cli_abort``; this port uses the guard
-helper (:func:`~whep_digitize.setup.helpers.assertions.require`) and reuses the shared
-directory helpers.
+resolution. Invariants are enforced through the guard helper
+(:func:`~whep_digitize.setup.helpers.assertions.require`) and the shared directory helpers.
 """
 
 from __future__ import annotations
@@ -17,21 +16,22 @@ from whep_digitize.setup.config import Config
 from whep_digitize.setup.directories import delete_directory_if_exists
 from whep_digitize.setup.helpers.assertions import require
 
-# Audit-finding metadata (verbatim R identifiers/messages — parity depends on the exact bytes).
+# Audit-finding metadata. These exact bytes reach the findings table and the exported workbook,
+# so they are part of the output contract — do not reword them.
 AUDIT_TYPE_CHARACTER_NON_EMPTY = "character_non_empty"
 AUDIT_TYPE_NUMERIC_STRING = "numeric_string"
 CHARACTER_NON_EMPTY_MESSAGE = "value must be a non-empty character string"
 NUMERIC_STRING_MESSAGE = "value must contain only digits and at most one decimal point"
 
-# The findings-table columns (R ``empty_audit_findings_df``). ``row_index`` is 1-based.
+# The findings-table columns. ``row_index`` is 1-based.
 AUDIT_FINDINGS_COLUMNS = ("row_index", "audit_column", "audit_type", "audit_message")
 
 
 def empty_audit_findings() -> pl.DataFrame:
     """Return the standardized empty audit-findings frame.
 
-    The Python port of R ``empty_audit_findings_df()``: a zero-row frame with the fixed
-    findings schema, so concatenating validator outputs is always well-typed.
+    A zero-row frame carrying the fixed findings schema, so concatenating validator outputs is
+    always well-typed even when every validator finds nothing.
 
     Returns:
         An empty frame with columns ``row_index`` (Int64), ``audit_column``, ``audit_type``,
@@ -48,10 +48,11 @@ def empty_audit_findings() -> pl.DataFrame:
 
 
 def validate_audit_config(config: Config) -> None:
-    """Validate the audit-relevant configuration fields (R ``load_audit_config``).
+    """Validate the audit-relevant configuration fields.
 
     The typed :class:`~whep_digitize.setup.config.Config` already guarantees structure; this
-    mirrors the R non-empty invariants so a malformed config fails loudly at the same point.
+    re-checks the non-empty invariants so a malformed config fails loudly here, before any
+    audit work or directory deletion happens.
 
     Args:
         config: The resolved pipeline configuration.
@@ -75,9 +76,9 @@ def validate_audit_config(config: Config) -> None:
 def prepare_audit_root(audit_root_dir: Path) -> bool:
     """Remove the previous audit folder if present, tolerating locked/permission-protected files.
 
-    The Python port of R ``prepare_audit_root``: it deletes the audit output folder so each run
-    writes into a clean directory, but continues (returning ``False``) when the folder cannot be
-    removed instead of aborting.
+    Deletes the audit output folder so each run writes into a clean directory, but continues
+    (returning ``False``) when the folder cannot be removed instead of aborting — a workbook left
+    open in Excel must not fail the whole run.
 
     Args:
         audit_root_dir: The audit output directory.
@@ -93,8 +94,8 @@ def prepare_audit_root(audit_root_dir: Path) -> bool:
 def resolve_audit_output_paths(audit_root_dir: Path, audit_file_name: str) -> Path:
     """Compute the audit workbook path without creating any directories.
 
-    The Python port of R ``resolve_audit_output_paths`` (which returned a list); only the
-    ``audit_file_path`` is needed downstream.
+    A pure path computation: only the workbook path is needed downstream, and the directory is
+    created later by the export step.
 
     Args:
         audit_root_dir: The audit output directory.

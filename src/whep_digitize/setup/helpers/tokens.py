@@ -1,4 +1,4 @@
-"""Filename token extraction — the Python port of ``02-token-extraction.R``.
+"""Filename token extraction.
 
 Parses ``yearbook`` and ``commodity`` out of underscore-delimited source file names using
 the WHEP positional convention. Used by the ingest stage's metadata extraction.
@@ -19,9 +19,8 @@ _EXTENSION_RE = re.compile(r"\.[^.]+$")
 def extract_yearbook(parts: Sequence[str]) -> str | None:
     """Build the yearbook token from split filename parts.
 
-    Yearbook = the second token joined to the first 4-digit token (R
-    ``paste(parts[2], <first YYYY token>, sep="_")``). Requires at least two parts and
-    a 4-digit token.
+    Yearbook = the second token joined to the first 4-digit (``YYYY``) token with an
+    underscore. Requires at least two parts and a 4-digit token.
 
     Args:
         parts: Filename split on ``"_"``.

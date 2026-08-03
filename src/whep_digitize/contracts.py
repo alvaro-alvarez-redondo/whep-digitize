@@ -1,19 +1,19 @@
 """Cross-stage data contracts — the stable interfaces between pipeline stages.
 
-Each stage returns a typed, frozen result object instead of the R pattern of assigning
-into the global environment and carrying diagnostics as data.table ``attr()``s. Fixing
-these contracts up front is what makes the migration parallelizable: a stage can be
-built and parity-tested against fixtures as long as it honors its result type.
+Every stage returns a typed, frozen result object: no stage mutates shared state, and diagnostics
+travel as typed fields rather than as loose metadata hanging off a frame. Fixing these contracts
+up front is what keeps the stages independent — a stage can be built and tested against fixtures
+on its own, as long as it honors its result type.
 
-Contract map (R -> Python):
+Contract map:
 
-===============================  ==========================  =========================
-R return value                   Python contract             Producer
-===============================  ==========================  =========================
-``list(data, wide_raw, diag)``   :class:`ImportResult`        :mod:`whep_digitize.ingest`
-harmonized dt + attrs            :class:`PostproResult`       :mod:`whep_digitize.postpro`
-``list(processed_, lists_)``     :class:`ExportResult`        :mod:`whep_digitize.export`
-===============================  ==========================  =========================
+======================  ============================
+Contract                Producer
+======================  ============================
+:class:`ImportResult`   :mod:`whep_digitize.ingest`
+:class:`PostproResult`  :mod:`whep_digitize.postpro`
+:class:`ExportResult`   :mod:`whep_digitize.export`
+======================  ============================
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class ImportDiagnostics:
 
 @dataclass(frozen=True, slots=True)
 class ImportResult:
-    """Result of the ingest stage (R ``list(data, wide_raw, diagnostics)``).
+    """Result of the ingest stage.
 
     Attributes:
         data: The validated, consolidated long-format frame (character-typed).
@@ -84,7 +84,7 @@ class LayerDiagnostics:
 
 @dataclass(frozen=True, slots=True)
 class PostproDiagnostics:
-    """Aggregate post-processing diagnostics (R ``pipeline_diagnostics`` attribute)."""
+    """Aggregate post-processing diagnostics for every layer of the stage."""
 
     clean: LayerDiagnostics
     standardize_units: LayerDiagnostics
@@ -96,8 +96,8 @@ class PostproDiagnostics:
 class PostproResult:
     """Result of the post-processing stage.
 
-    Carries the three intermediate layers explicitly (the R version attached ``clean``
-    and ``normalize`` as attributes of the harmonized table).
+    Carries the three layer frames explicitly as separate fields, so a consumer (the export
+    stage) never has to recover ``clean`` or ``normalize`` from the harmonized table.
 
     Attributes:
         harmonize: The final harmonized frame.
@@ -117,7 +117,10 @@ class PostproResult:
 
 @dataclass(frozen=True, slots=True)
 class ExportResult:
-    """Result of the export stage (R ``list(processed_paths, lists_paths)``).
+    """Result of the export stage.
+
+    Both mappings are required to be non-empty and free of blank keys; see
+    :func:`assert_export_paths_contract`.
 
     Attributes:
         processed_paths: Mapping of object name -> written processed TSV path.

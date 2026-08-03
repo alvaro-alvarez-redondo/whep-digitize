@@ -1,9 +1,7 @@
-r"""Wide-frame transform utilities — the Python port of ``12-transform-utils.R``.
+"""Wide-frame transform utilities.
 
 Identifies year columns, normalizes the key identifier fields, and cleans year-column
 headers (with a fatal duplicate-collision guard) ahead of the wide->long reshape.
-
-R source: ``r/1-import_pipeline/12-transform/12-transform-utils.R``.
 """
 
 from __future__ import annotations
@@ -25,7 +23,7 @@ from whep_digitize.setup.helpers.strings import (
 _constants = get_pipeline_constants()
 _YEAR_COLUMN_RE = re.compile(_constants.patterns.year_column)  # ^\d{4}(-\d{4})?$
 
-# convert_year_columns header cleanups, applied in this order (R gsub/sub chain).
+# convert_year_columns header cleanups, applied in this order.
 _EXCEL_SUFFIX_RE = re.compile(r"\.0$")  # "2020.0" -> "2020"
 _CROP_YEAR_RE = re.compile(r"^(\d{4})-\d{2}$")  # "2020-21" -> "2020"
 _CROP_YEAR_RANGE_RE = re.compile(
@@ -39,9 +37,8 @@ _KEY_NORM_COLUMNS = ("variable", "hemisphere", "continent", "polity")
 def identify_year_columns(frame: pl.DataFrame, config: Config) -> list[str]:
     r"""Return the frame's year columns in column order.
 
-    Mirrors R ``identify_year_columns``: candidates are the columns *not* among the metadata
-    columns (``column_order`` minus ``year`` / ``value``), kept when the name matches the year
-    pattern ``^\d{4}(-\d{4})?$``.
+    Candidates are the columns *not* among the metadata columns (``column_order`` minus
+    ``year`` / ``value``), kept when the name matches the year pattern ``^\d{4}(-\d{4})?$``.
 
     Args:
         frame: The wide frame to inspect.
@@ -63,7 +60,7 @@ def normalize_key_fields(frame: pl.DataFrame, commodity_name: str, config: Confi
     Adds any missing base columns as all-null, sets ``commodity`` to the normalized
     ``commodity_name`` (a scalar, recycled to every row), normalizes ``variable`` /
     ``hemisphere`` / ``continent`` / ``polity`` where present, and cleans ``footnotes``.
-    ``unit`` is intentionally left raw (R normalizes only the four key columns).
+    ``unit`` is intentionally left raw — only the four key columns are normalized.
 
     Args:
         frame: The wide frame.
@@ -106,12 +103,11 @@ def convert_year_columns(frame: pl.DataFrame, config: Config) -> pl.DataFrame:
 
     Removes Excel numeric suffixes and normalizes crop-year header formats, then renames the
     columns. If two source headers clean to the same name (e.g. a calendar ``"2020"`` and a
-    crop-year ``"2020-21"`` both becoming ``"2020"``) it aborts, mirroring R's ``cli_abort`` —
-    otherwise the reshape would silently drop one column's observations.
+    crop-year ``"2020-21"`` both becoming ``"2020"``) it aborts — otherwise the reshape would
+    silently drop one column's observations.
 
-    The R string coercion of year columns is a no-op here (calamine reads all-as-text) and the
-    ``whep_year_columns`` attribute is *not* carried; :func:`reshape_to_long` recomputes the
-    year columns explicitly (parity risk #2).
+    No year-column list is attached to the returned frame; :func:`reshape_to_long` recomputes
+    the year columns explicitly from the cleaned headers.
 
     Args:
         frame: The wide frame.
@@ -123,7 +119,7 @@ def convert_year_columns(frame: pl.DataFrame, config: Config) -> pl.DataFrame:
     Raises:
         ValidationError: If the header cleanup produces duplicate column names.
     """
-    _ = config  # only used by the caller's reshape; kept for signature parity with R
+    _ = config  # unused here; kept so the transform helpers share one signature
     original = frame.columns
     clean = [_clean_year_header(name) for name in original]
 

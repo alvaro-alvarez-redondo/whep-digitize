@@ -1,18 +1,14 @@
-"""Stage 1 runner — the Python port of ``run_import_pipeline.R``.
+"""Stage 1 runner — the import stage entry point.
 
 Discovers the raw workbooks, reads + transforms them (fused, per batch), drops null-value
 rows, validates every document group, consolidates the validated long tables, sorts to the
 canonical row order, and returns a typed :class:`~whep_digitize.contracts.ImportResult`.
 
-Mirroring R, the stage is checkpointed (opt-in, default off): a restored checkpoint short-circuits
-the whole stage before discovery, and a completed run is saved on the way out. The checkpoint is a
-cache of a prior run, so it never changes first-run output.
+The stage is checkpointed (opt-in, default off): a restored checkpoint short-circuits the whole
+stage before discovery, and a completed run is saved on the way out. The checkpoint is a cache of
+a prior run, so it never changes first-run output.
 
-Divergences from R (documented, output-preserving): R auto-sources its stage scripts via
-``here::here`` and auto-runs on source — Python calls the ported functions directly.
 Parallelism is handled inside ``read_transform_pipeline_files``.
-
-R source: ``r/1-import_pipeline/run_import_pipeline.R``.
 """
 
 from __future__ import annotations
@@ -46,7 +42,7 @@ def run_import_pipeline(
         config: The resolved pipeline configuration.
         options: Runtime options; defaults are used when ``None``.
         current_year: Reference year forwarded to validation's plausible-year range; defaults
-            to the system year (R ``Sys.Date()``).
+            to the system year.
 
     Returns:
         An :class:`ImportResult` with the validated + consolidated long frame (canonically
@@ -55,11 +51,11 @@ def run_import_pipeline(
         as-is and no work is done.
 
     Raises:
-        ValidationError: If the import folder contains no workbooks (R aborts likewise).
+        ValidationError: If the import folder contains no workbooks.
     """
     resolved_options = options or RuntimeOptions()
 
-    # R loads the checkpoint before discovery, so a hit skips discovery (and its empty-folder
+    # The checkpoint is loaded before discovery, so a hit skips discovery (and its empty-folder
     # abort) entirely. A payload of any other type is a stale/foreign checkpoint: recompute
     # rather than hand it downstream — the checkpoint is only a cache of a prior result.
     cached = load_checkpoint(
@@ -89,7 +85,7 @@ def run_import_pipeline(
         progress.step(_MESSAGES["validating"])
         validation = validate_long_df_by_document(long_raw, config, current_year=current_year)
         progress.step(_MESSAGES["splitting"])
-        # Zero rows -> zero document groups: consolidate an empty list (R keeps this shape).
+        # Zero rows -> zero document groups: consolidate an empty list to keep the shape.
         audited = [validation.data] if validation.data.height > 0 else []
         consolidated = consolidate_audited_df(audited, config)
         progress.step(_MESSAGES["sorting"])
@@ -104,7 +100,7 @@ def run_import_pipeline(
             warnings=consolidated.warnings,
         ),
     )
-    # R saves outside its progress block, so the status line lands after the bar is torn down.
+    # Saved outside the progress block, so the status line lands after the bar is torn down.
     save_checkpoint(
         _CHECKPOINT_NAME, result, config, enabled=resolved_options.checkpointing_enabled
     )

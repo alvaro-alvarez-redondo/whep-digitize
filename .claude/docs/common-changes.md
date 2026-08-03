@@ -4,18 +4,16 @@ Recipes for frequent edits. Each lists where, what, tests, watch-outs. **Check h
 
 ---
 
-## Migrate an R module to Python
+## Change pipeline behavior
 
-The core recurring task. Use the `migrate-module` skill (`.claude/skills/migrate-module/`),
-or by hand:
-
-1. Read the R source + its entry in [codebase-map.md](codebase-map.md) (R source + risk).
-2. Read [r-to-python-mapping.md](r-to-python-mapping.md) for the idioms and parity risks.
-3. Implement in the target module, honoring the stage's contract (`contracts.py`).
-4. Write tests (happy / edge / error) + a `@pytest.mark.parity` test vs R golden output.
-5. Run the gates (ruff, mypy, pytest). Update the codebase-map entry to **[done]**.
-
-See [guidelines/migration.md](../guidelines/migration.md) for the full playbook.
+1. Check [pipeline-behaviors.md](pipeline-behaviors.md) first — if the behavior is listed there
+   it is **intentional**, and changing it changes published data. Confirm that is the intent.
+2. Find the module in [codebase-map.md](codebase-map.md); honor the stage's contract
+   (`contracts.py`).
+3. Implement, then write tests (happy / edge / error).
+4. If output changes on purpose, the affected frozen golden under `tests/golden/` must be edited
+   deliberately in the same change, and `pipeline-behaviors.md` updated.
+5. Run the gates (ruff, mypy, pytest).
 
 ## Add or change a constant / threshold
 
@@ -62,6 +60,6 @@ See [guidelines/migration.md](../guidelines/migration.md) for the full playbook.
 
 - Single engine: **polars** (immutable). No pandas except at a documented IO boundary.
 - No global state; stages return typed results.
-- `data/` is gitignored; golden fixtures under `tests/golden/` **are committed** (the frozen R
-  reference — that is what makes CI enforce parity; regenerate only via `capture.py`).
+- `data/` is gitignored; the goldens under `tests/golden/` **are committed** and immutable —
+  that is what lets CI enforce output parity. Edit one only as a deliberate behavior change.
 - No backward-compatibility scaffolding — remove legacy patterns on sight.

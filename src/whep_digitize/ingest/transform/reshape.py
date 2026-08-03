@@ -1,18 +1,14 @@
-"""Wide->long reshape + enrichment — the Python port of ``12-reshape.R``.
+"""Wide->long reshape + enrichment.
 
-Melts the year columns into ``year`` / ``value`` pairs (``data.table::melt`` ->
-``pl.DataFrame.unpivot``), appends ``document`` / ``notes`` / ``yearbook`` metadata, drops
-null-value rows, and orchestrates the per-file transform.
+Unpivots the year columns into ``year`` / ``value`` pairs, appends ``document`` / ``notes`` /
+``yearbook`` metadata, drops null-value rows, and orchestrates the per-file transform.
 
-Parity notes:
+Reshape semantics:
 
-* ``unpivot(index=available_id, on=year_cols)`` keeps exactly ``available_id`` + the melted
-  ``year`` / ``value`` and drops every other column — the same set ``melt(id.vars,
-  measure.vars)`` drops (parity risk #2). Year columns are recomputed explicitly here rather
-  than read from the R ``whep_year_columns`` attribute.
+* ``unpivot(index=available_id, on=year_cols)`` keeps exactly ``available_id`` plus the
+  unpivoted ``year`` / ``value`` and drops every other column. The year columns are recomputed
+  from the cleaned headers on each call rather than carried along on the frame.
 * Column order out: ``[available_id..., year, value, document, notes, yearbook]``.
-
-R source: ``r/1-import_pipeline/12-transform/12-reshape.R``.
 """
 
 from __future__ import annotations
@@ -36,14 +32,14 @@ from whep_digitize.setup.options import RuntimeOptions
 
 @dataclass(frozen=True, slots=True)
 class TransformResult:
-    """One file's transform output (R ``list(wide_raw, long_raw)``)."""
+    """One file's transform output: the normalized wide frame plus the long frame."""
 
     wide_raw: pl.DataFrame
     long_raw: pl.DataFrame
 
 
 def reshape_to_long(frame: pl.DataFrame, config: Config) -> pl.DataFrame:
-    """Melt the year columns into ``year`` / ``value`` pairs.
+    """Unpivot the year columns into ``year`` / ``value`` pairs.
 
     Args:
         frame: The wide frame (year headers already cleaned).
@@ -51,7 +47,7 @@ def reshape_to_long(frame: pl.DataFrame, config: Config) -> pl.DataFrame:
 
     Returns:
         The long frame ``[available_id..., year, value]``; all non-id, non-year columns are
-        dropped (matching R ``melt``).
+        dropped.
 
     Raises:
         ValidationError: If no year columns are found.
@@ -95,7 +91,7 @@ def transform_file_df(
     """Transform one file's wide data to the long format.
 
     Normalizes key fields, cleans year headers, reshapes to long, appends metadata, and drops
-    null-value rows (gated by ``RuntimeOptions.drop_na_values``, R ``whep.drop_na_values``).
+    null-value rows (gated by ``RuntimeOptions.drop_na_values``).
 
     Args:
         frame: The wide frame (a read sheet's output).
@@ -125,7 +121,7 @@ def transform_file_df(
 
 
 def build_empty_transform_result() -> TransformResult:
-    """Return a transform result with two empty frames (R ``build_empty_transform_result``)."""
+    """Return a transform result with two empty frames."""
     return TransformResult(wide_raw=pl.DataFrame(), long_raw=pl.DataFrame())
 
 

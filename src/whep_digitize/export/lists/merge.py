@@ -1,12 +1,11 @@
-"""Column resolution and identical-layer merging (ports ``03-resolve-and-compare.R``).
+"""Column resolution and identical-layer merging.
 
 Resolves which configured columns are exportable and groups the four layers (``raw`` / ``clean``
 / ``normalize`` / ``harmonize``) so that layers with an identical value-set share one merged
-sheet (e.g. ``raw_clean_normalize_harmonize``). R compared full ``data.table``s via
-``normalize_for_comparison`` (drop ``year``, sort columns + rows, ``identical()``); here the
-inputs are already the deterministic per-layer value lists from
-:func:`~whep_digitize.export.lists.unique_values.compute_unique_column_values`, so a direct list
-equality is exactly R's set comparison (both sides carry the same code-point order).
+sheet (e.g. ``raw_clean_normalize_harmonize``). The inputs are the deterministic per-layer value
+lists from :func:`~whep_digitize.export.lists.unique_values.compute_unique_column_values`, so a
+plain list equality *is* a set comparison here: both sides are already deduplicated and carry
+the same code-point order.
 """
 
 from __future__ import annotations
@@ -21,8 +20,8 @@ from whep_digitize.setup.errors import ValidationError
 def resolve_lists_export_columns(config: Config, union_columns: Sequence[str]) -> list[str]:
     """Return the configured list columns present across the detected layers, in config order.
 
-    Ports R ``resolve_lists_export_columns``: intersect ``config.export_config.lists_to_export``
-    with ``union_columns``, preserving the configured order.
+    Intersects ``config.export_config.lists_to_export`` with ``union_columns``, preserving the
+    configured order.
 
     Args:
         config: The resolved pipeline configuration.
@@ -58,10 +57,10 @@ def resolve_list_sheet_payloads(
 ) -> dict[str, list[str]]:
     """Group layers with identical value-sets into merged sheets, preserving fixed order.
 
-    Ports R ``resolve_list_sheet_payloads``. Iterates the layers in :data:`LISTS_SHEET_ORDER`,
-    joining each to the first existing group whose representative has an identical value list, or
-    opening a new group. A group's sheet name is its layer names joined by ``_`` (e.g.
-    ``"clean_normalize_harmonize"``) and its payload is the representative (first) layer's values.
+    Iterates the layers in :data:`LISTS_SHEET_ORDER`, joining each to the first existing group
+    whose representative has an identical value list, or opening a new group. A group's sheet name
+    is its layer names joined by ``_`` (e.g. ``"clean_normalize_harmonize"``) and its payload is
+    the representative (first) layer's values.
 
     Args:
         layer_values: The per-layer value lists, keyed by the four layer labels.

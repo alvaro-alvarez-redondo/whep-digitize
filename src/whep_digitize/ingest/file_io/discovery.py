@@ -1,20 +1,15 @@
-"""Workbook discovery — the Python port of ``10-discovery.R``.
+"""Workbook discovery.
 
 Recursively scans an import folder for ``.xlsx`` workbooks and returns the file-metadata
 frame produced by :func:`~whep_digitize.ingest.file_io.metadata.extract_file_metadata`.
 When the folder holds no workbooks it warns and returns an empty metadata frame.
 
-Two parity-relevant behaviours are reproduced from R ``fs::dir_ls``:
+Two properties of the emitted frame are contractual:
 
 * **Path form** — paths are emitted with forward slashes (``Path.as_posix``), prefixed by
-  ``import_folder`` exactly as passed (relative stays relative), matching ``fs``.
-* **Ordering** — results are sorted by their full path string (Unicode code point). This
-  matches ``fs::dir_ls``'s C-locale/radix ordering for the ASCII paths the pipeline
-  produces and is deterministic regardless of filesystem enumeration order (parity risk
-  #7 in ``.claude/docs/r-to-python-mapping.md``).
-
-R source: ``r/1-import_pipeline/10-file_io/10-discovery.R``
-(``discover_files``, ``discover_pipeline_files``).
+  ``import_folder`` exactly as passed (a relative folder stays relative).
+* **Ordering** — results are sorted by their full path string (Unicode code point), so the
+  order is deterministic regardless of filesystem enumeration order.
 """
 
 from __future__ import annotations
@@ -43,8 +38,7 @@ def discover_files(import_folder: Path | str) -> pl.DataFrame:
         in sorted path order, or an empty frame (with a warning) when none are found.
 
     Raises:
-        ValidationError: If ``import_folder`` is blank or is not an existing directory
-            (R ``checkmate`` ``check_string`` + ``check_directory_exists``).
+        ValidationError: If ``import_folder`` is blank or is not an existing directory.
     """
     raw_folder = str(import_folder)
     require(len(raw_folder) >= 1, "import_folder must be a non-empty path")

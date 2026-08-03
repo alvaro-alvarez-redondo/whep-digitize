@@ -13,8 +13,7 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.diagnostics.rule_summaries import (
     build_unmatched_rule_summary,
@@ -25,7 +24,7 @@ from whep_digitize.postpro.diagnostics.standardize_summaries import (
     summarize_standardize_rules,
 )
 
-_SPEC = CAPTURES["diagnostics"]
+_SPEC = GOLDENS["diagnostics"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

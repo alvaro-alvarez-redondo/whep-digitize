@@ -13,8 +13,7 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.standardize_units.engine import (
     StandardizeResult,
@@ -22,7 +21,7 @@ from whep_digitize.postpro.standardize_units.engine import (
 )
 from whep_digitize.postpro.standardize_units.rules_setup import prepare_standardize_rules
 
-_SPEC = CAPTURES["standardize"]
+_SPEC = GOLDENS["standardize"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

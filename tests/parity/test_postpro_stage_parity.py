@@ -20,16 +20,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.contracts import PostproResult
 from whep_digitize.postpro.runner import run_postpro_pipeline
 from whep_digitize.setup.config import load_pipeline_config
 from whep_digitize.setup.helpers.numeric import format_double_r
 
-_SPEC = CAPTURES["postpro_stage"]
+_SPEC = GOLDENS["postpro_stage"]
 _LAYERS = ("clean", "normalize", "harmonize")
 # Every layer column except the numeric ``value`` (compared separately through format_double_r).
 _STRING_COLUMNS = (

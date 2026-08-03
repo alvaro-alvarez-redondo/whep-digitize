@@ -13,13 +13,13 @@ while the goldens were gitignored. This test fails loudly in that situation, per
 from __future__ import annotations
 
 import pytest
-from registry import CAPTURES
+from goldens import GOLDENS
 
 
 @pytest.mark.parity
-@pytest.mark.parametrize("module", sorted(CAPTURES))
+@pytest.mark.parametrize("module", sorted(GOLDENS))
 def test_module_goldens_are_present(module: str) -> None:
-    spec = CAPTURES[module]
+    spec = GOLDENS[module]
     missing = sorted(str(path) for path in spec.golden_paths().values() if not path.is_file())
     assert not missing, (
         f"{len(missing)} golden(s) missing for '{module}' — the parity tests that use them would "

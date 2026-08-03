@@ -1,15 +1,14 @@
 """Rule match-key encoding and target-update strategy resolution.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-strategy.R``.
 Two responsibilities:
 
 * **Deterministic key handling** — collapse both sides of a rule comparison to comparable
   string keys so that missing values match each other and only each other. Two distinct
-  internal tokens are involved and must be preserved byte-for-byte (parity risk #5):
+  internal tokens are involved, and both must be preserved byte-for-byte:
 
   - ``na_match_key`` (``"..NA_MATCH_KEY.."``) — every ``None`` folds to this before a
-    match, so an ``NA`` condition matches an ``NA`` current value (and nothing else).
-  - ``na_placeholder`` (``"..NA_INTERNAL.."``) — the token an ``NA`` *target* value rides
+    match, so a null condition matches a null current value (and nothing else).
+  - ``na_placeholder`` (``"..NA_INTERNAL.."``) — the token a null *target* value rides
     on through join operations (:func:`encode_target_rule_value` /
     :func:`decode_target_rule_value`).
 
@@ -18,8 +17,8 @@ Two responsibilities:
   match-key normalization policy.
 
 Match-key normalization reuses :func:`whep_digitize.setup.helpers.strings.normalize_string`
-(the normalization policy: NFD diacritic strip + non-alphanumeric collapse, not R's ICU
-``Latin-ASCII``), so key correctness is guarded by its policy tests in ``tests/setup``.
+(NFD diacritic strip + non-alphanumeric collapse), so key correctness is guarded by that
+policy's tests in ``tests/setup``.
 """
 
 from __future__ import annotations
@@ -37,8 +36,9 @@ from whep_digitize.setup.helpers.strings import normalize_string
 _CONSTANTS = get_pipeline_constants()
 _NA_PLACEHOLDER = _CONSTANTS.na_placeholder
 _NA_MATCH_KEY = _CONSTANTS.na_match_key
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]`` — match it exactly (polars/Python
-# default strip includes extra Unicode whitespace, which would diverge from R).
+# The whitespace class used for blank detection: space, tab, CR, LF only. Declared explicitly
+# because the polars/Python default strip also removes exotic Unicode whitespace, which would
+# silently treat more values as blank than intended.
 _R_TRIMWS_CHARS = " \t\r\n"
 # Sentinel column name used to run a single-column expression over a bare Series.
 _SERIES_SENTINEL = "__whep_value__"
@@ -46,7 +46,7 @@ _SERIES_SENTINEL = "__whep_value__"
 
 @dataclass(frozen=True, slots=True)
 class RuleMatchNormalizationSettings:
-    """Resolved match-key normalization policy (R ``resolve_rule_match_normalization_settings``).
+    """Resolved match-key normalization policy.
 
     Attributes:
         apply_once_before_stage: Normalize match keys once before the multi-pass loop.
@@ -61,7 +61,7 @@ class RuleMatchNormalizationSettings:
 
 @dataclass(frozen=True, slots=True)
 class TargetUpdateStrategyConfig:
-    """Validated target-update strategy configuration (R ``get_target_update_strategy_config``).
+    """Validated target-update strategy configuration.
 
     Attributes:
         default: Strategy used when no per-column override applies.
@@ -102,9 +102,9 @@ def _map_series(series: pl.Series, build: Callable[[pl.Expr], pl.Expr]) -> pl.Se
 def encode_target_rule_value(values: pl.Series, na_placeholder: str = _NA_PLACEHOLDER) -> pl.Series:
     """Encode target rule values, folding missing / blank values to the internal placeholder.
 
-    Missing (``None``) and whitespace-only values become ``na_placeholder`` so an ``NA``
-    target rides deterministically through join operations; every other value is kept as
-    its string form.
+    Missing (``None``) and whitespace-only values become ``na_placeholder`` so a null target
+    rides deterministically through join operations; every other value is kept as its string
+    form.
 
     Args:
         values: Target values to encode.
@@ -160,9 +160,9 @@ def encode_rule_match_key(
 ) -> pl.Series:
     """Build deterministic match keys, mapping missing values to an explicit token.
 
-    Values are optionally normalized (policy NFD diacritic strip + non-alphanumeric collapse) to
-    comparable string keys; every ``None`` then folds to ``na_key`` so that ``NA`` matches
-    ``NA`` (and only ``NA``) during comparison.
+    Values are optionally normalized (NFD diacritic strip + non-alphanumeric collapse) to
+    comparable string keys; every ``None`` then folds to ``na_key`` so that a null matches a
+    null (and only a null) during comparison.
 
     Args:
         values: Values to encode.
@@ -286,7 +286,7 @@ def resolve_tokenized_target_condition_columns(
     """Return the target columns whose condition matching treats ``;`` values as token sets.
 
     Tokenized matching is enabled for every ``concatenate``-strategy column and always for
-    ``footnotes``. The result is sorted (C-locale / code-point order) and unique.
+    ``footnotes``. The result is unique and sorted by code point, so it is order-stable.
 
     Args:
         strategy_config: Strategy configuration (defaults to the centralized config).

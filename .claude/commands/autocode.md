@@ -40,13 +40,11 @@ correctness is not tradeable. Parity tests (`@pytest.mark.parity`) are part of c
 6. **Log** to `results.tsv` (`keep`/`discard`/`crash`).
 7. **Keep** if composite improved AND tests ≥ baseline; else `git reset --hard HEAD~1`.
 
-## Migration-aware note
+## Output is not negotiable
 
-For this project, the highest-value "optimization" is usually **advancing the migration**:
-porting a scaffolded module (see [migration-roadmap.md](../docs/migration-roadmap.md)) with
-passing parity tests raises coverage and moves the pipeline toward end-to-end. Prefer the
-`migrate-module` skill for that; use the pure autocode loop for perf/quality once a stage is
-functionally complete.
+Pipeline output is pinned by the frozen goldens under `tests/golden/`. An "optimization" that
+changes a golden is a behavior change, not a speedup — discard it. See
+[pipeline-behaviors.md](../docs/pipeline-behaviors.md) for the behaviors that must not drift.
 
 Delete every scratch/log file as soon as it is no longer needed. Durable findings →
 `progress.md`. Never stop to ask mid-loop; when out of ideas, re-read with fresh eyes.

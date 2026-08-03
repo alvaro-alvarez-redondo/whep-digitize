@@ -29,13 +29,12 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.export.processed_data import export as export_module
 from whep_digitize.export.processed_data.export import write_processed_table
 
-_SPEC = CAPTURES["export_processed_data"]
+_SPEC = GOLDENS["export_processed_data"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

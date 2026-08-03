@@ -1,8 +1,8 @@
-"""DataFrame cleaning helpers — the Python port of ``02-data-cleaning.R``.
+"""DataFrame cleaning helpers.
 
-The R data.table coercion helpers (``ensure_data_table``/``copy_as_data_table``) are
-no-ops in polars (frames are already the single engine type and are immutable), so only
-the meaningful behavior — dropping null-value rows — is ported here.
+No frame-coercion or defensive-copy helpers are needed: polars is the single engine type
+and its frames are immutable. The one meaningful cleaning operation — dropping null-value
+rows — is :func:`drop_na_value_rows`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ def drop_na_value_rows(
     *,
     enabled: bool = True,
 ) -> pl.DataFrame:
-    """Drop rows whose value column is null (R ``drop_na_value_rows``).
+    """Drop rows whose value column is null.
 
     Args:
         frame: The frame to filter.

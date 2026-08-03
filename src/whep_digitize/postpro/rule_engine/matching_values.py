@@ -1,13 +1,12 @@
 """Target-condition matching, value merging, and change counting.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-values.R``
-(split from ``23-matching-strategy.R`` under the >500-line policy). Three pure functions:
+Three pure functions:
 
 * :func:`match_rule_target_condition_values` — decide, element-wise, whether each rule
   target-condition value matches the current dataset value. For tokenized columns the current
   value is split on ``;`` and the condition matches by **token membership** (or a full-string
-  match), with an explicit wildcard token (``__ANY__``). ``NA`` conditions match ``NA`` current
-  values (parity risk #5).
+  match), with an explicit wildcard token (``__ANY__``). A null condition matches a null current
+  value, and only that.
 * :func:`concatenate_existing_and_incoming_values` — order-preserving, existing-first
   deduplicating merge of ``;``-delimited token sets (the ``concatenate`` strategy).
 * :func:`count_elementwise_value_changes` — the element-wise change count that drives
@@ -15,7 +14,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-val
 
 All keying goes through
 :func:`whep_digitize.postpro.rule_engine.matching_strategy.encode_rule_match_key`, so match
-correctness inherits the normalization policy (NFD diacritic strip, not R's ICU ``Latin-ASCII``).
+correctness inherits the normalization policy (NFD diacritic strip + non-alphanumeric collapse).
 """
 
 from __future__ import annotations

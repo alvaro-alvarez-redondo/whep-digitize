@@ -19,9 +19,8 @@ from collections.abc import Callable
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     decode_target_rule_value,
@@ -34,7 +33,7 @@ from whep_digitize.postpro.rule_engine.matching_values import (
     match_rule_target_condition_values,
 )
 
-_SPEC = CAPTURES["matching"]
+_SPEC = GOLDENS["matching"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

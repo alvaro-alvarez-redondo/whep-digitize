@@ -1,24 +1,23 @@
 [project]
 name = "whep-digitize"
 version = "0.1.0"
-description = "WHEP digitization pipeline — Python/Polars port of whep-digitalization (R)."
+description = "WHEP digitization pipeline — a deterministic Python/Polars ETL pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "WHEP" }]
 keywords = ["whep", "etl", "polars", "pipeline", "digitization"]
 
-# Runtime dependencies. Chosen as Python-native equivalents of the R stack
-# (see .claude/docs/r-to-python-mapping.md). Kept deliberately lean.
+# Runtime dependencies. Kept deliberately lean.
 dependencies = [
-    "polars>=1.0",          # data.table equivalent: columnar, multi-threaded, deterministic
-    "pydantic>=2.7",        # checkmate/validation equivalent for the Config model
-    "pydantic-settings>=2.3", # whep.* runtime options via WHEP_* env vars
-    "rich>=13.7",           # cli + progressr equivalent (console, progress bars)
+    "polars>=1.0",          # the sole dataframe engine: columnar, multi-threaded, deterministic
+    "pydantic>=2.7",        # schema validation for the Config model
+    "pydantic-settings>=2.3", # runtime options via WHEP_* env vars
+    "rich>=13.7",           # console output + progress bars
     "typer>=0.12",          # CLI front-end for run_pipeline
-    "fastexcel>=0.10",      # readxl equivalent: fast all-text .xlsx reads (calamine) for polars
-    "xlsxwriter>=3.2",      # writexl equivalent: workbook writing for polars.write_excel
-    "openpyxl>=3.1",        # openxlsx equivalent: styled per-cell audit workbooks
+    "fastexcel>=0.10",      # fast all-text .xlsx reads (calamine) for polars
+    "xlsxwriter>=3.2",      # workbook writing for polars.write_excel
+    "openpyxl>=3.1",        # styled per-cell audit workbooks
 ]
 
 [project.optional-dependencies]
@@ -44,7 +43,7 @@ packages = ["src/whep_digitize"]
 
 # ---------------------------------------------------------------------------
 # Ruff — lint + format. Enforces the engineering standards from CLAUDE.md:
-# snake_case (N), docstrings mirroring roxygen2 (D), pathlib over os.path (PTH).
+# snake_case (N), Google-style docstrings (D), pathlib over os.path (PTH).
 # ---------------------------------------------------------------------------
 [tool.ruff]
 line-length = 100
@@ -63,10 +62,10 @@ select = [
     "A",         # flake8-builtins
     "C4",        # flake8-comprehensions
     "SIM",       # flake8-simplify
-    "PTH",       # flake8-use-pathlib (mirror fs/here -> pathlib)
+    "PTH",       # flake8-use-pathlib
     "ARG",       # unused arguments
     "RUF",       # ruff-specific
-    "D",         # pydocstyle (docstrings, mirror roxygen2 per-function docs)
+    "D",         # pydocstyle (per-function docstrings)
 ]
 ignore = [
     "D203",  # conflicts with D211 (no blank line before class docstring)
@@ -80,7 +79,7 @@ convention = "google"
 "tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104"]  # tests need not be documented
 
 # ---------------------------------------------------------------------------
-# mypy — strict typing. The Python analogue of the R contract assertions.
+# mypy — strict typing across the package and the test suite.
 # ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.11"
@@ -89,33 +88,27 @@ warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
-files = ["src", "tests", "scripts"]
+files = ["src", "tests"]
 cache_dir = ".cache/mypy"
 
-# Third-party modules without type stubs. Stage migrations add their own entries as they
-# introduce those imports (fastexcel/xlsxwriter at the ingest Excel IO boundary; openpyxl at
-# the postpro audit styled-workbook boundary).
+# Third-party modules without type stubs: fastexcel/xlsxwriter at the ingest Excel IO
+# boundary; openpyxl at the postpro audit styled-workbook boundary.
 [[tool.mypy.overrides]]
 module = ["fastexcel.*", "xlsxwriter.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
-# pytest — the ground-truth metric (mirror of testthat). pythonpath=src lets
-# tests import whep_digitize without an editable install.
+# pytest — the ground-truth metric. pythonpath=src lets tests import
+# whep_digitize without an editable install.
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-# scripts/ is on the path so the slow full-dataset parity test can import the harness
-# (scripts/parity_full_dataset.py) without an editable install of a dev-only module.
-pythonpath = ["src", "scripts"]
+pythonpath = ["src"]
 cache_dir = ".cache/pytest"
-# `-m "not slow"` keeps the default suite fast and R-free: the full-dataset parity test needs
-# the R oracle and the ~1,339-workbook production dataset, neither of which exists in CI.
-# Run it explicitly with `pytest -m slow`.
-addopts = "--strict-markers --strict-config -ra -m \"not slow\""
+addopts = "--strict-markers --strict-config -ra"
 markers = [
-    "parity: tests that compare Python output against R golden outputs",
+    "parity: tests that assert output against the frozen reference goldens",
     "slow: long-running tests (full-dataset / benchmark-scale)",
 ]
 
@@ -127,8 +120,7 @@ data_file = ".cache/coverage/.coverage"
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-# CI coverage gate. CI now runs the identical suite to a local run — the goldens are committed,
-# so the parity tests execute there instead of skipping (they were worth ~0.3pt: 91.86% -> 92.16%).
-# With the local/CI gap gone the floor tracks the real number, ~1pt below it so routine churn
-# does not trip the gate.
+# CI coverage gate. CI runs the identical suite to a local run — the goldens are committed, so
+# the parity tests execute there rather than skipping. The floor sits ~1pt below the real number
+# so routine churn does not trip the gate.
 fail_under = 91

@@ -1,9 +1,9 @@
-"""Directory construction — the Python port of R ``01-directories.R``.
+"""Directory construction for a pipeline run.
 
 Creates the import/export directory tree and the post-processing audit subtree
-(``audit``, ``diagnostics``, ``templates``, ``runtime_cache``). Preserves the R
-contract that the audit *root* (``data/postpro``) is created lazily by the
-post-processing stage, not eagerly here.
+(``audit``, ``diagnostics``, ``templates``, ``runtime_cache``). By contract the
+audit *root* (``data/postpro``) is created lazily by the post-processing stage,
+not eagerly here.
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ def _flatten_paths(node: object) -> list[Path]:
 def _resolve_directory_targets(config: Config) -> list[Path]:
     """Resolve the set of directories to create from a config's path tree.
 
-    Mirrors the R logic: flatten all paths; for a path whose basename looks like a file
-    (matches the file-extension pattern), use its parent directory; exclude the audit
-    root; deduplicate and sort deterministically.
+    Flattens all paths; for a path whose basename looks like a file (matches the
+    file-extension pattern), uses its parent directory; excludes the audit root;
+    deduplicates and sorts deterministically.
 
     Args:
         config: The resolved pipeline configuration.
@@ -95,8 +95,8 @@ def delete_directory_if_exists(
 
     Args:
         directory: Directory to delete.
-        tolerate_permission_errors: If ``True``, swallow permission/lock errors
-            (mirrors the R behavior of continuing when the audit folder is locked).
+        tolerate_permission_errors: If ``True``, swallow permission/lock errors so the run
+            continues when the audit folder is locked (e.g. open in Excel).
 
     Returns:
         ``True`` if the directory was deleted, ``False`` if it did not exist or a

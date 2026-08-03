@@ -43,8 +43,8 @@ jobs:
         run: uv run mypy
 
       - name: Pytest (with coverage gate)
-        # Runs the WHOLE suite, parity included: the R goldens are committed under
-        # tests/golden/, so the R-parity assertions execute here with no R install needed.
+        # Runs the WHOLE suite, parity included: the frozen reference goldens are committed
+        # under tests/golden/, so the output assertions execute here with no extra setup.
         # tests/parity/test_goldens_present.py fails the job if any golden is absent, so a
         # stripped golden set can no longer turn the parity suite into silent skips.
         # --cov enforces [tool.coverage.report] fail_under.

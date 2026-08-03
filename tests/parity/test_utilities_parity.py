@@ -22,14 +22,13 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
 from whep_digitize.postpro.utilities.templates import read_rule_table
 
-_SPEC = CAPTURES["utilities"]
-_CSV_SPEC = CAPTURES["rule_table_csv"]
+_SPEC = GOLDENS["utilities"]
+_CSV_SPEC = GOLDENS["rule_table_csv"]
 _RULE_FIXTURE = FIXTURES_DIR / "synthetic" / "clean_rules_sample.xlsx"
 _CSV_FIXTURE = FIXTURES_DIR / "synthetic" / "rule_table_sample.csv"
 

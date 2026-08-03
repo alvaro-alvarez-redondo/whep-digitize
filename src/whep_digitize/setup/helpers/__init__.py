@@ -1,4 +1,4 @@
-"""Shared helper functions — the Python port of ``r/0-general_pipeline/02-helpers/``.
+"""Shared helper functions used across every pipeline stage.
 
 Each module is a focused, deterministic utility used across stages: string
 normalization, numeric coercion, canonical sorting, dataframe cleaning, checkpoints,

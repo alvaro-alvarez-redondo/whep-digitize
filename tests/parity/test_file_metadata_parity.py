@@ -18,13 +18,12 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.ingest.file_io.metadata import extract_file_metadata
 
-_SPEC = CAPTURES["file_metadata"]
+_SPEC = GOLDENS["file_metadata"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

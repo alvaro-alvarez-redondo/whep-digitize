@@ -1,11 +1,11 @@
-"""Postpro / audit export — ports ``r/2-postpro_pipeline/20-data_audit/20-audit-export.R``.
+"""Postpro / audit export.
 
-Writes the audit workbook via **openpyxl** (the R original used ``openxlsx``): the invalid-row
-subset with each flagged cell highlighted (solid fill + bold font + thick border, from
+Writes the audit workbook via **openpyxl**: the invalid-row subset with each flagged cell
+highlighted (solid fill + bold font + thick border, from
 :class:`~whep_digitize.setup.constants.ErrorHighlightStyle`). Excel rows/columns are 1-based
 with a one-row header offset.
 
-Behaviors preserved from R:
+Contract:
 
 * Skip workbook creation entirely when both the subset and the findings are empty.
 * A ``source_row_index`` (existing ``row_index`` column, else ``1..N``) keys highlighting; when
@@ -46,8 +46,6 @@ def export_validation_audit_report(
     output_path: Path,
 ) -> Path | None:
     """Write the styled audit workbook, or skip when there is nothing to report.
-
-    The Python port of R ``export_validation_audit_report``.
 
     Args:
         audit_df: The invalid-row subset to write (may be empty).
@@ -100,7 +98,7 @@ def _add_source_row_index(audit_df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _write_note(worksheet: Worksheet) -> None:
-    """Write the single-cell 'no findings' note (R writes a one-column ``note`` table)."""
+    """Write the 'no findings' note as a one-column ``note`` table (header plus one cell)."""
     worksheet.append(["note"])
     worksheet.append([_EMPTY_NOTE])
 
@@ -174,8 +172,8 @@ def _argb(colour: str) -> str:
 def _build_highlight(style: ErrorHighlightStyle) -> tuple[PatternFill, Font, Border]:
     """Build the (fill, font, border) triple from the configured error-highlight style.
 
-    Mirrors the R ``openxlsx::createStyle`` call: a solid foreground fill, a bold coloured font,
-    and a thick border on all four sides (``border = "TopBottomLeftRight"``).
+    A solid foreground fill, a bold coloured font, and a border of the configured style on all
+    four sides.
     """
     fill = PatternFill(fill_type="solid", fgColor=_argb(style.fg_fill))
     font = Font(bold=style.text_decoration == "bold", color=_argb(style.font_colour))

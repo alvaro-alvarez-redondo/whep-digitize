@@ -20,9 +20,8 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from openpyxl import load_workbook
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.export.lists.merge import resolve_lists_export_columns
 from whep_digitize.export.lists.unique_values import (
@@ -34,7 +33,7 @@ from whep_digitize.export.lists.write import export_lists
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
 
-_SPEC = CAPTURES["export_lists"]
+_SPEC = GOLDENS["export_lists"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

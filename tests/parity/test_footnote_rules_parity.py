@@ -18,16 +18,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_frame_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.footnote_rules import (
     FootnoteRulesResult,
     apply_footnote_rules,
 )
 
-_SPEC = CAPTURES["footnote_rules"]
+_SPEC = GOLDENS["footnote_rules"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

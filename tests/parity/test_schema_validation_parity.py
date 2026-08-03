@@ -20,8 +20,7 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.rule_engine.schema_validation import (
     build_conditional_rule_dictionary,
@@ -30,7 +29,7 @@ from whep_digitize.postpro.rule_engine.schema_validation import (
 )
 from whep_digitize.setup.errors import ValidationError
 
-_SPEC = CAPTURES["schema_validation"]
+_SPEC = GOLDENS["schema_validation"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

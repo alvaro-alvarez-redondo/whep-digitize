@@ -16,13 +16,12 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.ingest.output.validate import ValidationResult, validate_long_df_by_document
 from whep_digitize.setup.config import load_pipeline_config
 
-_SPEC = CAPTURES["validate"]
+_SPEC = GOLDENS["validate"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME

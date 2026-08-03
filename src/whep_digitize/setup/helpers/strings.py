@@ -1,18 +1,17 @@
-"""String normalization — the Python port of ``02-string-normalization.R``.
+"""String normalization — the pipeline's canonical text-folding policy.
 
-Implements the ``whep-digitalization`` normalization **policy** directly: fold text to
-lowercase ASCII, replace runs of non-alphanumerics with a single space, then squish and trim.
-Match-key normalization uses the same policy, so it decides whether post-processing rules fire.
+Implements the normalization **policy** directly: fold text to lowercase ASCII, replace runs of
+non-alphanumerics with a single space, then squish and trim. Match-key normalization uses the
+same policy, so it decides whether post-processing rules fire.
 
-The "fold to ASCII" step is a principled Unicode diacritic strip (NFD decomposition + drop the
-combining marks), **not** R's ICU ``Latin-ASCII`` transliteration. This is a deliberate
-divergence from R's output: ICU applies historical / compatibility expansions the policy does
-not want — ``Philippines®`` -> ``philippines r`` (via ``® -> (R)``), ``½`` -> ``1/2``, plus
-ligature and super/subscript folds. Under the policy those symbols carry no ASCII base and are
-removed by the non-alphanumeric step. Accented Latin letters fold to their base (``café`` ->
-``cafe``, ``ñ`` -> ``n``); letters with no canonical decomposition (``ø``, ``ß``, ``æ``,
-ligatures) are treated like any other non-``[a-z0-9]`` character and dropped — no
-character-specific exceptions or compatibility rules are introduced to match R.
+The "fold to ASCII" step is a principled Unicode diacritic strip: NFD decomposition, then drop
+the combining marks. No historical or compatibility expansions are applied — a symbol such as
+``®``, ``½`` or ``±`` carries no ASCII base, so it is removed by the non-alphanumeric step
+rather than expanded (``Philippines®`` -> ``philippines``, ``½ kg`` -> ``kg``), and
+super/subscripts and ligatures are likewise never unpacked. Accented Latin letters fold to
+their base (``café`` -> ``cafe``, ``ñ`` -> ``n``); letters with no canonical decomposition
+(``ø``, ``ß``, ``æ``, ligatures) are treated like any other non-``[a-z0-9]`` character and
+dropped (``straße`` -> ``stra e``). There are no character-specific exceptions.
 """
 
 from __future__ import annotations
@@ -39,11 +38,10 @@ def transliterate_ascii_lower(text: str) -> str:
 
     Implements the policy step directly: decompose to NFD and drop the combining marks, so an
     accented Latin letter folds to its base (``é`` -> ``e``, ``ñ`` -> ``n``), then lowercase.
-    This intentionally does **not** reproduce R's ICU ``Latin-ASCII`` transliteration: no symbol
-    expansions (``®``, ``½``, ``±``), no compatibility folds (superscripts, ligatures, ``ß`` ->
-    ``ss``), and no character-specific exceptions. Any codepoint without a canonical ASCII base is
-    left unchanged here and removed by the caller's non-alphanumeric step. Pure-ASCII text takes
-    the lowercase fast path.
+    There are deliberately no symbol expansions (``®``, ``½``, ``±``), no compatibility folds
+    (superscripts, ligatures, ``ß`` -> ``ss``), and no character-specific exceptions. Any
+    codepoint without a canonical ASCII base is left unchanged here and removed by the caller's
+    non-alphanumeric step. Pure-ASCII text takes the lowercase fast path.
 
     Args:
         text: The value to fold.
@@ -63,7 +61,7 @@ def normalize_text(text: str | None) -> str | None:
     """Normalize a single string to lowercase ASCII alphanumerics + single spaces.
 
     Transliterate -> lowercase -> replace runs of non-alphanumerics with a single
-    space -> strip. ``None`` passes through as ``None`` (matching R ``NA``).
+    space -> strip. ``None`` passes through unchanged as ``None``.
 
     Args:
         text: The value to normalize.
@@ -80,9 +78,8 @@ def normalize_text(text: str | None) -> str | None:
 def normalize_string(values: pl.Series) -> pl.Series:
     """Normalize a whole column via the cardinality fast path.
 
-    Distinct values are normalized once in Python and mapped back — the polars-idiomatic
-    form of the R "normalize the uniques, then match() back" optimization. Nulls are
-    preserved.
+    Distinct values are normalized once in Python and mapped back, so the cost scales with
+    cardinality rather than row count. Nulls are preserved.
 
     Args:
         values: A string :class:`polars.Series`.

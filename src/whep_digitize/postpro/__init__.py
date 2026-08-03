@@ -1,4 +1,4 @@
-"""Stage 2 — post-processing (ports ``r/2-postpro_pipeline/``). The largest stage.
+"""Stage 2 — post-processing. The largest stage.
 
 Runs the 9-step orchestration: audit -> init -> templates -> preflight ->
 **clean -> standardize units -> harmonize** -> diagnostics -> persist. Public entry
