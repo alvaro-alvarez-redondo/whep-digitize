@@ -22,7 +22,7 @@ from whep_digitize.export.processed_data.export import (
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 
 
 def _frame() -> pl.DataFrame:
@@ -177,14 +177,14 @@ def test_write_overwrites_by_default(tmp_path: Path) -> None:
         (830447.6, "830447.6"),
     ],
 )
-def test_format_double_r(value: float, expected: str) -> None:
-    assert format_double_r(value) == expected
+def test_format_double_fixed(value: float, expected: str) -> None:
+    assert format_double_fixed(value) == expected
 
 
-def test_format_double_r_special() -> None:
-    assert format_double_r(float("nan")) is None
-    assert format_double_r(float("inf")) == "Inf"
-    assert format_double_r(float("-inf")) == "-Inf"
+def test_format_double_fixed_special() -> None:
+    assert format_double_fixed(float("nan")) is None
+    assert format_double_fixed(float("inf")) == "Inf"
+    assert format_double_fixed(float("-inf")) == "-Inf"
 
 
 # --------------------------------------------------------------------------- orchestration

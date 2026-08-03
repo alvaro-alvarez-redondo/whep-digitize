@@ -3,7 +3,7 @@
 The coercion helpers turn character values into doubles, mapping empty strings and
 non-numeric text to null without warnings, and trimming surrounding whitespace.
 
-Also hosts :func:`format_double_r`, the double -> string rendering shared by the TSV and
+Also hosts :func:`format_double_fixed`, the double -> string rendering shared by the TSV and
 unique-list exporters.
 """
 
@@ -60,7 +60,7 @@ def coerce_numeric_series(values: pl.Series) -> pl.Series:
     return values.cast(pl.String).str.strip_chars().cast(pl.Float64, strict=False)
 
 
-def format_double_r(value: float) -> str | None:
+def format_double_fixed(value: float) -> str | None:
     """Render one double at 15 significant figures in fixed, never-scientific notation.
 
     15 significant figures, fixed (never scientific) notation, with trailing zeros and a bare

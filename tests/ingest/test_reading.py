@@ -40,7 +40,7 @@ from whep_digitize.ingest.reading.sheet_read import (
 )
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.options import RuntimeOptions
 
 _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
@@ -227,7 +227,7 @@ def test_read_excel_sheet_preserves_stored_double(config: Config, tmp_path: Path
     result = read_excel_sheet(wb, "exports", config)
     cell = result.data.get_column("1933").item(0)
     assert cell == "0.09999999999999964"  # the exact stored value
-    assert format_double_r(float(cell) * 1000) == "99.9999999999996"
+    assert format_double_fixed(float(cell) * 1000) == "99.9999999999996"
 
 
 def test_read_file_sheets_multi_sheet(config: Config, tmp_path: Path) -> None:

@@ -18,7 +18,7 @@ import polars as pl
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.helpers.strings import normalize_filename
 
 # Fixed sheet order for lists workbooks. Also the order in which layers are grouped into
@@ -79,7 +79,7 @@ def compute_unique_column_values(
     Missing (null) values are dropped and, when any were present, ``blank_label`` is prepended
     *after* the sort, so it is never sorted in. Sorting is by code point for text and numeric for
     numbers; a float column is rendered via
-    :func:`~whep_digitize.setup.helpers.numeric.format_double_r`, the same double formatter the
+    :func:`~whep_digitize.setup.helpers.numeric.format_double_fixed`, the same double formatter the
     processed-data TSVs use. An absent column yields ``[]``.
 
     Args:
@@ -100,7 +100,7 @@ def compute_unique_column_values(
     if sorted_values.dtype == pl.String:
         values = sorted_values.to_list()
     elif sorted_values.dtype.is_float():
-        values = [format_double_r(value) for value in sorted_values.to_list()]
+        values = [format_double_fixed(value) for value in sorted_values.to_list()]
     else:
         values = sorted_values.cast(pl.String).to_list()
 

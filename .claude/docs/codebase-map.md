@@ -25,7 +25,7 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 | Module | Key API |
 |--------|---------|
 | `strings.py` | `normalize_text`, `normalize_string` (series), `clean_footnote`, `clean_footnote_column`, `normalize_filename`, `transliterate_ascii_lower` (the NFD diacritic-strip policy) |
-| `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_r` (15-sig-fig fixed-notation double rendering) |
+| `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_fixed` (15-sig-fig fixed-notation double rendering) |
 | `sorting.py` | `sort_pipeline_stage_df(frame, sort_columns=None)` |
 | `frames.py` | `drop_na_value_rows(frame, value_column, *, enabled)` |
 | `checkpoints.py` | `save_checkpoint`, `load_checkpoint`, `clear_checkpoints` (parquet/pickle); wired into the import runner only |

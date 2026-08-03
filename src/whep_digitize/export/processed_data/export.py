@@ -12,7 +12,7 @@ export tests pin the first two bullets):
   ``.`` removed** (``1.0`` -> ``1``, ``1000.0`` -> ``1000``, ``1e16`` -> ``10000000000000000``).
   polars' shortest-round-trip formatter instead keeps ``1.0`` and switches to ``1e16``-style
   scientific notation, so float columns are stringified with
-  :func:`~whep_digitize.setup.helpers.numeric.format_double_r` before the write. For the finite
+  :func:`~whep_digitize.setup.helpers.numeric.format_double_fixed` before the write. For the finite
   decimals the pipeline actually produces (parsed inputs times exact unit factors) the rendering
   is exact; only *arbitrary* doubles carrying >=16 significant figures, which the pipeline never
   generates, could differ in the 15th digit.
@@ -34,7 +34,7 @@ import polars as pl
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.helpers.strings import normalize_filename
 
 # Record separator: the platform newline — "\r\n" on Windows, "\n" elsewhere.
@@ -163,5 +163,5 @@ def _format_float_series(series: pl.Series) -> pl.Series:
     uniques = series.drop_nulls().unique().to_list()
     if not uniques:
         return series.cast(pl.String)
-    mapping = {value: format_double_r(value) for value in uniques}
+    mapping = {value: format_double_fixed(value) for value in uniques}
     return series.replace_strict(mapping, default=None, return_dtype=pl.String)

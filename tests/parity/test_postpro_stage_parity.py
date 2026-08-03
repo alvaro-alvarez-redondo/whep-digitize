@@ -5,7 +5,7 @@ the verified ``import_stage`` output) with the committed postpro-stage rule fixt
 every column of the clean / normalize / harmonize frames plus the clean & harmonize multi-pass
 diagnostics (``stop_reason`` / ``passes_executed`` / ``converged`` / ``matched_count``) all equal
 the frozen reference. The ``value`` column is numeric (audit-parsed, then prefix-folded by
-standardize), so it is compared through :func:`format_double_r` — the same fixed-notation
+standardize), so it is compared through :func:`format_double_fixed` — the same fixed-notation
 rendering the exports use. Both clean and harmonize converge in two passes (clean rewrites
 ``milk``'s unit; harmonize rewrites ``date``'s post-standardize unit).
 
@@ -26,11 +26,11 @@ from polars.testing import assert_series_equal
 from whep_digitize.contracts import PostproResult
 from whep_digitize.postpro.runner import run_postpro_pipeline
 from whep_digitize.setup.config import load_pipeline_config
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 
 _SPEC = GOLDENS["postpro_stage"]
 _LAYERS = ("clean", "normalize", "harmonize")
-# Every layer column except the numeric ``value`` (compared separately through format_double_r).
+# Every layer column except the numeric ``value`` (compared separately through format_double_fixed).
 _STRING_COLUMNS = (
     "hemisphere",
     "continent",
@@ -110,7 +110,7 @@ def test_layer_string_column_matches_golden(layer: str, column: str, result: Pos
 def test_layer_value_column_matches_golden(layer: str, result: PostproResult) -> None:
     # value is a double (audit parse + standardize prefix-fold): render it the golden's way.
     actual = [
-        None if value is None else format_double_r(value)
+        None if value is None else format_double_fixed(value)
         for value in _layer(result, layer).get_column("value").to_list()
     ]
     assert actual == _gold(f"{layer}_value")
