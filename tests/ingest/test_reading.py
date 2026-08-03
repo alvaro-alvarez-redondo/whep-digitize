@@ -1,9 +1,9 @@
 """Tests for ingest reading: read_utils, sheet_read, batching.
 
-Functional coverage that runs without R: the read-result plumbing, sheet reading over the
+Functional coverage: the read-result plumbing, sheet reading over the
 real corpus and synthetic workbooks (missing base columns, header collisions, multi-sheet,
-non-ASCII sheet names), batch splitting, worker resolution, and batch reading. Byte-for-byte
-R parity for the happy-path sheet read lives in ``tests/parity/test_sheet_read_parity.py``.
+non-ASCII sheet names), batch splitting, worker resolution, and batch reading. Exact
+Reference parity for the happy-path sheet read lives in ``tests/parity/test_sheet_read_parity.py``.
 """
 
 from __future__ import annotations
@@ -194,7 +194,7 @@ def test_restore_numeric_text_precision_is_noop_when_faithful() -> None:
 
 
 def test_restore_numeric_text_precision_drops_trailing_dot_zero() -> None:
-    # A lossy *integral* value must be rewritten the way readxl renders it: no ".0".
+    # A lossy *integral* value must be rewritten in shortest round-trip form: no ".0".
     text = pl.DataFrame({"v": ["1.23456789012e+14"]})
     typed = pl.DataFrame({"v": [123456789012345.0]})
     repaired = restore_numeric_text_precision(text, typed)
@@ -209,7 +209,7 @@ def test_restore_numeric_text_precision_ignores_misaligned_reads() -> None:
 
 def test_read_excel_sheet_preserves_stored_double(config: Config, tmp_path: Path) -> None:
     # DB3: the workbook stores 0.09999999999999964; calamine's text coercion rounds it to "0.1",
-    # which a x1000 unit standardization then turns into 100 where R writes 99.9999999999996.
+    # which a x1000 unit standardization then turns into 100.
     wb = _write_xlsx(
         tmp_path / "imprecise.xlsx",
         {
@@ -226,8 +226,8 @@ def test_read_excel_sheet_preserves_stored_double(config: Config, tmp_path: Path
     )
     result = read_excel_sheet(wb, "exports", config)
     cell = result.data.get_column("1933").item(0)
-    assert cell == "0.09999999999999964"  # readxl col_types="text" renders exactly this
-    assert format_double_r(float(cell) * 1000) == "99.9999999999996"  # what R writes
+    assert cell == "0.09999999999999964"  # the exact stored value
+    assert format_double_r(float(cell) * 1000) == "99.9999999999996"
 
 
 def test_read_file_sheets_multi_sheet(config: Config, tmp_path: Path) -> None:

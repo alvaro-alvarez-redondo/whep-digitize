@@ -1,9 +1,8 @@
 """Unit tests for the post-processing diagnostics modules.
 
-Ports of ``25-preflight.R`` / ``25-rule-summaries.R`` / ``25-standardize-summaries.R`` /
-``25-diagnostics-output.R`` (:mod:`whep_digitize.postpro.diagnostics`). Byte parity vs R for the
-summary tables lives in ``tests/parity/test_diagnostics_parity.py``; these mirror the R testthat
-cases without needing R.
+Covers :mod:`whep_digitize.postpro.diagnostics` — preflight, rule summaries, standardize
+summaries, and audit output. Reference parity for the summary tables lives in
+``tests/parity/test_diagnostics_parity.py``; these pin the behavioral contract directly.
 """
 
 from __future__ import annotations

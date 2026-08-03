@@ -1,4 +1,4 @@
-"""Shared pytest fixtures — the Python analogue of ``tests/test_helper.R``.
+"""Shared pytest fixtures.
 
 Provides an isolated project root, a resolved :class:`Config`, and a small in-memory
 long-format frame. Deterministic and side-effect free (temp dirs only).

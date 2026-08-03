@@ -1,12 +1,12 @@
-"""Parity test: Python file-metadata extraction must match the R golden byte-for-byte.
+"""Parity test: Python file-metadata extraction must match the frozen reference byte-for-byte.
 
-Reads the per-column goldens produced by ``tests/parity/capture.py file_metadata`` and
-asserts :func:`whep_digitize.ingest.file_io.metadata.extract_file_metadata` reproduces each
-output column of the R ``extract_file_metadata`` over the frozen file-name fixture (real
-WHEP corpus paths plus edge cases: no year token, <2 tokens, first-year-wins, non-ASCII).
+Reads the per-column goldens and asserts
+:func:`whep_digitize.ingest.file_io.metadata.extract_file_metadata` reproduces each output column
+over the frozen file-name fixture (real WHEP corpus paths plus edge cases: no year token,
+<2 tokens, first-year-wins, non-ASCII).
 
-Each column is compared in R's ``as.character`` string form (NA -> ``null`` -> ``None``), matching
-how the golden was serialized; the boolean ``is_ascii`` maps to ``"TRUE"`` / ``"FALSE"``. Goldens
+Each column is compared in the goldens' string form (null -> ``None``), matching how they were
+serialized; the boolean ``is_ascii`` maps to ``"TRUE"`` / ``"FALSE"``. Goldens
 are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
 """
@@ -34,12 +34,12 @@ def _load_json(path: Path) -> list[str | None]:
     return data
 
 
-def _as_r_character(frame: pl.DataFrame, column: str) -> pl.Series:
-    """Render one metadata column to R's ``as.character`` string form for comparison."""
+def _as_golden_text(frame: pl.DataFrame, column: str) -> pl.Series:
+    """Render one metadata column to the goldens' string form for comparison."""
     series = frame.get_column(column)
     if series.dtype == pl.Boolean:
-        # R as.character(TRUE) -> "TRUE"; polars bool->str casts to "true", so map explicitly.
-        # is_ascii is never null, so the null branch (R NA -> null) need not be modelled here.
+        # The goldens spell booleans "TRUE"/"FALSE"; polars casts to "true", so map explicitly.
+        # is_ascii is never null, so the null branch need not be modelled here.
         return frame.select(
             pl.when(pl.col(column)).then(pl.lit("TRUE")).otherwise(pl.lit("FALSE")).alias(column)
         ).get_column(column)
@@ -55,13 +55,13 @@ def result() -> pl.DataFrame:
 
 @pytest.mark.parity
 @pytest.mark.parametrize("export", sorted(_SPEC.exports))
-def test_matches_r_golden(export: str, result: pl.DataFrame) -> None:
+def test_matches_golden(export: str, result: pl.DataFrame) -> None:
     golden_path = _SPEC.golden_paths()[export]
     if not golden_path.is_file():
         pytest.skip(
-            f"Golden {golden_path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {golden_path} is missing from the checkout; restore it from version "
+            "control (the goldens are frozen and have no regeneration path)."
         )
     expected = pl.Series(export, _load_json(golden_path), dtype=pl.String)
-    actual = _as_r_character(result, export).rename(export)
+    actual = _as_golden_text(result, export).rename(export)
     assert_series_equal(actual, expected, check_dtypes=True, check_names=True)

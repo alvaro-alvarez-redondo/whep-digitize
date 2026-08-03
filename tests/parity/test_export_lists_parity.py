@@ -1,9 +1,9 @@
-"""Parity test: the unique-list export must reproduce R's ``31-lists`` logic + sheet layout.
+"""Parity test: the unique-list export must reproduce the reference values + sheet layout.
 
 Builds the four layer frames from the frozen fixture and asserts the ports in
-:mod:`whep_digitize.export.lists` reproduce the R goldens: per-(layer, column) unique values
+:mod:`whep_digitize.export.lists` reproduce the frozen reference: per-(layer, column) unique values
 (drop-null, code-point/radix sort, ``"(blank)"`` prepended when any value is missing — including
-the un-normalized ``raw`` layer, parity risk #7), the sorted union of columns, the
+the un-normalized ``raw`` layer,), the sorted union of columns, the
 configured-column resolution, and the identical-layer merge grouping + fixed sheet order per
 column. The last check runs the real ``export_lists`` and reads the written workbooks back
 (openpyxl — xlsx bytes cannot match across writers, but the sheet names and cell values are the
@@ -42,7 +42,7 @@ _LAYERS = ("raw", "clean", "normalize", "harmonize")
 _OBJECT_NAME = {layer: f"whep_data_{layer}" for layer in _LAYERS}
 _COLUMNS = ("continent", "polity", "commodity", "unit")
 _FRAME_COLUMNS = ("continent", "polity", "commodity", "unit", "year", "value")
-# Matches the R capture's config (a configured-but-absent 'footnotes' must be dropped).
+# Matches the reference config (a configured-but-absent 'footnotes' must be dropped).
 _LISTS_TO_EXPORT = ("continent", "polity", "commodity", "unit", "footnotes")
 
 
@@ -50,8 +50,8 @@ def _gold(name: str) -> list[str]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str] = json.loads(path.read_text(encoding="utf-8"))
     return data

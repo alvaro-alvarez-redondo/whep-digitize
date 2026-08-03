@@ -1,7 +1,7 @@
-"""Parity test: standardize aggregation + layer audit must match the R golden.
+"""Parity test: standardize aggregation + layer audit must match the frozen reference.
 
-Exercises the port of ``24-standardize-aggregation.R`` (``aggregate_standardized_rows``) and the
-audit merge from ``24-standardize-orchestration.R`` (``build_standardize_layer_audit``). Asserts
+Exercises ``aggregate_standardized_rows`` and the
+audit merge ``build_standardize_layer_audit``. Asserts
 the aggregated measure (all-NA group → null; unique rows kept) and the audit's
 commodity/affected/effective/target — the ``all commodity`` rule attributed to each applied
 commodity. If a golden is absent, the test skips.
@@ -29,8 +29,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

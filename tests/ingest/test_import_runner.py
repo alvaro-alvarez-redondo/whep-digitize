@@ -3,7 +3,7 @@
 Functional coverage: the wired pipeline returns an :class:`ImportResult` on the real corpus
 (no more ``StageNotImplementedError``), the long frame is canonically sorted, an empty
 import folder aborts, and the opt-in checkpoint round-trips (and stays inert when off).
-Byte-for-byte stage parity vs R lives in ``tests/parity/test_import_stage_parity.py``.
+Exact stage parity vs the reference lives in ``tests/parity/test_import_stage_parity.py``.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def test_run_import_pipeline_checkpoint_round_trip(config: Config, corpus_config
     assert _import_checkpoint(corpus_config).exists()
 
     # An empty raw folder aborts, so returning `first` proves the restore short-circuited the
-    # stage ahead of discovery (as R does).
+    # stage ahead of discovery.
     config.paths.data.import_.raw.mkdir(parents=True, exist_ok=True)
     restored = run_import_pipeline(config, options, current_year=2025)
     assert restored.data.equals(first.data)

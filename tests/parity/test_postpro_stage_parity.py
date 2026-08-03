@@ -1,12 +1,12 @@
-"""Stage-level parity: ``run_postpro_pipeline`` output must match R over the frozen corpus.
+"""Stage-level parity: ``run_postpro_pipeline`` output must match the frozen reference.
 
 Runs the full post-processing stage over the frozen import frame (``postpro_stage_input.json``,
 the verified ``import_stage`` output) with the committed postpro-stage rule fixtures, and asserts
 every column of the clean / normalize / harmonize frames plus the clean & harmonize multi-pass
 diagnostics (``stop_reason`` / ``passes_executed`` / ``converged`` / ``matched_count``) all equal
-R's ``run_postpro_pipeline_batch`` output. The ``value`` column is numeric (audit-parsed, then
-prefix-folded by standardize), so it is compared through :func:`format_double_r` — R's
-``as.character`` rendering. Both clean and harmonize converge in two passes (clean rewrites
+the frozen reference. The ``value`` column is numeric (audit-parsed, then prefix-folded by
+standardize), so it is compared through :func:`format_double_r` — the same fixed-notation
+rendering the exports use. Both clean and harmonize converge in two passes (clean rewrites
 ``milk``'s unit; harmonize rewrites ``date``'s post-standardize unit).
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
@@ -50,8 +50,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data
@@ -67,7 +67,8 @@ def result(tmp_path_factory: pytest.TempPathFactory) -> PostproResult:
     )
 
     # Root the config at a writable temp dir (audit/standardize/template writes land there); point
-    # the clean/harmonize rule dirs at the committed stage fixtures, exactly as the R golden does.
+    # the clean/harmonize rule dirs at the committed stage fixtures, matching the frozen
+    # reference.
     base = load_pipeline_config(root=tmp_path_factory.mktemp("postpro_stage"))
     rule_root = FIXTURES_DIR / "rule_files_postpro"
     import_ = dataclasses.replace(
@@ -107,7 +108,7 @@ def test_layer_string_column_matches_golden(layer: str, column: str, result: Pos
 @pytest.mark.parity
 @pytest.mark.parametrize("layer", _LAYERS)
 def test_layer_value_column_matches_golden(layer: str, result: PostproResult) -> None:
-    # value is a double (audit parse + standardize prefix-fold): render it R's as.character way.
+    # value is a double (audit parse + standardize prefix-fold): render it the golden's way.
     actual = [
         None if value is None else format_double_r(value)
         for value in _layer(result, layer).get_column("value").to_list()

@@ -1,14 +1,14 @@
-"""Parity test: rule-schema coercion, validation, and dictionary must match the R golden.
+"""Parity test: rule-schema coercion, validation, and dictionary must match the frozen reference.
 
-Exercises the port of ``23-schema-validation.R`` over a frozen fixture and asserts:
+Exercises the module over a frozen fixture and asserts:
 
 * ``build_conditional_rule_dictionary`` grouping — the flattened groups encode both the group
-  order (R ``interaction`` factor order) and the within-group radix / code-point + NA-last order
-  that feeds ``last_rule_wins`` (parity risk #7).
+  order and the within-group radix / code-point + NA-last order
+  that feeds ``last_rule_wins``.
 * ``coerce_rule_schema`` — canonical column set/order, the ``source_value_column_present`` flag,
   and the synthesized-when-absent ``value_source`` column.
 * ``validate_canonical_rules`` abort behavior — valid rules pass; duplicate keys and
-  missing dataset columns abort (captured from R with ``try()``).
+  missing dataset columns abort.
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
@@ -40,8 +40,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

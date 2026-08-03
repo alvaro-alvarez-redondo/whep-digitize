@@ -1,8 +1,8 @@
 """Tests for the processed-data export (``export.processed_data``).
 
-Mirrors the R suite ``tests/3-export_pipeline/test-export-data.R`` (layer detection, path
+(layer detection, path
 naming, the TSV writer, and the harmonize-by-default filter) and adds focused coverage of the
-R-``fwrite`` float rendering that the byte-parity test depends on.
+the fixed-notation float rendering that the byte-parity test depends on.
 """
 
 from __future__ import annotations
@@ -135,7 +135,7 @@ def test_write_uses_platform_eol(tmp_path: Path) -> None:
     assert out.read_bytes() == f"a{_FWRITE_EOL}1{_FWRITE_EOL}".encode()
 
 
-def test_write_renders_floats_like_fwrite(tmp_path: Path) -> None:
+def test_write_renders_floats_in_fixed_notation(tmp_path: Path) -> None:
     frame = pl.DataFrame({"value": [1.0, 2.5, 1000.0, None, -3.5]}, schema={"value": pl.Float64})
     out = write_processed_table(frame, tmp_path / "f.tsv")
     # read_bytes (not read_text) so the CRLF terminators survive universal-newline translation.

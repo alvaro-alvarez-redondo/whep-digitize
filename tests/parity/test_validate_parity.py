@@ -1,10 +1,10 @@
-"""Parity test: document-major validation must match the R golden byte-for-byte.
+"""Parity test: document-major validation must match the frozen reference byte-for-byte.
 
 Runs ``validate_long_df_by_document`` over the interleaved multi-document fixture and asserts
 the verbatim error strings, their exact order (the 4-key stable sort), and the document-major
-reordered data all equal R's ``validate_long_df_by_document`` output. ``current_year`` is pinned
-to 2025 to match the R capture's ``Sys.Date`` override, so the plausible-year range in the
-messages is deterministic.
+reordered data all equal the frozen reference. ``current_year`` is pinned to 2025 to match the
+year the reference was produced under, so the plausible-year range in the messages is
+deterministic.
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
@@ -25,15 +25,15 @@ _SPEC = GOLDENS["validate"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
-_PINNED_YEAR = 2025  # matches the R capture's Sys.Date override
+_PINNED_YEAR = 2025  # matches the reference Sys.Date override
 
 
 def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

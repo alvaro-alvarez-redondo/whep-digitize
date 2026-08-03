@@ -1,10 +1,9 @@
 """Unit tests for the multi-pass clean/harmonize driver and its parts.
 
-Ports of ``22-stage-inputs.R`` / ``22-controls-cache.R`` / ``23-payload-application.R`` /
-``22-layer-runner.R`` (:mod:`whep_digitize.postpro.clean_harmonize` +
-:mod:`whep_digitize.postpro.rule_engine.payload_application`). End-to-end convergence parity vs R
-lives in ``tests/parity/test_layer_batch_parity.py``; these pin the behavioral contract without
-needing R, including the pass-1-only normalization, converge-at-zero-change, and cycle detection.
+Covers :mod:`whep_digitize.postpro.clean_harmonize` +
+:mod:`whep_digitize.postpro.rule_engine.payload_application`. End-to-end convergence against the
+frozen reference lives in ``tests/parity/test_layer_batch_parity.py``; these pin the behavioral
+contract directly — the pass-1-only normalization, converge-at-zero-change, and cycle detection.
 """
 
 from __future__ import annotations

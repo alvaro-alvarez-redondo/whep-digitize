@@ -1,13 +1,12 @@
 """Postpro / standardize_units — conversion-rule preparation.
 
-The Python port of the rule-preparation half of
-legacy-header aliasing, schema +
-conversion validation (normalized-key dedupe, finite factor/offset, chained-rule guard), and
-materializing the numeric + normalized-key columns the engine joins on.
+Legacy-header aliasing, schema + conversion validation (normalized-key dedupe, finite
+factor/offset, chained-rule guard), and materializing the numeric + normalized-key columns the
+engine joins on.
 
 The xlsx rule-file readers (``read_all_standardize_rule_files`` /
-``read_standardize_rule_workbook`` / ``ensure_standardize_template_exists``) are the orchestration
-IO boundary and are ported with the standardize orchestration (C4), not here.
+``read_standardize_rule_workbook`` / ``ensure_standardize_template_exists``) sit at the
+orchestration IO boundary and live in the orchestration module, not here.
 """
 
 from __future__ import annotations

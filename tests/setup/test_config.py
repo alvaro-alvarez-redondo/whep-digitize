@@ -1,4 +1,4 @@
-"""Tests for config construction and path resolution (mirrors R ``01-config.R``)."""
+"""Tests for config construction and path resolution."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def test_audit_subtree_paths(config: Config, project_dir: Path) -> None:
     assert audit.diagnostics_dir == postpro_root / "diagnostics"
     assert audit.templates_dir == postpro_root / "templates"
     assert audit.runtime_cache_dir == postpro_root / "runtime_cache"
-    assert audit.dataset_dir == audit.audit_dir  # R parity: duplicate of audit_dir
+    assert audit.dataset_dir == audit.audit_dir  # intentional alias of audit_dir
 
 
 def test_audit_file_path(config: Config) -> None:

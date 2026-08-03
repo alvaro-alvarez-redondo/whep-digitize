@@ -1,8 +1,8 @@
-"""Stage-level parity: ``run_import_pipeline`` output must match R byte-for-byte.
+"""Stage-level parity: ``run_import_pipeline`` output must match the frozen reference exactly.
 
 Runs the full ingest stage over the frozen corpus and asserts the consolidated, canonically
 sorted long frame (every column) and the reading / validation / consolidation diagnostics all
-equal R's ``run_import_pipeline`` output. ``current_year`` is pinned to 2025 to match the R
+equal the frozen reference. ``current_year`` is pinned to 2025 to match the
 capture's ``Sys.Date`` override (the corpus has no out-of-range years, so this only guards
 determinism).
 
@@ -46,8 +46,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

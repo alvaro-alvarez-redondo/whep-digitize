@@ -1,8 +1,7 @@
 """Unit tests for the post-processing data-audit module.
 
-Ports of ``20-audit-config.R`` / ``20-audit-validation.R`` / ``20-audit-export.R`` /
-``20-audit-orchestration.R`` (:mod:`whep_digitize.postpro.audit`). Byte parity vs R lives in
-``tests/parity/test_data_audit_parity.py``; these pin the behavioral contract without needing R,
+Covers :mod:`whep_digitize.postpro.audit`. Reference parity lives in
+``tests/parity/test_data_audit_parity.py``; these pin the behavioral contract,
 including the two preserved quirks (invalid rows retained; the audit regex is stricter than the
 float parser, so ``-3.5`` is flagged yet parses).
 """

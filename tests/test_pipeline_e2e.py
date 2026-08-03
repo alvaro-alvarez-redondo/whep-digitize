@@ -3,7 +3,7 @@
 Exercises the full ``setup -> ingest -> postpro -> export`` wiring over the committed fixture
 corpus + postpro rule fixtures (so the multi-pass rule engine fires), asserting a valid
 :class:`ExportResult` with the processed-data TSV and the per-column unique-list workbooks
-written to disk. Stage- and module-level *parity* (vs the R golden) is covered by
+written to disk. Stage- and module-level *parity* (vs the frozen reference) is covered by
 ``tests/parity/`` — this guards the orchestration glue itself (which those stage tests bypass),
 and full-pipeline byte-parity over the frozen dataset is verified out-of-band (see
 ``.claude`` docs / ``.claude/bench``).
@@ -56,7 +56,7 @@ def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
 
     assert isinstance(result, ExportResult)
 
-    # Processed data: the harmonize layer only (R export_layers default), written + non-empty.
+    # Processed data: the harmonize layer only, written + non-empty.
     assert list(result.processed_paths) == ["whep_data_harmonize"]
     tsv = result.processed_paths["whep_data_harmonize"]
     assert tsv.is_file() and tsv.stat().st_size > 0

@@ -1,12 +1,11 @@
-"""Parity test: rule-engine matching & value merge must match the R golden byte-for-byte.
+"""Parity test: rule-engine matching & value merge must match the frozen reference byte-for-byte.
 
-Runs the ports of ``23-matching-strategy.R`` / ``23-matching-values.R`` over the frozen
-unicode / NA / empty / wildcard / duplicate fixture and asserts they reproduce R's
+Runs the matching helpers over the frozen
+unicode / null / empty / wildcard / duplicate fixture and asserts they reproduce the
 ``match_rule_target_condition_values`` (tokenized + plain), ``encode_rule_match_key``,
 ``encode``/``decode_target_rule_value``, ``concatenate_existing_and_incoming_values``, and
-``count_elementwise_value_changes``. This guards the two ranked risks these functions hinge on:
-NA<->NA folding to ``na_match_key`` (#5) and the ``Latin-ASCII; Lower`` transliteration inside
-match keys (#1).
+``count_elementwise_value_changes``. This guards the two behaviors these functions hinge on:
+null<->null folding to ``na_match_key``, and the diacritic fold applied inside match keys.
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
@@ -37,10 +36,10 @@ _SPEC = GOLDENS["matching"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
-_CONCAT_DELIMITER = "; "  # matches the R capture's delimiter (the constant default)
+_CONCAT_DELIMITER = "; "  # matches the reference delimiter (the constant default)
 _BOOL = {"TRUE": True, "FALSE": False}
 
-# Python equivalent of each string-valued R export declared in the capture registry.
+# Python equivalent of each string-valued golden export.
 _STRING_EXPORTS: dict[str, Callable[[dict[str, pl.Series]], pl.Series]] = {
     "encode_key": lambda columns: encode_rule_match_key(columns["current"]),
     "encode_key_raw": lambda columns: encode_rule_match_key(
@@ -60,8 +59,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

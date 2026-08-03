@@ -1,9 +1,9 @@
 """Unit tests for the postpro rule-engine footnote-rule application.
 
-Port of ``23-footnote-rules.R`` (:mod:`whep_digitize.postpro.rule_engine.footnote_rules`). Byte
-parity vs R is covered in ``tests/parity/test_footnote_rules_parity.py``; these tests pin the
+Covers :mod:`whep_digitize.postpro.rule_engine.footnote_rules`. Byte
+parity is covered in ``tests/parity/test_footnote_rules_parity.py``; these tests pin the
 behavioral contract (explode / match / resolve / reconstruct, precedence, change counting,
-audit, validation) without needing R.
+audit, validation).
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ def test_empty_string_footnote_becomes_na() -> None:
 
 
 def test_trailing_semicolon_token_dropped() -> None:
-    # R strsplit drops the trailing empty field: "a;" -> ["a"].
+    # A single trailing empty field is dropped: "a;" -> ["a"].
     result = _apply(_dataset(["a;"]), _rules([("footnotes", "a", "A", "footnotes", None, None)]))
     assert result.data.get_column("footnotes").to_list() == ["A"]
 

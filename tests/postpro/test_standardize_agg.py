@@ -1,10 +1,10 @@
 """Unit tests for standardize-units aggregation + orchestration.
 
-Ports of ``24-standardize-aggregation.R`` and ``24-standardize-orchestration.R``
+Covers the aggregation and orchestration modules
 (:mod:`whep_digitize.postpro.standardize_units.aggregation` /
-:mod:`~whep_digitize.postpro.standardize_units.orchestration`). Byte parity vs R for aggregation
-+ the layer audit lives in ``tests/parity/test_standardize_agg_parity.py``; these mirror the R
-testthat cases without needing R.
+:mod:`~whep_digitize.postpro.standardize_units.orchestration`). Reference parity for aggregation
++ the layer audit lives in ``tests/parity/test_standardize_agg_parity.py``; these cover the
+behavioral cases.
 """
 
 from __future__ import annotations

@@ -61,14 +61,14 @@ def test_normalize_filename() -> None:
         ("ÑOÑO", "nono"),
         ("Kuršėnai", "kursenai"),
         ("Straße", "straße"),  # ß has no canonical decomposition -> left for the non-alnum step
-        ("½", "½"),  # symbols are NOT expanded (ICU would give " 1/2"); passed through untouched
-        ("±", "±"),  # (ICU: "+/-")
-        ("®", "®"),  # (ICU: "(r)")
+        ("½", "½"),  # symbols are NOT expanded passed through untouched
+        ("±", "±"),
+        ("®", "®"),
         ("¹", "¹"),  # superscripts are NOT folded to digits (compatibility rule avoided)
     ],
 )
 def test_transliterate_ascii_lower_policy(raw: str, expected: str) -> None:
-    # Policy: strip diacritics via NFD + lowercase; do NOT reproduce ICU's symbol/compatibility
+    # Policy: strip diacritics via NFD + lowercase; do NOT apply symbol / compatibility
     # expansions. Non-decomposable codepoints pass through for the caller's non-alnum step to drop.
     assert strings.transliterate_ascii_lower(raw) == expected
 

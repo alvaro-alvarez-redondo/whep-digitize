@@ -1,10 +1,10 @@
-"""Parity test: unit standardization must match the R golden.
+"""Parity test: unit standardization must match the frozen reference.
 
-Exercises the port of ``24-rules-setup.R`` (``prepare_standardize_rules``) +
-``24-standardize-engine.R`` (``apply_standardize_rules``) over one rich fixture: a specific
+Exercises ``prepare_standardize_rules`` +
+``apply_standardize_rules`` over one rich fixture: a specific
 prefixed rule (revert), a ``kg`` fallback, a celsius→fahrenheit offset, a comma-thousands prefix
-fold, and an unmatched row (parity risk #9). Asserts the converted value + unit, matched/unmatched
-counts, and the sorted ``matched_rule_counts`` match R. If a golden is absent, the test skips.
+fold, and an unmatched row. Asserts the converted value + unit, matched/unmatched
+counts, and the sorted ``matched_rule_counts`` all match. If a golden is absent, the test skips.
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

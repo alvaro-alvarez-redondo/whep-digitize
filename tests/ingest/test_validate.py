@@ -1,8 +1,8 @@
 """Tests for ingest output validation (``ingest.output.validate``).
 
-Functional coverage that runs without R: each check (mandatory-field, year-value, duplicate),
+Functional coverage: each check (mandatory-field, year-value, duplicate),
 the document-major reorder + per-document row ids, verbatim message formats, the plausible-year
-range parameter, and error handling. Byte-for-byte R parity on the integrated multi-document
+range parameter, and error handling. Reference parity on the integrated multi-document
 ordering lives in ``tests/parity/test_validate_parity.py``.
 """
 

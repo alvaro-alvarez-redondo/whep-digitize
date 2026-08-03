@@ -1,8 +1,8 @@
 """Tests for ingest processing: transform_single_file + read_transform_pipeline_files.
 
-Functional coverage that runs without R: the per-file transform (including the empty-file and
+Functional coverage: the per-file transform (including the empty-file and
 missing-metadata branches), and the fused read+transform pipeline over the real corpus and
-edge cases (empty list, missing column, unreadable file). Byte-for-byte R parity and the
+edge cases (empty list, missing column, unreadable file). Reference parity and the
 sequential-vs-parallel determinism guarantee live in
 ``tests/parity/test_processing_parity.py``.
 """

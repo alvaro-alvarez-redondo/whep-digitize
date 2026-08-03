@@ -1,11 +1,10 @@
-"""Parity test: Python ``read_excel_sheet`` must match the R golden byte-for-byte.
+"""Parity test: Python ``read_excel_sheet`` must match the frozen reference byte-for-byte.
 
 Reads a real corpus workbook through the full ``read_excel_sheet`` path (all-as-text read,
 ``country``->``polity`` rename, base-column non-empty row filter, ``variable`` := sheet name)
-and asserts every output column, the column order, and the row count match R's
-``readxl``-based output. This is the check that readxl and calamine text extraction agree
-*after filtering* (readxl keeps blank source rows that calamine drops; the filter removes
-exactly those).
+and asserts every output column, the column order, and the row count match the frozen reference.
+The filter is what makes this stable: blank source rows are dropped, so the surviving rows are
+independent of how the underlying reader treats trailing blanks.
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
@@ -46,8 +45,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

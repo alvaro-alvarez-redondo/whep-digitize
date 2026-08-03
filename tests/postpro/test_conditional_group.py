@@ -1,9 +1,9 @@
 """Unit tests for the postpro rule-engine conditional rule-group application.
 
-Port of ``23-conditional-group.R`` (:mod:`whep_digitize.postpro.rule_engine.conditional_group`).
-Byte parity vs R is covered in ``tests/parity/test_conditional_group_parity.py``; these tests pin
+Covers :mod:`whep_digitize.postpro.rule_engine.conditional_group`.
+Reference parity is covered in ``tests/parity/test_conditional_group_parity.py``; these tests pin
 the behavioral contract (source/target scatter, independent changed_columns, audit table,
-overwrite events, argument validation) without needing R.
+overwrite events, argument validation).
 """
 
 from __future__ import annotations

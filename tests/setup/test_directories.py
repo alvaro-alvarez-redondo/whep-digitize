@@ -1,4 +1,4 @@
-"""Tests for directory construction (mirrors the R audit-subtree contract)."""
+"""Tests for directory construction."""
 
 from __future__ import annotations
 

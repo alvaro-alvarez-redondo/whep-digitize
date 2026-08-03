@@ -1,9 +1,9 @@
 """Unit tests for the postpro rule-engine target-update application.
 
-Port of ``23-target-apply.R`` (:mod:`whep_digitize.postpro.rule_engine.target_apply`). Byte
-parity vs R is covered in ``tests/parity/test_target_apply_parity.py``; these tests pin the
+Covers :mod:`whep_digitize.postpro.rule_engine.target_apply`. Byte
+parity is covered in ``tests/parity/test_target_apply_parity.py``; these tests pin the
 behavioral contract (strategy dispatch, condition matching, wildcard removal, overwrite-event
-emission, functional scatter, validation) without needing R.
+emission, functional scatter, validation).
 """
 
 from __future__ import annotations

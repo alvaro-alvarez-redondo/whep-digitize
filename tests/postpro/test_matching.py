@@ -1,10 +1,10 @@
 """Unit tests for the postpro rule-engine matching strategy and value merge.
 
-Ports of ``23-matching-strategy.R`` (:mod:`whep_digitize.postpro.rule_engine.matching_strategy`)
-and ``23-matching-values.R`` (:mod:`whep_digitize.postpro.rule_engine.matching_values`). Byte
-parity vs R is covered separately in ``tests/parity/test_matching_parity.py``; these tests pin
+Covers :mod:`whep_digitize.postpro.rule_engine.matching_strategy`
+and :mod:`whep_digitize.postpro.rule_engine.matching_values`. Byte
+parity is covered separately in ``tests/parity/test_matching_parity.py``; these tests pin
 the behavioral contract (NA handling, tokenized membership, wildcard, existing-first dedupe,
-change counting, strategy resolution) without needing R.
+change counting, strategy resolution).
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ def test_match_tokenized_na_matches_only_na() -> None:
 
 
 def test_match_tokenized_empty_string_current_never_matches() -> None:
-    # R keys the token lookup by the current value and cannot retrieve an empty-string name
+    # The token lookup is keyed by the current value and treats the empty key as absent
     # (`list[[""]]` -> NULL); the port reproduces that quirk.
     result = match_rule_target_condition_values(_s([""]), _s([""]), tokenized_target=True)
     assert result.to_list() == [False]
