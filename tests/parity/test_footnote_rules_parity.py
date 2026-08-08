@@ -1,10 +1,10 @@
-"""Parity test: footnote-rule application must match the R golden byte-for-byte.
+"""Parity test: footnote-rule application must match the frozen reference byte-for-byte.
 
-Runs ``apply_footnote_rules`` (port of ``23-footnote-rules.R``) over one rich dataset + rule set
+Runs ``apply_footnote_rules`` over one rich dataset + rule set
 covering replace / remove / multi-token / precedence (remove>replace, first-replacement) /
 NA / empty / trailing-``;`` / whitespace / conditional-target / transliteration / no-op, and
 asserts the reconstructed footnotes, the mutated target column, the change count, the changed
-columns, and the full audit table all equal R's output.
+columns, and the full audit table all equal the expected output.
 
 Guards the ``;``-explode semantics, the cartesian match/resolve/reconstruct, and the
 before-image footnote change count. Goldens are committed, so this runs on any checkout — CI
@@ -18,16 +18,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_frame_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.footnote_rules import (
     FootnoteRulesResult,
     apply_footnote_rules,
 )
 
-_SPEC = CAPTURES["footnote_rules"]
+_SPEC = GOLDENS["footnote_rules"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -51,8 +50,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

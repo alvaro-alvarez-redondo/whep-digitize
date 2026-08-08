@@ -1,14 +1,12 @@
 """Postpro / utilities — per-layer diagnostics.
 
-The Python port of ``r/2-postpro_pipeline/21-postpro_utilities/21-diagnostics.R``
-(``build_layer_diagnostics``): summarize one clean/standardize/harmonize layer's audit table
+:func:`build_layer_diagnostics` summarizes one clean/standardize/harmonize layer's audit table
 into a :class:`~whep_digitize.contracts.LayerDiagnostics`.
 
-The R object also carried ``layer_name`` / ``rows_out`` / a wall-clock timestamp /
-``idempotence_passed`` / ``validation_passed``; the typed contract keeps only the deterministic
-matched/unmatched counts, status, and message (the non-deterministic timestamp is deliberately
-dropped so results are reproducible). ``rows_out`` and ``layer_name`` are validated for interface
-parity but do not feed the reduced contract.
+The contract deliberately carries only deterministic fields — matched/unmatched counts, status,
+and message. No wall-clock timestamp is recorded, so identical inputs produce identical
+diagnostics. ``layer_name`` and ``rows_out`` are validated as a caller sanity check but do not
+feed the returned contract.
 """
 
 from __future__ import annotations
@@ -28,14 +26,14 @@ def build_layer_diagnostics(
 ) -> LayerDiagnostics:
     """Build the diagnostics for one processing layer from its audit table.
 
-    The Python port of R ``build_layer_diagnostics``: ``matched_count`` is the sum of the audit
-    table's ``affected_rows`` (``0`` when empty), ``unmatched_count`` is ``max(rows_in -
-    matched, 0)``, and the status/message reflect whether any rows matched.
+    ``matched_count`` is the sum of the audit table's ``affected_rows`` (``0`` when the table is
+    empty or lacks the column), ``unmatched_count`` is ``max(rows_in - matched, 0)``, and the
+    status/message reflect whether any rows matched at all.
 
     Args:
-        layer_name: The layer label (validated; not stored in the reduced contract).
+        layer_name: The layer label (validated; not stored in the contract).
         rows_in: Row count before processing (drives ``unmatched_count``).
-        rows_out: Row count after processing (validated for interface parity; unused downstream).
+        rows_out: Row count after processing (validated only; not stored in the contract).
         audit_df: The layer's audit table (``affected_rows`` column drives ``matched_count``).
 
     Returns:

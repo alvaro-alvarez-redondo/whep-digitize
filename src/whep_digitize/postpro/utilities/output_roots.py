@@ -1,10 +1,9 @@
 """Postpro / utilities — audit output-root resolution.
 
-The Python port of ``r/2-postpro_pipeline/21-postpro_utilities/21-output-roots.R``: resolve the
-post-processing output subtree (``audit`` / ``diagnostics`` / ``templates`` / ``runtime_cache``)
-from the config, and create it on disk. The R version defaulted each dir from the audit root
-when absent; the typed :class:`~whep_digitize.setup.config.Config` always resolves them, so
-this port reads them directly.
+Resolve the post-processing output subtree (``audit`` / ``diagnostics`` / ``templates`` /
+``runtime_cache``) from the config, and create it on disk. The typed
+:class:`~whep_digitize.setup.config.Config` has already resolved every directory, so these
+helpers read them directly and never invent a fallback.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ from whep_digitize.setup.helpers.assertions import require
 
 @dataclass(frozen=True, slots=True)
 class PostproOutputPaths:
-    """The four post-processing output directories (R ``get_postpro_output_paths`` list).
+    """The post-processing output root plus its four sub-directories.
 
     Attributes:
         audit_root_dir: The post-processing output root (``data/postpro``).
@@ -62,8 +61,7 @@ def get_postpro_output_paths(config: Config) -> PostproOutputPaths:
 def initialize_postpro_output_root(config: Config) -> PostproOutputPaths:
     """Resolve and create the post-processing output subtree.
 
-    The Python port of R ``initialize_postpro_output_root``: creates each of the four output
-    directories (with parents) and returns them.
+    Creates the root and each of the four output directories (with parents) and returns them.
 
     Args:
         config: The resolved pipeline configuration.

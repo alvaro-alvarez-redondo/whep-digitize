@@ -1,8 +1,8 @@
-"""Parity test: target-update application must match the R golden byte-for-byte.
+"""Parity test: target-update application must match the frozen reference byte-for-byte.
 
-Runs ``apply_target_updates_with_strategy`` (port of ``23-target-apply.R``) over four frozen
+Runs ``apply_target_updates_with_strategy`` over four frozen
 scenarios and asserts the mutated target column, ``applied`` flag, ``changed_value_count``, and
-overwrite-events table all equal R's output:
+overwrite-events table all equal the expected output:
 
 * **A** — ``last_rule_wins`` fast path (unique rows) with condition match / no-match, a literal
   wildcard on a non-tokenized column, and a transliteration match.
@@ -11,7 +11,7 @@ overwrite-events table all equal R's output:
 * **C** — ``concatenate`` with a filtered conditioned update.
 * **D** — wildcard-already-present removal feeding ``concatenate``.
 
-This guards parity risk #4 (last-rule-wins ordering) and #10 (in-place ``set`` -> functional
+This guards (last-rule-wins ordering) and #10 (in-place ``set`` -> functional
 scatter). Goldens are committed, so this runs on any checkout — CI included. A missing one still
 skips here; ``test_goldens_present.py`` is what makes that a hard failure.
 """
@@ -22,16 +22,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_frame_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.target_apply import (
     TargetApplyResult,
     apply_target_updates_with_strategy,
 )
 
-_SPEC = CAPTURES["target_apply"]
+_SPEC = GOLDENS["target_apply"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -54,8 +53,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

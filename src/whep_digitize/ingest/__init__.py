@@ -1,12 +1,12 @@
-"""Stage 1 — ingest (ports ``r/1-import_pipeline/``).
+"""Stage 1 — ingest.
 
-Discovers ``.xlsx`` workbooks, reads every sheet as text, reshapes wide->long by melting
+Discovers ``.xlsx`` workbooks, reads every sheet as text, reshapes wide->long by unpivoting
 year columns, enriches with metadata, validates, consolidates, and sorts. Public entry
 point: :func:`whep_digitize.ingest.runner.run_import_pipeline` -> :class:`ImportResult`.
 
 Named ``ingest`` because ``import`` is a Python keyword.
 
-Sub-packages (migrate bottom-up; see the roadmap):
+Sub-packages:
 
 * :mod:`~whep_digitize.ingest.file_io` — discovery + filename metadata
 * :mod:`~whep_digitize.ingest.reading` — Excel reading, batching, header normalization

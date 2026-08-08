@@ -1,20 +1,19 @@
 r"""Postpro / audit orchestration (``audit_data_output``).
 
-Ports ``r/2-postpro_pipeline/20-data_audit/20-audit-orchestration.R``.
-
 :func:`audit_data_output` runs master validation over the dataset, exports the highlighted
-invalid-row workbook when findings exist, and coerces ``value`` to ``Float64``
-(``cast(Float64, strict=False)``, the ``readr::parse_double`` equivalent).
+invalid-row workbook when findings exist, and coerces ``value`` to ``Float64`` via
+``cast(Float64, strict=False)`` (unparseable values become null rather than raising).
 
-Two R quirks are preserved exactly (parity risk #8):
+Two behaviors are **deliberate** — do not "fix" either one, both are covered by the test suite:
 
 * Invalid rows are **kept** in the audited output — the frame is the full dataset with ``value``
-  parsed, not the invalid subset dropped.
+  parsed, not the invalid subset dropped. Auditing reports, it never filters.
 * The audit regex ``^[0-9]+(\.[0-9]+)?$`` is stricter than the float parser, so a value like
-  ``"-3.5"`` is **flagged as a finding yet still parses** to ``-3.5`` (not null).
+  ``"-3.5"`` is **flagged as a finding yet still parses** to ``-3.5`` (not null). Findings flag
+  values for human review; they do not decide what the numeric column holds.
 
-R returned only the parsed frame and carried findings as a side effect; this port returns a
-typed :class:`AuditResult` so the findings and the written report path are first-class.
+:class:`AuditResult` makes the findings table and the written report path first-class alongside
+the parsed frame, so callers never have to rely on a side channel.
 """
 
 from __future__ import annotations
@@ -73,15 +72,15 @@ def audit_data_output(
 ) -> AuditResult:
     """Audit the dataset, export findings, and parse ``value`` to numeric.
 
-    The Python port of R ``audit_data_output``. Validates the config, clears the audit root,
-    runs master validation, writes the highlighted workbook when findings exist, then returns the
-    full dataset with ``value`` parsed (invalid rows retained).
+    Validates the config, clears the audit root, runs master validation, writes the highlighted
+    workbook when findings exist, then returns the full dataset with ``value`` parsed (invalid
+    rows retained).
 
     Args:
         dataset: The dataset to audit.
         config: The resolved pipeline configuration.
-        audit_columns_by_type: Optional explicit audit-type -> columns mapping (R
-            ``config$audit_columns_by_type``); when ``None`` it is derived from ``config``.
+        audit_columns_by_type: Optional explicit audit-type -> columns mapping; when ``None`` it
+            is derived from ``config``.
 
     Returns:
         An :class:`AuditResult` with the parsed frame, findings, invalid indices, and report path.
@@ -137,7 +136,7 @@ def _subset_invalid_rows(dataset: pl.DataFrame, invalid_index: tuple[int, ...]) 
 def _remap_findings_row_index(
     findings: pl.DataFrame, invalid_index: tuple[int, ...]
 ) -> pl.DataFrame:
-    """Remap global ``row_index`` to 1-based positions within the invalid subset (R ``match``)."""
+    """Remap global ``row_index`` to 1-based positions within the exported invalid subset."""
     mapping = {global_index: local + 1 for local, global_index in enumerate(invalid_index)}
     return findings.with_columns(
         pl.col("row_index").replace_strict(mapping, return_dtype=pl.Int64).alias("row_index")

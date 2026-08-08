@@ -1,6 +1,5 @@
 """Rule-schema coercion, canonical validation, and conditional dictionary construction.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-schema-validation.R``.
 Four responsibilities:
 
 * :func:`coerce_rule_schema` — strip the stage prefix (``clean_`` / ``harmonize_``) from a rule
@@ -9,13 +8,13 @@ Four responsibilities:
 * :func:`validate_canonical_rules` — schema completeness, required-value presence, dataset-column
   presence, rule-key uniqueness, conflict-free mappings, and rule/dataset type compatibility.
 * :func:`build_conditional_rule_dictionary` — group rules by ``(column_source, column_target)``
-  and order them by Unicode code point (the C-locale radix order R pins for portable
-  ``last_rule_wins``; parity risk #7). Group order reproduces R's ``interaction`` factor order.
+  and order them by Unicode code point, which makes ``last_rule_wins`` portable. Groups are
+  ordered by ``(column_target, column_source)``.
 * Supporting helpers: :func:`normalize_rule_values_for_validation` (blank/NA ->
   ``na_placeholder`` for grouping), :func:`ensure_rule_referenced_columns`, and
   :func:`check_type_compatibility`.
 
-R mutates ``dataset_df`` by reference; this port is functional and returns new frames.
+Every function here is pure: frames are returned, never mutated in place.
 """
 
 from __future__ import annotations
@@ -38,8 +37,8 @@ from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _NA_PLACEHOLDER = _CONSTANTS.na_placeholder
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class trimmed from values: space, tab, CR, LF.
+_TRIM_CHARS = " \t\r\n"
 # Value columns whose blank/NA is permitted (folded to na_placeholder for validation grouping).
 _ALLOWED_NA_VALUE_COLUMNS = (
     "value_source_raw",
@@ -58,7 +57,7 @@ _UNIQUENESS_KEY = (
 
 @dataclass(frozen=True, slots=True)
 class RulesForValidation:
-    """Rules prepared for validation grouping (R ``normalize_rule_values_for_validation``).
+    """Rules prepared for validation grouping.
 
     Attributes:
         rules_for_validation: Rules with blank/NA folded to ``na_placeholder`` in the value
@@ -74,7 +73,7 @@ _T = TypeVar("_T")
 
 
 def _unique_preserving_order(values: Sequence[_T]) -> list[_T]:
-    """Return ``values`` deduplicated, preserving first-appearance order (R ``unique``)."""
+    """Return ``values`` deduplicated, preserving first-appearance order."""
     return list(dict.fromkeys(values))
 
 
@@ -175,7 +174,7 @@ def normalize_rule_values_for_validation(
     replacements = [
         pl.when(
             pl.col(column).is_null()
-            | (pl.col(column).str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0)
+            | (pl.col(column).str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
         )
         .then(pl.lit(na_placeholder))
         .otherwise(pl.col(column))
@@ -203,8 +202,8 @@ def ensure_rule_referenced_columns(
         ValidationError: If the dataset already contains duplicate column names.
     """
     existing_columns = dataset_df.columns
-    # A faithful mirror of the R guard. polars forbids duplicate column names at construction,
-    # so this is structurally unreachable for a valid frame (kept for parity with data.table).
+    # Defensive: polars forbids duplicate column names at construction, so this is
+    # structurally unreachable for a valid frame.
     duplicated = _duplicated_values(existing_columns)
     if duplicated:
         raise ValidationError(
@@ -215,13 +214,13 @@ def ensure_rule_referenced_columns(
     if rules_df.height == 0:
         return dataset_df
 
-    # R applies unique() to the raw values, then trims, then drops NA/empty (this order).
+    # Order matters: dedupe the raw values first, then trim, then drop null/empty.
     referenced_raw: list[str | None] = []
     for column in ("column_source", "column_target"):
         if column in rules_df.columns:
             referenced_raw.extend(rules_df.get_column(column).cast(pl.String).to_list())
 
-    trimmed = [None if value is None else value.strip(_R_TRIMWS_CHARS) for value in referenced_raw]
+    trimmed = [None if value is None else value.strip(_TRIM_CHARS) for value in referenced_raw]
     referenced = [value for value in _unique_preserving_order(trimmed) if value]
 
     missing_columns = _unique_preserving_order(
@@ -245,7 +244,7 @@ def check_type_compatibility(
     """Validate that rule values can be cast to the dataset column's type.
 
     Only numeric / integer / Date dataset columns are checked; string columns (the norm in the
-    all-text pipeline) impose no constraint, matching R.
+    all-text pipeline) impose no constraint.
 
     Args:
         dataset_column: The dataset column the rule values target.
@@ -296,7 +295,7 @@ def validate_canonical_rules(
     Checks schema completeness, required-value presence, dataset-column presence, rule-key
     uniqueness, conflict-free source/target mappings, and type compatibility. The uniqueness
     check (duplicate ``(column_source, value_source_raw, column_target, value_target_raw)`` keys)
-    subsumes the target/source conflict checks — the latter are kept for structural parity with R.
+    subsumes the target/source conflict checks, which are kept as an explicit safety net.
 
     Args:
         rules_df: Canonical rule table.
@@ -349,12 +348,10 @@ def build_conditional_rule_dictionary(
 ) -> list[pl.DataFrame]:
     """Group canonical rules by ``(column_source, column_target)`` in deterministic order.
 
-    Rules are ordered by Unicode code point (C-locale radix, parity risk #7) on
+    Rules are ordered by Unicode code point on
     ``(column_source, column_target, value_source_raw, value_target_raw, value_target)`` — the
-    within-group order that feeds ``last_rule_wins``. Group order reproduces R's
-    ``interaction(column_source, column_target)`` factor order (the first factor varies fastest,
-    i.e. sorted by ``(column_target, column_source)``); rows with a null source/target column are
-    dropped, as R's ``split`` drops NA factor levels.
+    within-group order that feeds ``last_rule_wins``. Groups themselves are ordered by
+    ``(column_target, column_source)``; rows with a null source or target column are dropped.
 
     Args:
         rules_df: Canonical rule table.
@@ -397,7 +394,7 @@ def build_conditional_rule_dictionary(
 
 
 def _duplicated_values(values: Sequence[str]) -> list[str]:
-    """Return the values that appear more than once, in first-duplicate order (R ``duplicated``)."""
+    """Return the values that appear more than once, in first-duplicate order."""
     seen: set[str] = set()
     duplicated: list[str] = []
     for value in values:
@@ -408,9 +405,9 @@ def _duplicated_values(values: Sequence[str]) -> list[str]:
 
 
 def _clean_unique_columns(series: pl.Series) -> list[str]:
-    """Trim, unique, then drop NA/empty (R ``unique(trimws(as.character(x)))`` then filter)."""
+    """Deduplicate, trim, then drop null/empty values."""
     trimmed = [
-        None if value is None else value.strip(_R_TRIMWS_CHARS)
+        None if value is None else value.strip(_TRIM_CHARS)
         for value in series.cast(pl.String).to_list()
     ]
     return [value for value in _unique_preserving_order(trimmed) if value]
@@ -457,8 +454,8 @@ def _assert_unique_and_conflict_free(
             f"{duplicate_keys.height} duplicate key(s) (location: {rule_file_path})"
         )
 
-    # Kept for structural parity with R; unreachable once the uniqueness check passes (a key with
-    # multiple distinct target/source values necessarily has >1 row).
+    # Safety net: unreachable once the uniqueness check passes (a key with multiple distinct
+    # target/source values necessarily has >1 row).
     target_value_column = get_stage_target_value_column(stage)
     source_value_column = get_stage_source_value_column(stage)
     for value_column, message in (
@@ -525,7 +522,7 @@ def _check_by_column(
     rule_file_id: str,
     rule_file_path: str,
 ) -> None:
-    """Run :func:`check_type_compatibility` per distinct referenced column (R ``by = column``)."""
+    """Run :func:`check_type_compatibility` per distinct referenced column."""
     for column in _unique_preserving_order(rules_df.get_column(column_name_field).to_list()):
         if column is None or column not in dataset_columns:
             continue

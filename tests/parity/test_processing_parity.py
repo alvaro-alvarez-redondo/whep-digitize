@@ -1,8 +1,8 @@
-"""Parity test: the fused read+transform pipeline must match the R golden byte-for-byte.
+"""Parity test: the fused read+transform pipeline must match the frozen reference byte-for-byte.
 
 Discovers the whole corpus and runs ``read_transform_pipeline_files`` both sequentially and in
 parallel (``ProcessPoolExecutor``), asserting the combined long frame of every workbook equals
-R's ``read_transform_pipeline_files`` output — and that parallel output equals sequential
+the frozen reference — and that parallel output equals sequential
 output regardless of worker count (the determinism guarantee). The parallel run uses one batch
 per file so more than one batch (and worker) is actually engaged; if the pool cannot start it
 degrades to sequential, so the assertion holds either way.
@@ -18,9 +18,8 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.ingest.file_io.discovery import discover_files
 from whep_digitize.ingest.transform.processing import (
@@ -30,7 +29,7 @@ from whep_digitize.ingest.transform.processing import (
 from whep_digitize.setup.config import Config, load_pipeline_config
 from whep_digitize.setup.options import RuntimeOptions
 
-_SPEC = CAPTURES["processing"]
+_SPEC = GOLDENS["processing"]
 _VALUE_COLUMNS = (
     "commodity",
     "variable",
@@ -51,8 +50,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data
@@ -108,7 +107,7 @@ def test_parallel_matches_sequential_and_golden(
 ) -> None:
     # Determinism: parallel output is identical to sequential regardless of worker count...
     assert parallel.transformed.long_raw.equals(sequential.transformed.long_raw)
-    # ...and therefore identical to the R golden.
+    # ...and therefore identical to the frozen reference.
     assert parallel.transformed.long_raw.columns == _gold("long_columns")
     for column in _VALUE_COLUMNS:
         assert parallel.transformed.long_raw.get_column(column).to_list() == _gold(column)

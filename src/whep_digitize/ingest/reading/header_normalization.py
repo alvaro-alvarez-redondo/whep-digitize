@@ -1,21 +1,20 @@
-"""Header normalization — the Python port of ``11-header-normalization.R``.
+"""Header normalization.
 
 Three functions:
 
 * :func:`normalize_header_names` — the ordered normalization chain (trim -> collapse
   whitespace -> strip separator padding -> diacritic-strip + lowercase transliterate ->
-  punctuation to ``_`` -> collapse ``_`` -> trim ``_``), with the R fast-path short-circuit
-  for already-clean headers. The transliteration is the shared
+  punctuation to ``_`` -> collapse ``_`` -> trim ``_``), with a fast-path short-circuit for
+  already-clean headers. The transliteration is the shared
   :func:`whep_digitize.setup.helpers.strings.transliterate_ascii_lower` (the policy's NFD
-  diacritic strip, not R's ICU ``Latin-ASCII``) so header keys and match keys fold identically.
+  diacritic strip) so header keys and match keys fold identically.
 * :func:`resolve_canonical_header_renames` — maps normalized headers to canonical column
-  names plus the ``country`` -> ``polity`` alias, with the R collision guards
-  (already-exact, target-present, alias source already renamed, duplicate alias targets).
+  names plus the ``country`` -> ``polity`` alias, with the collision guards (already-exact,
+  target-present, alias source already renamed, duplicate alias targets).
 * :func:`validate_header_normalization` — detects collisions created by normalization.
 
 The regex chain, replacements, patterns, and alias map all come from
-``get_pipeline_constants()`` (mirrors the R constants). R source:
-``r/1-import_pipeline/11-reading/11-header-normalization.R``.
+``get_pipeline_constants()``.
 """
 
 from __future__ import annotations
@@ -49,7 +48,7 @@ _TRIM_UNDERSCORE_REPL = _replacements.trim_underscore_replacement
 
 @dataclass(frozen=True, slots=True)
 class HeaderRenames:
-    """Parallel old/new column-name vectors for a rename (R ``list(old, new)``).
+    """Parallel old/new column-name vectors for a rename.
 
     ``old[i]`` is the raw header to rename to ``new[i]``. Build a polars rename mapping
     with ``dict(zip(renames.old, renames.new))``.
@@ -62,10 +61,10 @@ class HeaderRenames:
 def normalize_header_name(name: str) -> str:
     """Apply the ordered header-normalization chain to a single name.
 
-    Order (must match R exactly): trim both ends -> collapse whitespace runs to a single
-    space -> strip whitespace padding around ``/`` and ``-`` -> transliterate to ASCII and
-    lowercase -> replace runs of remaining non-``[a-z0-9-/]`` with ``_`` -> collapse ``_``
-    runs -> trim leading/trailing ``_``.
+    The order is load-bearing: trim both ends -> collapse whitespace runs to a single space ->
+    strip whitespace padding around ``/`` and ``-`` -> transliterate to ASCII and lowercase ->
+    replace runs of remaining non-``[a-z0-9-/]`` with ``_`` -> collapse ``_`` runs -> trim
+    leading/trailing ``_``.
 
     Args:
         name: A single raw header name.
@@ -86,9 +85,9 @@ def normalize_header_name(name: str) -> str:
 def normalize_header_names(header_names: Sequence[str | None]) -> list[str | None]:
     """Normalize a vector of header names for canonical matching.
 
-    ``None`` (R ``NA``) entries pass through unchanged. Reproduces the R fast-path: when
-    every non-null header already matches the clean pattern and none carry collapsible or
-    leading/trailing underscores, the input is returned verbatim.
+    ``None`` entries pass through unchanged. Fast path: when every non-null header already
+    matches the clean pattern and none carry collapsible or leading/trailing underscores, the
+    input is returned verbatim.
 
     Args:
         header_names: Raw header names (``None`` allowed).
@@ -125,14 +124,12 @@ def validate_header_normalization(
         sheet_name: Worksheet name.
 
     Returns:
-        A list with a single collision-error message, or an empty list when the normalized
-        headers are collision-free. The message content mirrors R (sheet, file, colliding
-        keys); its cli box formatting is intentionally not reproduced (errors use the
-        Python messaging convention).
+        A list with a single collision-error message naming the sheet, the file, and the
+        colliding keys, or an empty list when the normalized headers are collision-free.
 
     Raises:
         ValidationError: If the two header vectors differ in length or the path / sheet name
-            is blank (R ``checkmate`` guards).
+            is blank.
     """
     require(
         len(header_names) == len(normalized_header_names),
@@ -167,12 +164,12 @@ def resolve_canonical_header_renames(
     """Map normalized headers to canonical column names, with alias + collision guards.
 
     A canonical name claims the raw header whose normalized form equals the canonical name's
-    normalized form, unless the canonical name is already present verbatim (``has_exact``).
-    Aliases (default ``{"country": "polity"}``) then map their normalized source to a raw
-    header, but only when: the alias target is itself a canonical name; the target is not
-    already a raw header or an already-claimed canonical target; the alias source was not
-    already renamed by the canonical pass; and no earlier surviving alias claimed the same
-    target (``duplicated`` guard). Renames where ``old == new`` are dropped.
+    normalized form, unless the canonical name is already present verbatim. Aliases (default
+    ``{"country": "polity"}``) then map their normalized source to a raw header, but only when:
+    the alias target is itself a canonical name; the target is not already a raw header or an
+    already-claimed canonical target; the alias source was not already renamed by the canonical
+    pass; and no earlier surviving alias claimed the same target. Renames where ``old == new``
+    are dropped.
 
     Args:
         header_names: The raw header names.
@@ -196,7 +193,7 @@ def resolve_canonical_header_renames(
     if not canonical:
         return HeaderRenames(old=(), new=())
 
-    # First raw header for each distinct normalized key (R match() first-occurrence index).
+    # First raw header for each distinct normalized key (first occurrence wins).
     first_raw_by_normalized: dict[str, str] = {}
     for raw, normalized in zip(header_names, normalized_header_names, strict=True):
         if normalized is not None and raw is not None and normalized not in first_raw_by_normalized:
@@ -208,7 +205,7 @@ def resolve_canonical_header_renames(
     old_names: list[str] = []
     new_names: list[str] = []
     for canonical_name, canonical_key in zip(canonical, canonical_norm, strict=True):
-        if canonical_name in header_set:  # has_exact_name -> already present, skip
+        if canonical_name in header_set:  # already present verbatim, nothing to rename
             continue
         matched_raw = first_raw_by_normalized.get(canonical_key) if canonical_key else None
         if matched_raw is not None:
@@ -237,12 +234,12 @@ def _apply_alias_renames(
     new_names: list[str],
     alias_map: Mapping[str, str] | None,
 ) -> None:
-    """Append alias renames to ``old_names`` / ``new_names`` in place (R alias pass)."""
+    """Append alias renames to ``old_names`` / ``new_names`` in place."""
     if alias_map is None:
         alias_map = get_pipeline_constants().header_normalization.canonical_aliases
 
     canonical_set = set(canonical)
-    # Valid, non-empty aliases whose target is a canonical name (R filters).
+    # Valid, non-empty aliases whose target is a canonical name.
     alias_pairs = [
         (source, target)
         for source, target in alias_map.items()
@@ -261,15 +258,15 @@ def _apply_alias_renames(
     surviving_new: list[str] = []
     for source_key, target in zip(alias_norm, alias_targets, strict=True):
         if target in target_pool:
-            continue  # target_present -> NA
+            continue  # the target column already exists, so the alias must not claim it
         matched_raw = first_raw_by_normalized.get(source_key) if source_key else None
         if matched_raw is None:
-            continue  # no header matched -> NA
+            continue  # no raw header normalizes to this alias source
         surviving_old.append(matched_raw)
         surviving_new.append(target)
 
-    # alias_keep = source not already renamed by the canonical pass AND target not a
-    # duplicate among surviving aliases (duplicated() is over the full surviving vector).
+    # Keep an alias only when its source was not already renamed by the canonical pass and its
+    # target is not a duplicate among the surviving aliases (the first claim wins).
     canonical_old_set = set(old_names)
     seen_targets: set[str] = set()
     for old_value, new_value in zip(surviving_old, surviving_new, strict=True):

@@ -1,12 +1,12 @@
-"""Parity test: data-audit findings + parsed value must match the R golden.
+"""Parity test: data-audit findings + parsed value must match the frozen reference.
 
-Exercises the port of ``20-audit-validation.R`` + ``audit_data_output`` over a frozen fixture and
-asserts (parity risk #8):
+Exercises ``audit_data_output`` over a frozen fixture and
+asserts:
 
 * ``run_master_validation`` findings — 1-based ``row_index`` in plan order (``character_non_empty``
   on ``document``, then ``numeric_string`` on ``value``), the verbatim audit type/message strings,
   and the sorted-unique ``invalid_row_index``.
-* the audited ``value`` column — ``readr::parse_double`` vs ``cast(Float64, strict=False)``: the
+* the audited ``value`` column — ``cast(Float64, strict=False)``: the
   stricter audit regex flags negatives / scientific / signed values that STILL parse, and invalid
   rows are retained (the audited frame keeps every input row).
 
@@ -20,14 +20,13 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.audit.audit import audit_data_output
 from whep_digitize.postpro.audit.validation import run_master_validation
 from whep_digitize.setup.config import Config
 
-_SPEC = CAPTURES["data_audit"]
+_SPEC = GOLDENS["data_audit"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -41,8 +40,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

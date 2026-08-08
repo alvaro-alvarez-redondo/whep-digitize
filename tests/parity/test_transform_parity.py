@@ -1,10 +1,10 @@
-"""Parity test: Python ``transform_file_df`` must match the R golden long shape byte-for-byte.
+"""Parity test: ``transform_file_df`` must reproduce the frozen reference long shape exactly.
 
 Reads a real corpus sheet, runs the full per-file transform (key-field normalization,
 year-header cleanup, wide->long melt, metadata enrichment, null-value drop), and asserts the
-long frame's column order, row count, and every column value match R's ``data.table::melt``
-based output. This is the check that ``pl.DataFrame.unpivot`` drops exactly the columns
-``melt`` did and produces the same variable-major row order (parity risk #2).
+long frame's column order, row count, and every column value match the frozen reference. This is
+the check that ``pl.DataFrame.unpivot`` drops exactly the non-id, non-year columns and produces
+the expected variable-major row order.
 
 Goldens are committed, so this runs on any checkout — CI included. A missing one still skips here;
 ``test_goldens_present.py`` is what makes that a hard failure.
@@ -16,15 +16,14 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.ingest.reading.sheet_read import read_excel_sheet
 from whep_digitize.ingest.transform.reshape import TransformResult, transform_file_df
 from whep_digitize.setup.config import load_pipeline_config
 
-_SPEC = CAPTURES["transform"]
+_SPEC = GOLDENS["transform"]
 _CORPUS_REL = "corpus/fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx"
 
 _VALUE_COLUMNS = (
@@ -47,8 +46,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

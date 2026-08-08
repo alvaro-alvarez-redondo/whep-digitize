@@ -1,12 +1,11 @@
 """Postpro / standardize_units — post-standardization duplicate-group aggregation.
 
-The Python port of the aggregation half of
-``r/2-postpro_pipeline/24-standardize_units/24-standardize-aggregation.R``: collapse rows that are
-identical on every column except the numeric measure by summing that measure, with deterministic
-all-missing semantics (a group whose every value is null sums to null). Column order and schema
-are preserved and the operation is idempotent (re-running on an already-unique table is a no-op).
+Collapses rows that are identical on every column except the numeric measure by summing that
+measure, with deterministic all-missing semantics (a group whose every value is null sums to
+null). Column order and schema are preserved and the operation is idempotent (re-running on an
+already-unique table is a no-op).
 
-R mutated the ``data.table`` by reference; this port is functional and returns new frames.
+Frames are returned, never mutated in place.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ _VALUE_COLUMN = "value"
 
 
 def _duplicate_group_mask(dataset: pl.DataFrame, group_cols: list[str]) -> pl.Series:
-    """Boolean mask of rows that belong to a duplicate group (R ``duplicated | fromLast``)."""
+    """Boolean mask of rows that belong to a duplicate group."""
     if dataset.height == 0 or len(group_cols) == 0:
         return pl.Series("mask", [False] * dataset.height, dtype=pl.Boolean)
     return dataset.select(pl.struct(group_cols).is_duplicated().alias("mask")).get_column("mask")
@@ -43,7 +42,7 @@ def aggregate_standardized_rows(
 ) -> pl.DataFrame:
     """Collapse duplicate groups by summing the measure, preserving column order + schema.
 
-    The Python port of R ``aggregate_standardized_rows``. Groups are defined by every column
+    Groups are defined by every column
     except ``value_column``. Unique rows are kept (original order) ahead of the aggregated
     duplicate groups (first-appearance order); an all-null group sums to null. Idempotent.
 
@@ -89,7 +88,7 @@ def extract_aggregated_rows(
 ) -> pl.DataFrame:
     """Return only the rows that :func:`aggregate_standardized_rows` will collapse.
 
-    The Python port of R ``extract_aggregated_rows``: the rows belonging to a duplicate group
+    the rows belonging to a duplicate group
     (groups defined by every column except ``value_column``); an empty same-schema frame when
     there are no duplicates.
 

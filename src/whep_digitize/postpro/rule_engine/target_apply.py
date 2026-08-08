@@ -1,8 +1,7 @@
 """Apply target-column updates with strategy dispatch.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-target-apply.R``
-(``apply_target_updates_with_strategy``). For one target column it resolves candidate row
-updates against a strategy and rewrites the column:
+``apply_target_updates_with_strategy`` resolves candidate row updates for one target column
+against a strategy and rewrites the column:
 
 * **last_rule_wins** — stable-sort the candidates by the order columns, then take the last
   candidate per row. A *fast path* (each row updated once) skips the collapse entirely; the
@@ -11,17 +10,16 @@ updates against a strategy and rewrites the column:
 * **concatenate** — join a row's candidates with the delimiter, then merge into the existing
   value (order-preserving, existing-first token dedupe).
 
-R mutates ``dataset_df`` in place via ``data.table::set``; this port is functional — every
-scatter is a join-back on a row index + ``when/then/otherwise`` (parity risk #10) and the
-updated frame is returned in :class:`TargetApplyResult`.
+Every scatter is functional: a join-back on a synthesized row index plus
+``when/then/otherwise``. ``dataset_df`` is never mutated — the updated frame is returned in
+:class:`TargetApplyResult`.
 
-Key R behaviors preserved (not "fixed"):
+Deliberate behaviors (do not "fix" these):
 
 * The explicit wildcard token only matches for tokenized targets (``footnotes`` / ``notes``);
   on any other column it is compared literally.
 * Wildcard candidates whose value is already present in the current cell are dropped.
-* ``candidate_values`` reproduces R ``paste(..., collapse)`` semantics: a missing candidate
-  becomes the literal string ``"NA"``.
+* ``candidate_values`` renders a missing candidate as the literal string ``"NA"``.
 """
 
 from __future__ import annotations
@@ -49,8 +47,8 @@ from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class trimmed from values: space, tab, CR, LF.
+_TRIM_CHARS = " \t\r\n"
 # Internal working-column names (prefixed to avoid colliding with dataset/update columns).
 _ROW_ID_INTERNAL = "__whep_row_id_internal__"
 _UPDATE_VALUE = "__whep_update_value__"
@@ -58,11 +56,11 @@ _UPDATE_VALUE = "__whep_update_value__"
 
 @dataclass(frozen=True, slots=True)
 class TargetApplyResult:
-    """Result of applying target updates for one column (R ``list(applied, ...)`` + the frame).
+    """Result of applying target updates for one column.
 
     Attributes:
         applied: Whether any update was applied.
-        dataset: The updated dataset (R mutated its argument in place; this port returns it).
+        dataset: The updated dataset (returned; the input frame is never mutated).
         overwrite_events: Diagnostics for rows that received multiple distinct candidates
             (empty unless the ``last_rule_wins`` slow path fired).
         changed_value_count: Number of dataset cells whose value actually changed.
@@ -79,7 +77,7 @@ def _scatter_column(
 ) -> pl.DataFrame:
     """Return ``dataset`` with ``target_column`` overwritten at ``indices`` by ``values``.
 
-    The functional analogue of ``data.table::set`` (parity risk #10): a left join on a
+    Functional scatter: a left join on a
     synthesized row index plus ``when/then/otherwise``. ``indices`` are 0-based and unique;
     ``values`` aligns positionally with them. A ``None`` in ``values`` overwrites to null.
 
@@ -195,7 +193,7 @@ def apply_target_updates_with_strategy(
         dict.fromkeys(column for column in order_columns if column in updates.columns)
     )
     if present_order_columns:
-        # setorderv default: ascending, NAs first (na.last = FALSE), stable (radix).
+        # Stable ascending sort with nulls first.
         updates = updates.sort(present_order_columns, nulls_last=False, maintain_order=True)
 
     updates = updates.with_columns(
@@ -266,8 +264,8 @@ def _apply_condition_match(
     """Filter conditioned updates by condition match and drop no-op wildcard candidates.
 
     Conditioned rows whose condition does not match the current dataset value are dropped;
-    the surviving conditioned rows are appended after the unconditional rows (R ``rbindlist``
-    order). Wildcard candidates whose value is already present in the current cell are removed.
+    the surviving conditioned rows are appended after the unconditional rows. Wildcard
+    candidates whose value is already present in the current cell are removed.
     """
     has_condition = pl.col(condition_column).is_not_null()
     conditioned_raw = updates.filter(has_condition)
@@ -287,7 +285,7 @@ def _apply_condition_match(
     if conditioned.height > 0:
         condition_series = conditioned.get_column(condition_column)
         is_wildcard = condition_series.is_not_null() & (
-            condition_series.str.strip_chars(_R_TRIMWS_CHARS) == _WILDCARD_TOKEN
+            condition_series.str.strip_chars(_TRIM_CHARS) == _WILDCARD_TOKEN
         )
         if is_wildcard.any():
             wildcard_current = dataset.get_column(target_column).gather(
@@ -375,7 +373,7 @@ def _build_overwrite_events(
 ) -> pl.DataFrame:
     """Summarize multi-candidate rows into overwrite events (only where candidates differ).
 
-    ``candidate_values`` reproduces R ``paste(..., collapse = "; ")``: a null candidate becomes
+    ``candidate_values`` joins the candidates with ``"; "``: a null candidate becomes
     the literal ``"NA"``. Only rows with more than one distinct candidate value are emitted.
     """
     conflict = (
@@ -422,7 +420,7 @@ def _apply_concatenate(
 
     updates = updates.with_columns(pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE))
     updates = updates.with_columns(
-        pl.when(pl.col(_UPDATE_VALUE).str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0)
+        pl.when(pl.col(_UPDATE_VALUE).str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
         .then(pl.lit(None, dtype=pl.String))
         .otherwise(pl.col(_UPDATE_VALUE))
         .alias(_UPDATE_VALUE)

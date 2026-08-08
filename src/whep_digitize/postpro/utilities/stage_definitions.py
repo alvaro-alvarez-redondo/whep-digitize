@@ -1,14 +1,12 @@
-"""Shared post-processing stage metadata — the Python port of ``21-stage-definitions.R``.
+"""Shared post-processing stage metadata.
 
 Small reusable accessors for the canonical rule schema and the ``clean`` / ``harmonize`` stage
 identities, used across the rule engine (schema validation, dictionary construction, target
-application). All values come from :func:`get_pipeline_constants`.
+application). All values come from :func:`get_pipeline_constants`, so a stage name or rule
+column is defined in exactly one place.
 
-R source: ``r/2-postpro_pipeline/21-postpro_utilities/21-stage-definitions.R``
-(``get_canonical_rule_columns``, ``get_postpro_stage_names``, ``validate_postpro_stage_name``,
-``get_stage_target_value_column``, ``get_stage_source_value_column``). The R stage-payload
-bundle cache (``.stage_payload_bundle_cache``) belongs to ``21-runtime-cache.R`` and is ported
-separately.
+The rule-payload bundle cache lives separately in
+:mod:`whep_digitize.postpro.utilities.payload_cache`.
 """
 
 from __future__ import annotations
@@ -41,8 +39,8 @@ def validate_postpro_stage_name(stage_name: str) -> str:
     """Validate and return a post-processing stage name.
 
     Note:
-        R uses ``match.arg`` (which also accepts unambiguous abbreviations); the pipeline always
-        passes a full stage name, so this port matches exactly and rejects anything else.
+        Matching is exact — abbreviations and prefixes are rejected. Callers always pass a full
+        stage name, and silently resolving a partial name would hide a typo.
 
     Args:
         stage_name: The stage label to validate.

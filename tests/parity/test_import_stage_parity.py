@@ -1,8 +1,8 @@
-"""Stage-level parity: ``run_import_pipeline`` output must match R byte-for-byte.
+"""Stage-level parity: ``run_import_pipeline`` output must match the frozen reference exactly.
 
 Runs the full ingest stage over the frozen corpus and asserts the consolidated, canonically
 sorted long frame (every column) and the reading / validation / consolidation diagnostics all
-equal R's ``run_import_pipeline`` output. ``current_year`` is pinned to 2025 to match the R
+equal the frozen reference. ``current_year`` is pinned to 2025 to match the
 capture's ``Sys.Date`` override (the corpus has no out-of-range years, so this only guards
 determinism).
 
@@ -17,15 +17,14 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.contracts import ImportResult
 from whep_digitize.ingest.runner import run_import_pipeline
 from whep_digitize.setup.config import load_pipeline_config
 
-_SPEC = CAPTURES["import_stage"]
+_SPEC = GOLDENS["import_stage"]
 _PINNED_YEAR = 2025
 _DATA_COLUMNS = (
     "hemisphere",
@@ -47,8 +46,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

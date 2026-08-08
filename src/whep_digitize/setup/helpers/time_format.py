@@ -1,4 +1,4 @@
-"""Elapsed-time formatting — the Python port of ``02-time-formatting.R``.
+"""Elapsed-time formatting.
 
 Formats a duration in seconds as ``Ns`` / ``Nm Ns`` / ``Nh Nm`` for console output.
 """

@@ -1,7 +1,5 @@
 """Postpro / utilities — rule-template workbooks and rule-file loading.
 
-The Python port of ``r/2-postpro_pipeline/21-postpro_utilities/21-template-rules.R``:
-
 * :func:`read_rule_table` — read a rule file (``.csv`` / ``.xlsx`` / ``.xls``) **all-as-text**
   (rules match character data, so ``"007"`` / ``"1000.0"`` must keep their exact source string).
   For workbooks, every sheet whose columns — after stripping a ``clean_`` / ``harmonize_``
@@ -12,8 +10,8 @@ The Python port of ``r/2-postpro_pipeline/21-postpro_utilities/21-template-rules
 * :func:`load_stage_rule_payloads` — discover the stage's ``clean_*`` / ``harmonize_*`` rule
   files (deterministically ordered) and read each into a :class:`RulePayload`.
 
-Excel reads use ``fastexcel`` + ``pl.read_excel(engine="calamine", infer_schema_length=0)`` (the
-readxl ``col_types="text"`` analogue); writes use ``openpyxl`` (the writexl analogue).
+Excel reads use ``fastexcel`` + ``pl.read_excel(engine="calamine", infer_schema_length=0)`` so
+that no column is ever type-inferred; writes use ``openpyxl``.
 """
 
 from __future__ import annotations
@@ -42,9 +40,9 @@ _TEMPLATE_FILE_NAME = _CONSTANTS.postpro.clean_harmonize_template_file_name
 _OPTIONAL_RULE_COLUMN = _CONSTANTS.postpro.stage_source_value_column
 _STAGE_PREFIX_RE = re.compile(r"^(clean|harmonize)_")
 _RULE_EXTENSION_RE = re.compile(r"\.(xlsx|xls|csv)$")
-# readr's default `na = c("", "NA")`: R reads rule CSVs with ``readr::read_csv``, which maps both
-# empty cells and the literal string "NA" to NA. polars keeps "NA" as a string by default, so we
-# pass these explicitly for byte parity (an unset target/value cell must become null, not "NA").
+# Rule CSVs treat an empty cell and the literal string "NA" alike: both mean "no value". polars
+# keeps "NA" as a plain string by default, so both tokens are declared explicitly — an unset
+# target/value cell must read back as null, never as the two-character string "NA".
 _CSV_NA_VALUES = ("", "NA")
 _GUIDANCE_NOTES = (
     "Fill all required columns.",
@@ -56,7 +54,7 @@ _STAGE_IMPORT_DIR_ATTR = {"clean": "cleaning", "harmonize": "harmonization"}
 
 @dataclass(frozen=True, slots=True)
 class RulePayload:
-    """One discovered rule file (R ``list(rule_file_id, rule_file_path, raw_rules)``).
+    """One discovered rule file and its raw contents.
 
     Attributes:
         rule_file_id: The rule file's base name.
@@ -72,9 +70,8 @@ class RulePayload:
 def read_rule_table(file_path: Path | str) -> pl.DataFrame:
     """Read a rule file all-as-text into a frame.
 
-    The Python port of R ``read_rule_table``. For ``.csv`` files this matches R's
-    ``readr::read_csv(col_types = cols(.default = col_character()))`` — every column stays a
-    string and both empty cells and the literal ``"NA"`` become null (readr's default ``na``).
+    Every column stays a ``String``: rules match character data, so a cell must keep its exact
+    source text. For ``.csv`` files both empty cells and the literal ``"NA"`` become null.
 
     Args:
         file_path: Path to a ``.csv`` / ``.xlsx`` / ``.xls`` rule file.
@@ -131,8 +128,8 @@ def _read_rule_workbook(path: Path) -> pl.DataFrame:
 def write_stage_rule_template(templates_dir: Path, overwrite: bool = True) -> Path:
     """Write the unified clean/harmonize rule template workbook.
 
-    The Python port of R ``write_stage_rule_template``: a ``clean_harmonize_template`` sheet with
-    the canonical rule columns (header only) plus a ``guidance`` sheet.
+    The workbook holds a ``clean_harmonize_template`` sheet with the canonical rule columns
+    (header row only) plus a ``guidance`` sheet of editing notes.
 
     Args:
         templates_dir: The directory to write the template into.
@@ -167,8 +164,6 @@ def write_stage_rule_template(templates_dir: Path, overwrite: bool = True) -> Pa
 def generate_postpro_rule_templates(config: Config, overwrite: bool = True) -> Path:
     """Create the post-processing output root and write the rule template.
 
-    The Python port of R ``generate_postpro_rule_templates``.
-
     Args:
         config: The resolved pipeline configuration.
         overwrite: Whether to overwrite an existing template.
@@ -184,7 +179,7 @@ def discover_stage_rule_files(config: Config, stage_name: str) -> list[Path]:
     """Discover a stage's rule files, deterministically ordered by file name (C-locale).
 
     Shared by :func:`load_stage_rule_payloads` and the runtime-cache key builder. The stage
-    import directory is created if absent (mirrors R ``ensure_directories_exist``).
+    import directory is created if absent, so a first run on a fresh checkout does not fail.
 
     Args:
         config: The resolved pipeline configuration.
@@ -212,8 +207,6 @@ def discover_stage_rule_files(config: Config, stage_name: str) -> list[Path]:
 
 def load_stage_rule_payloads(config: Config, stage_name: str) -> list[RulePayload]:
     """Discover a stage's rule files (deterministically ordered) and read each all-as-text.
-
-    The Python port of R ``load_stage_rule_payloads``.
 
     Args:
         config: The resolved pipeline configuration.

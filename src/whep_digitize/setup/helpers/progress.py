@@ -1,10 +1,9 @@
-r"""Stage progress bars — a self-drawn text bar with a live timer (the ``progressr`` analogue).
+r"""Stage progress bars — a self-drawn text bar with a live timer.
 
 Each stage runner wraps its work in :func:`stage_progress`, a context manager that yields a
-:class:`StageProgress`. ``step`` advances the bar by one unit (R ``progress()``); ``pulse``
-updates the trailing message without advancing (R ``progress(msg, amount = 0)``). The long
-import read advances the bar once per file (``step`` is its per-file callback), so the bar
-fills smoothly across the whole run.
+:class:`StageProgress`. ``step`` advances the bar by one unit; ``pulse`` updates the trailing
+message without advancing. The long import read advances the bar once per file (``step`` is
+its per-file callback), so the bar fills smoothly across the whole run.
 
 The bar is drawn directly to ``stdout`` as text and overwritten in place with a carriage
 return, so it renders inline in any console — a terminal, ``cmd.exe``, or a Jupyter-kernel
@@ -35,9 +34,9 @@ Everything degrades by capability so it is safe on any console:
 
 Every field is fixed-width, so the ``\r`` redraw always fully overwrites the previous frame.
 
-The display is gated by ``RuntimeOptions.progress_enabled`` (R ``whep.progress.enabled``);
-when disabled, :func:`stage_progress` yields an inert handle. Progress is a pure console side
-effect: it never touches the data frames, so it cannot affect determinism or parity.
+The display is gated by ``RuntimeOptions.progress_enabled``; when disabled,
+:func:`stage_progress` yields an inert handle. Progress is a pure console side effect: it never
+touches the data frames, so it cannot affect determinism or the pipeline's output.
 """
 
 from __future__ import annotations
@@ -378,12 +377,12 @@ class StageProgress:
         self._bar = bar
 
     def step(self, message: str = "") -> None:
-        """Advance the bar by one unit (R ``progress(msg)``)."""
+        """Advance the bar by one unit."""
         if self._bar is not None:
             self._bar.advance(message)
 
     def pulse(self, message: str = "") -> None:
-        """Update the message without advancing (R ``progress(msg, amount = 0)``)."""
+        """Update the message without advancing."""
         if self._bar is not None:
             self._bar.describe(message)
 

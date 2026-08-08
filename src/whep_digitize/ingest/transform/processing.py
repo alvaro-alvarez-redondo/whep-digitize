@@ -1,4 +1,4 @@
-"""Fused read+transform per batch — the Python port of ``12-processing.R``.
+"""Fused read+transform per batch.
 
 Executes read and transform as one unit of work per workbook batch: each batch reads its
 workbooks (:func:`~whep_digitize.ingest.reading.batching.read_workbook_batch`) and immediately
@@ -9,17 +9,12 @@ batch are available — with a graceful fall back to sequential if the pool cann
 
 **Determinism:** the combined output is independent of the worker count. ``executor.map``
 yields batch results in submission order, and batch order + within-batch file order preserve
-the global file order, so parallel output is byte-identical to sequential output (parity
-risk: non-deterministic ordering across workers).
+the global file order, so parallel output is byte-identical to sequential output.
 
 Because a :class:`~whep_digitize.setup.config.Config` is not picklable (it nests
 ``mappingproxy`` constants), workers receive the picklable ``(dataset_name, project_root)``
 and rebuild an identical config with :func:`~whep_digitize.setup.config.load_pipeline_config`
 (the config is a pure function of those plus the frozen constants).
-
-R source: ``r/1-import_pipeline/12-transform/12-processing.R`` (``read_transform_pipeline_files``,
-``transform_single_file``; the non-fused ``process_files`` / ``transform_files_list`` two-stage
-path is deferred to the runner).
 """
 
 from __future__ import annotations
@@ -58,8 +53,8 @@ _MESSAGES = get_pipeline_constants().progress.messages["import"]
 # deadlocks when the parent has already initialized polars' (Rayon) thread pool: the child
 # inherits copies of mutexes locked by threads that do not exist in it, so it never returns and
 # ``executor.map`` blocks forever (this is what hangs CI to its 6h timeout). "spawn" starts a
-# fresh interpreter per worker — already the default on Windows/macOS, where this path is
-# parity-verified — so batch execution behaves identically across platforms.
+# fresh interpreter per worker — already the default on Windows/macOS — so batch execution
+# behaves identically across platforms.
 _MP_SPAWN_CONTEXT = multiprocessing.get_context("spawn")
 
 FileRow = Mapping[str, object]
@@ -68,7 +63,7 @@ Progressor = Callable[[str], None]
 
 @dataclass(frozen=True, slots=True)
 class ReadTransformResult:
-    """Fused read+transform output (R ``list(transformed, errors)``)."""
+    """Fused read+transform output: the combined transform plus the collected read errors."""
 
     transformed: TransformResult
     errors: tuple[str, ...]
@@ -106,11 +101,11 @@ def transform_single_file(
         options: Runtime options; defaults are used when ``None``.
 
     Returns:
-        The :class:`TransformResult`, or ``None`` when ``df_wide`` has no rows (R returns
-        ``NULL``, dropped downstream).
+        The :class:`TransformResult`, or ``None`` when ``df_wide`` has no rows (dropped
+        downstream).
 
     Raises:
-        ValidationError: If ``file_name`` or ``yearbook`` is missing / blank (R ``check_string``).
+        ValidationError: If ``file_name`` or ``yearbook`` is missing / blank.
     """
     if df_wide.height == 0:
         return None
@@ -152,7 +147,7 @@ def _fused_one_batch_impl(
     options: RuntimeOptions,
     progressor: Progressor | None,
 ) -> _BatchResult:
-    """Read a batch's workbooks then transform each file (R ``fused_one_batch``)."""
+    """Read a batch's workbooks then transform each file."""
     if progressor is not None:
         for path in batch.paths:
             progressor(_read_message(path))
@@ -211,7 +206,7 @@ def _run_parallel(
                 results.append(batch_result)
             return results
     except (BrokenProcessPool, OSError):
-        # Workers could not start / the pool broke: degrade to sequential (R's fallback).
+        # Workers could not start / the pool broke: degrade to sequential, same results.
         return _run_sequential(batch_objects, config, options, progressor)
 
 
@@ -249,7 +244,7 @@ def read_transform_pipeline_files(
     batch_size = resolve_import_workbook_batch_size(config)
     batches = split_workbook_batches(file_paths, batch_size)
 
-    # First index of each path (R match); paths are unique in practice, but stay first-wins.
+    # First index of each path; paths are unique in practice, but stay first-wins.
     first_index: dict[str, int] = {}
     for index, path in enumerate(file_paths):
         first_index.setdefault(path, index)

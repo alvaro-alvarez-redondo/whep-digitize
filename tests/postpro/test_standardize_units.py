@@ -1,9 +1,9 @@
 """Unit tests for the unit-standardization core (rules setup + engine).
 
-Ports of ``24-rules-setup.R`` (rule preparation) and ``24-standardize-engine.R``
-(:mod:`whep_digitize.postpro.standardize_units`). Byte parity vs R lives in
-``tests/parity/test_standardize_parity.py``; these pin the behavioral contract without needing R,
-mirroring the R testthat cases (conversion, offset, fallback, prefix fold, revert, validation).
+Covers rule preparation and the conversion engine
+(:mod:`whep_digitize.postpro.standardize_units`). Byte parity vs the reference lives in
+``tests/parity/test_standardize_parity.py``; these pin the behavioral contract,
+covering conversion, offset, fallback, prefix fold, revert, and validation.
 """
 
 from __future__ import annotations

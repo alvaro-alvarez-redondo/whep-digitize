@@ -1,4 +1,4 @@
-"""Tests for the Stage 0 runner (mirrors R ``run_general_pipeline.R``)."""
+"""Tests for the Stage 0 runner."""
 
 from __future__ import annotations
 

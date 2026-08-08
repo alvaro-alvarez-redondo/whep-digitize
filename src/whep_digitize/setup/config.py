@@ -1,18 +1,15 @@
-"""Per-run configuration — the Python port of R ``load_pipeline_config()``.
+"""Per-run configuration — the resolved settings threaded through every stage.
 
-The R ``config`` object is a *subset* of the constants plus dataset-specific absolute
-paths, threaded through every stage. This module reproduces that object as a frozen
-:class:`Config` dataclass built by :func:`load_pipeline_config`.
+The config object is a *subset* of the constants plus dataset-specific absolute paths,
+exposed as a frozen :class:`Config` dataclass built by :func:`load_pipeline_config`.
 
-Two deliberate simplifications over the R original (documented in
-``.claude/docs/r-to-python-mapping.md``):
+Two deliberate simplifications:
 
-* The R ``config$defaults`` (only ``notes_value``) vs ``constants$defaults`` (operational
-  placeholders) name collision is removed: :class:`Config` exposes the full
-  :class:`~whep_digitize.setup.constants.Defaults` once.
-* The apparently-dead ``generate_export_path`` / ``list_suffix`` / ``lists_workbook_name``
-  and the misleading ``data_suffix`` are not reproduced as behavior; see
-  :class:`~whep_digitize.setup.constants.ExportConfig`.
+* Operational defaults are exposed exactly once, as the full
+  :class:`~whep_digitize.setup.constants.Defaults` group — there is no second, narrower
+  ``defaults`` set.
+* Export file naming is not derived here; see
+  :class:`~whep_digitize.setup.constants.ExportConfig` for the suffixes actually used.
 """
 
 from __future__ import annotations
@@ -79,7 +76,7 @@ class ExportStagePaths:
 class AuditPaths:
     """Absolute paths of the post-processing audit subtree.
 
-    ``dataset_dir`` duplicates ``audit_dir`` (preserved from the R config for parity).
+    ``dataset_dir`` is an intentional alias of ``audit_dir`` — both resolve to the same path.
     """
 
     audit_root_dir: Path
@@ -103,7 +100,7 @@ class DataPaths:
 
 @dataclass(frozen=True, slots=True)
 class Paths:
-    """Root of the resolved path tree (mirrors R ``config$paths``)."""
+    """Root of the resolved path tree."""
 
     data: DataPaths
 

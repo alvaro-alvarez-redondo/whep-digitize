@@ -1,69 +1,57 @@
 # CLAUDE.md
 
-whep-digitize — Python/Polars port of the WHEP digitization pipeline (the R project
-`whep-digitalization`). A deterministic four-stage pipeline processing WHEP source
-workbooks: setup (0) → ingest (1) → postpro (2) → export (3).
+whep-digitize — the WHEP digitization pipeline. A deterministic four-stage Python/Polars
+pipeline that turns WHEP source workbooks into published datasets:
+setup (0) → ingest (1) → postpro (2) → export (3).
 
-**This is a migration project.** The R repo (sibling `whep-digitalization/`) is the source
-of truth; the goal is byte-for-byte output parity **except for the intentional
-normalization-policy divergence** (13 rows on the full **1,339-workbook** dataset; value sums and
-row counts unchanged — see [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) risk #1).
-Automated CI parity covers only the **6-workbook fixture corpus**; the full dataset is checked by
-`scripts/parity_full_dataset.py`, which needs R — see
-[full-dataset-parity.md](.claude/docs/full-dataset-parity.md).
-Stage 0 is implemented; stages 1–3 are
-scaffolded with typed contracts. See [migration-roadmap.md](.claude/docs/migration-roadmap.md).
+Input is Excel workbooks under `data/import/raw/`; output is processed TSVs plus unique-value
+list workbooks under `data/export/`. All four stages are implemented and covered by tests.
 
 ## How to work
 
 - **Act autonomously.** Decide when context is sufficient; default to action. Ask only when
   a decision is ambiguous, irreversible, high-impact, or under-specified. Document assumptions.
-- **Migrate with the skills.** Use `migrate-module` to port an R module, `parity-check` to
-  verify against R golden output, `migration-status` to see what's next. Parallel agents on
-  independent modules when it helps (the roadmap marks concurrent tracks).
-- **Use `/autocode`** for perf/quality/test work once a stage is functionally complete.
-- **Reuse project context.** Read `.claude/docs/` (kept current) instead of rescanning.
-  Start with [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) and
-  [codebase-map.md](.claude/docs/codebase-map.md).
-- **Deliver complete solutions.** Don't stop at partial ports; a module is done only with
-  passing parity + gates.
+- **Read before changing semantics.** [pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md)
+  records the behaviors that *look* like bugs and are deliberate. Changing one changes published
+  data.
+- **Reuse project context.** Read `.claude/docs/` (kept current) instead of rescanning. Start
+  with [codebase-map.md](.claude/docs/codebase-map.md) to find code and
+  [common-changes.md](.claude/docs/common-changes.md) for recipes.
+- **Use `/autocode`** for perf/quality/test work.
+- **Deliver complete solutions.** Don't stop at partial work; a change is done only with passing
+  tests + gates.
 - **One concern per change.** Focused diffs. Delete every temporary file the moment it is no
   longer needed — never defer to commit time, never commit one (temp-file policy in
   [conventions.md](.claude/docs/conventions.md)).
-- **Tests are ground truth.** Every behavior change ships with tests (incl. parity). Never
-  lower pass rate.
+- **Tests are ground truth.** Every behavior change ships with tests. Never lower the pass rate.
+  The frozen goldens under `tests/golden/` are immutable and have no regeneration path — a
+  failing parity test means the pipeline's behavior changed.
 - **Log deferred bugs (mandatory).** Whenever you identify a bug but intentionally do **not**
-  fix it in the same session, you MUST add an entry to the **Deferred bugs** section of
-  [session-prompts.md](.claude/docs/session-prompts.md) — describing the bug, its impact, **why
-  it was deferred**, known risks, and the **conditions under which to revisit** — plus a
-  ready-to-paste fix prompt. Keep the list current throughout the project: remove an entry only
-  when the bug is fixed, so unresolved issues stay visible and actionable. (Intentional
-  R-divergences with no output impact are documented inline / in `progress.md`, not here.)
+  fix it in the same session, you MUST add an entry to
+  [deferred-bugs.md](.claude/docs/deferred-bugs.md) — the bug, its impact, **why it was
+  deferred**, known risks, the **conditions under which to revisit**, and a ready-to-paste fix
+  prompt. Remove an entry only when the bug is fixed, so unresolved issues stay visible.
+  (Deliberate behaviors with no defect are documented in `pipeline-behaviors.md`, not here.)
 - **Tone:** strict, technical. No filler.
 
 ## Reference docs (read on demand)
 
 - [architecture.md](.claude/docs/architecture.md) — stages, data flow, entry points, contracts.
-- [codebase-map.md](.claude/docs/codebase-map.md) — every module by stage, status, R source,
-  risk. Use instead of grepping.
-- [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) — library map, data.table→polars
-  idioms, **ranked parity risks**. Read before porting anything.
-- [migration-roadmap.md](.claude/docs/migration-roadmap.md) — phases, DAG, parallel tracks,
-  effort, parity strategy.
-- [full-dataset-parity.md](.claude/docs/full-dataset-parity.md) — the scripted R-vs-Python check
-  on the **full 1,339-workbook dataset** (`scripts/parity_full_dataset.py`), how differences are
-  judged, and the current measured result. The CI suite only covers the 6-workbook fixture corpus.
+- [codebase-map.md](.claude/docs/codebase-map.md) — every module by stage. Use instead of grepping.
+- [pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md) — the intentional behaviors and
+  output contracts. **Read before changing pipeline semantics.**
 - [constants-and-options.md](.claude/docs/constants-and-options.md) — `get_pipeline_constants()`
   surface + `RuntimeOptions` / `WHEP_*` env vars.
 - [conventions.md](.claude/docs/conventions.md) — run/test, environment, determinism,
   parallelism, gotchas.
 - [common-changes.md](.claude/docs/common-changes.md) — recipes. **Check here first.**
-- [guidelines/](.claude/guidelines/) — migration, refactoring, performance, testing, constants.
+- [deferred-bugs.md](.claude/docs/deferred-bugs.md) — known unfixed bugs and when to revisit.
+- [guidelines/](.claude/guidelines/) — refactoring, performance, testing, constants.
 
 ## Engineering standards
 
-- `snake_case`; full type hints on every public function; Google-style docstrings (the
-  roxygen2 analogue; enforced by ruff `D`).
+- `snake_case`; full type hints on every public function; Google-style docstrings (enforced by
+  ruff `D`).
 - `pathlib` over `os.path` (enforced by ruff `PTH`). `polars` (immutable, expression-based)
   is the **sole** dataframe engine — no pandas except at a documented IO boundary.
 - Validation via `pydantic` (schemas) + guard helpers; errors via
@@ -74,7 +62,8 @@ scaffolded with typed contracts. See [migration-roadmap.md](.claude/docs/migrati
   `get_pipeline_constants()`.
 - **No global state**; stages return typed contracts (`contracts.py`).
 - **No backward-compat scaffolding** — remove legacy patterns on sight.
-- Preserve documented R behavior for parity; don't silently "fix" quirks.
+- **Don't silently "fix" a documented behavior.** If it is in
+  [pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md), it is intentional.
 
 ## Run & test
 
@@ -89,10 +78,6 @@ python -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_vi
 .venv/Scripts/python.exe -m pytest -q
 .venv/Scripts/python.exe -m ruff check .
 .venv/Scripts/python.exe -m mypy
-
-# Full-dataset R-vs-Python parity (needs R + the production dataset; excluded from `pytest -q`)
-.venv/Scripts/python.exe scripts/parity_full_dataset.py
-.venv/Scripts/python.exe -m pytest -m slow
 ```
 
 See [conventions.md](.claude/docs/conventions.md) for the environment specifics

@@ -1,8 +1,8 @@
-"""Guard assertions — the Python port of ``02-assertions.R`` (``assert_or_abort``).
+"""Guard assertions — cheap inline precondition checks.
 
 Lightweight runtime guards that raise :class:`~whep_digitize.setup.errors.ValidationError`
-on failure, the Python analogue of routing a failed ``checkmate`` result through
-``cli::cli_abort``. Heavier schema validation uses ``pydantic`` at stage boundaries.
+on failure, for conditions worth checking at every call. Heavier schema validation uses
+``pydantic`` at stage boundaries.
 """
 
 from __future__ import annotations

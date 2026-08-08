@@ -1,13 +1,13 @@
-"""Parity test: rule-file loading + layer diagnostics must match the R golden.
+"""Parity test: rule-file loading + layer diagnostics must match the frozen reference.
 
-Exercises the port of ``21-template-rules.R`` (``read_rule_table``) and ``21-diagnostics.R``
+Exercises ``read_rule_table`` and
 (``build_layer_diagnostics``) over the committed xlsx rule fixture and asserts:
 
 * ``read_rule_table`` (xlsx) — the ``clean_`` prefix is stripped, only the canonical-schema-matching
   sheet is kept (the ``guidance`` sheet is skipped), and every cell is read all-as-text so
   ``"007"`` / ``"1000.0"`` keep their exact source string.
-* ``read_rule_table`` (csv, DB2) — readr's ``col_character`` + default ``na = c("", "NA")``: both
-  empty cells and the literal ``"NA"`` become null, while ``"007"`` and a quoted ``"a,b"`` survive.
+* ``read_rule_table`` (csv) — all-text read where both empty cells and the literal ``"NA"``
+  become null, while ``"007"`` and a quoted ``"a,b"`` survive as exact strings.
 * ``build_layer_diagnostics`` — the deterministic matched/unmatched counts, status, and message
   for a matched and an empty audit table (the wall-clock timestamp is not reproduced).
 
@@ -22,23 +22,21 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
 from whep_digitize.postpro.utilities.templates import read_rule_table
 
-_SPEC = CAPTURES["utilities"]
-_CSV_SPEC = CAPTURES["rule_table_csv"]
+_SPEC = GOLDENS["utilities"]
+_CSV_SPEC = GOLDENS["rule_table_csv"]
 _RULE_FIXTURE = FIXTURES_DIR / "synthetic" / "clean_rules_sample.xlsx"
 _CSV_FIXTURE = FIXTURES_DIR / "synthetic" / "rule_table_sample.csv"
 
 
 def _read_gold(path: Path, module: str) -> list[str | None]:
+    del module  # retained for call-site symmetry with the other parity helpers
     if not path.is_file():
-        pytest.skip(
-            f"Golden {path} missing; regenerate with `python tests/parity/capture.py {module}`"
-        )
+        pytest.skip(f"Golden {path} is missing from the checkout; restore it from version control.")
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data
 
@@ -70,7 +68,7 @@ def test_read_rule_table_csv_matches_golden() -> None:
     assert rules.columns == _csv_gold("columns")
     assert [str(rules.height)] == _csv_gold("nrow")
     assert rules.get_column("column_source").to_list() == _csv_gold("column_source")
-    # readr default na = c("", "NA"): the empty cell and the literal "NA" both read as null.
+    # The empty cell and the literal "NA" both read as null.
     assert rules.get_column("value_source_raw").to_list() == _csv_gold("value_source_raw")
     assert rules.get_column("value_target_raw").to_list() == _csv_gold("value_target_raw")
 

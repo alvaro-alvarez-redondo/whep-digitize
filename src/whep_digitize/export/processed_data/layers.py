@@ -1,11 +1,9 @@
-"""Layer-table detection for export — the Python port of ``02-collect-layer-tables.R``.
+"""Layer-table detection for export.
 
-R discovered exportable tables by scanning the global environment for objects whose names
-end in a configured layer suffix (``_raw`` / ``_clean`` / ``_normalize`` / ``_harmonize``),
-excluding ``_wide_raw`` and ``_post_processed``. This port keeps the same *name-based*
-selection but takes the objects explicitly as a mapping (the project's "typed results, no
-global-env assignment" divergence — see ``.claude/docs/r-to-python-mapping.md``), so the R
-``env`` / ``is.data.frame`` branch is unnecessary: every value is already a frame.
+Exportable tables are selected *by name*: a table whose name ends in a configured layer suffix
+(``_raw`` / ``_clean`` / ``_normalize`` / ``_harmonize``) is included, except for ``_wide_raw``
+and ``_post_processed``, which are always excluded. Candidates are passed in explicitly as a
+mapping of object name to frame, so no type check is needed: every value is already a frame.
 """
 
 from __future__ import annotations
@@ -17,10 +15,10 @@ import polars as pl
 
 from whep_digitize.setup.errors import ValidationError
 
-# Default layer suffixes (R ``layer_suffixes`` argument default).
+# Default value of the ``layer_suffixes`` argument.
 _DEFAULT_LAYER_SUFFIXES: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
 # Suffixes that are excluded even though they end in a layer suffix (``_wide_raw`` ends in
-# ``_raw``; ``_post_processed`` is a diagnostics bag). R checked both explicitly.
+# ``_raw``; ``_post_processed`` is a diagnostics bag). Both are checked explicitly.
 _EXCLUDED_SUFFIXES: tuple[str, ...] = ("_post_processed", "_wide_raw")
 
 
@@ -30,10 +28,9 @@ def collect_layer_tables_for_export(
 ) -> dict[str, pl.DataFrame]:
     """Select the layer tables eligible for export, keyed and sorted by object name.
 
-    Ports R ``collect_layer_tables_for_export``. A name is valid when it is non-empty, ends
-    in one of ``layer_suffixes`` (``_<suffix>``), and does **not** end in ``_post_processed``
-    or ``_wide_raw``. The result is ordered by name (code-point sort, the C-locale ``sort()``
-    the R pipeline used on its ASCII object names).
+    A name is valid when it is non-empty, ends in one of ``layer_suffixes`` (``_<suffix>``), and
+    does **not** end in ``_post_processed`` or ``_wide_raw``. The result is ordered by name
+    (code-point sort, so the order never depends on the ambient locale).
 
     Args:
         data_objects: Mapping of object name to its frame (e.g. ``{"whep_data_harmonize": ...}``).
@@ -44,7 +41,7 @@ def collect_layer_tables_for_export(
 
     Raises:
         ValidationError: If ``layer_suffixes`` is empty or has duplicates, or if no object
-            name matches (the R ``cli_abort`` "no layer tables detected for export").
+            name matches ("no layer tables detected for export").
     """
     if not layer_suffixes:
         raise ValidationError("layer_suffixes must contain at least one suffix")
@@ -70,7 +67,7 @@ def collect_layer_tables_for_export(
 
 
 def _is_valid_layer_name(object_name: str, layer_pattern: re.Pattern[str]) -> bool:
-    """Return whether an object name selects a layer table (R ``is_valid_layer_name``)."""
+    """Return whether an object name selects a layer table."""
     if not object_name:
         return False
     if layer_pattern.search(object_name) is None:

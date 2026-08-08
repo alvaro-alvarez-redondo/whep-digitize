@@ -1,8 +1,8 @@
 """Tests for the processed-data export (``export.processed_data``).
 
-Mirrors the R suite ``tests/3-export_pipeline/test-export-data.R`` (layer detection, path
+(layer detection, path
 naming, the TSV writer, and the harmonize-by-default filter) and adds focused coverage of the
-R-``fwrite`` float rendering that the byte-parity test depends on.
+the fixed-notation float rendering that the byte-parity test depends on.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from whep_digitize.export.processed_data.export import (
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 
 
 def _frame() -> pl.DataFrame:
@@ -135,7 +135,7 @@ def test_write_uses_platform_eol(tmp_path: Path) -> None:
     assert out.read_bytes() == f"a{_FWRITE_EOL}1{_FWRITE_EOL}".encode()
 
 
-def test_write_renders_floats_like_fwrite(tmp_path: Path) -> None:
+def test_write_renders_floats_in_fixed_notation(tmp_path: Path) -> None:
     frame = pl.DataFrame({"value": [1.0, 2.5, 1000.0, None, -3.5]}, schema={"value": pl.Float64})
     out = write_processed_table(frame, tmp_path / "f.tsv")
     # read_bytes (not read_text) so the CRLF terminators survive universal-newline translation.
@@ -177,14 +177,14 @@ def test_write_overwrites_by_default(tmp_path: Path) -> None:
         (830447.6, "830447.6"),
     ],
 )
-def test_format_double_r(value: float, expected: str) -> None:
-    assert format_double_r(value) == expected
+def test_format_double_fixed(value: float, expected: str) -> None:
+    assert format_double_fixed(value) == expected
 
 
-def test_format_double_r_special() -> None:
-    assert format_double_r(float("nan")) is None
-    assert format_double_r(float("inf")) == "Inf"
-    assert format_double_r(float("-inf")) == "-Inf"
+def test_format_double_fixed_special() -> None:
+    assert format_double_fixed(float("nan")) is None
+    assert format_double_fixed(float("inf")) == "Inf"
+    assert format_double_fixed(float("-inf")) == "-Inf"
 
 
 # --------------------------------------------------------------------------- orchestration

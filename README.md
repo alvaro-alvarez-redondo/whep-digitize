@@ -1,9 +1,7 @@
 # whep-digitize
 
-Python/[Polars](https://pola.rs) port of the **WHEP digitization pipeline**
-(the R project [`whep-digitalization`](https://github.com/eduaguilera/whep)).
-
-A deterministic, four-stage pipeline that turns WHEP source workbooks into clean,
+The **WHEP digitization pipeline** — a deterministic, four-stage
+Python/[Polars](https://pola.rs) pipeline that turns WHEP source workbooks into clean,
 harmonized, unit-standardized tabular data plus unique-value reference lists.
 
 ```
@@ -14,28 +12,20 @@ setup (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
  directories     validate        harmonize
 ```
 
-> **Status: foundation.** Stage 0 (`setup`) is implemented and tested. Stages 1–3
-> are scaffolded with typed contracts and are being migrated incrementally. See the
-> [migration roadmap](.claude/docs/migration-roadmap.md) for the plan and current state.
+Input is Excel workbooks under `data/import/raw/`; output lands in `data/export/`.
 
----
+## Design
 
-## Why this port exists
+- **Deterministic.** Identical inputs and options produce identical outputs, byte for byte —
+  including under parallelism, where results are independent of worker count.
+- **One engine.** `polars` (immutable, expression-based) is the sole dataframe engine.
+- **Typed stage contracts.** Each stage returns a frozen result object (`contracts.py`); nothing
+  is published through global state.
+- **Behavior pinned by frozen reference outputs.** `tests/golden/` holds immutable expected
+  output that the test suite asserts against, so a semantic change cannot pass unnoticed.
 
-The R pipeline is mature and correct but hard to onboard, package, and deploy. This
-Python port reproduces the same outputs **byte-for-byte — except for one intentional
-divergence** (verified by parity tests against R golden files): string/header normalization
-follows a documented policy (NFD diacritic strip + lowercase) instead of R's ICU
-`Latin-ASCII`, which changes **~13 rows on the full dataset**, leaving value sums and row
-counts unchanged. Byte-identity was verified 2026-07-24, before that policy was accepted on
-2026-07-29; see [r-to-python-mapping.md](.claude/docs/r-to-python-mapping.md) risk #1.
-
-In exchange the port gains: a real package + lockfile (`uv`), static typing (`mypy`),
-one fast columnar engine (`polars`), and a modern test/CI story.
-
-The migration is designed to be **incremental and parallelizable** — each R module maps
-to a Python module with a fixed input/output contract, so stages and sub-modules can be
-ported independently and validated in isolation.
+Statically typed (`mypy --strict`), linted and formatted (`ruff`), packaged with a lockfile
+(`uv`), and tested in CI across Python 3.11–3.13.
 
 ## Requirements
 
@@ -68,6 +58,7 @@ pip install -e ".[dev]"
 # CLI
 whep-digitize run                       # run the full pipeline
 whep-digitize run --no-view             # headless
+whep-digitize bootstrap                 # Stage 0 only (build the directory tree)
 
 # Python API
 python -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_view=False)"
@@ -88,28 +79,30 @@ The autonomous optimization loop is configured in [`autocode.toml`](autocode.tom
 
 ```
 src/whep_digitize/
-  setup/          # Stage 0 — constants, config, directories, helpers  [IMPLEMENTED]
-  ingest/         # Stage 1 — file_io, reading, transform, output       [scaffold]
-  postpro/        # Stage 2 — audit, clean/harmonize, rule_engine, ...   [scaffold]
-  export/         # Stage 3 — processed_data, lists                      [scaffold]
+  setup/          # Stage 0 — constants, config, directories, helpers
+  ingest/         # Stage 1 — file_io, reading, transform, output
+  postpro/        # Stage 2 — audit, clean/harmonize, rule_engine, standardize_units
+  export/         # Stage 3 — processed_data, lists
   pipeline.py     # run_pipeline orchestrator
   cli.py          # typer CLI
   contracts.py    # shared typed result contracts
 tests/            # pytest suites, mirroring the package layout
-.claude/          # AI working layer: docs, guidelines, skills, roadmap
+  fixtures/       # frozen inputs
+  golden/         # frozen expected outputs (immutable)
+.claude/          # working docs, guidelines, benchmark
 ```
 
 ## Engineering standards
 
-`snake_case`; type hints on every public function; Google-style docstrings (mirroring the
-R project's per-function roxygen docs); `pathlib` over `os.path`; `polars` (immutable,
-expression-based) as the sole dataframe engine; deterministic outputs (identical inputs +
-options → identical outputs); no hard-coded literals (centralized in
-[`setup/constants.py`](src/whep_digitize/setup/constants.py)); validation via
+`snake_case`; type hints on every public function; Google-style docstrings; `pathlib` over
+`os.path`; `polars` as the sole dataframe engine; deterministic outputs; no hard-coded literals
+(centralized in [`setup/constants.py`](src/whep_digitize/setup/constants.py)); validation via
 `pydantic`/guards; errors and progress via `rich`.
 
-See [CLAUDE.md](CLAUDE.md) and [.claude/docs/](.claude/docs/) for the full architecture,
-conventions, and the R→Python mapping.
+Before changing pipeline semantics, read
+[.claude/docs/pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md) — it records the
+behaviors that look like bugs and are deliberate. See [CLAUDE.md](CLAUDE.md) and
+[.claude/docs/](.claude/docs/) for architecture and conventions.
 
 ## License
 

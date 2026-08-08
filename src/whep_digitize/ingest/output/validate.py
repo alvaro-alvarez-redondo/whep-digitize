@@ -1,25 +1,20 @@
-r"""Long-format validation — the Python port of ``13-validate.R``.
+"""Long-format validation.
 
 ``validate_long_df_by_document`` runs the three long-format checks (mandatory-field,
 year-value, duplicate) for every document in one pass and returns the validated data plus a
-verbatim, deterministically-ordered error vector. A downstream consumer compares the error
-*text*, so the message formats and their order are reproduced exactly:
+verbatim, deterministically-ordered error vector. Downstream consumers compare the error
+*text*, so the message formats and their order are a behavioral contract:
 
 * **Document-major frame.** Rows are regrouped so each document's rows are contiguous, in
-  first-appearance document order, preserving within-document order (R ``order(chmatch(...))``).
-  Per-document row ids (R ``rowidv``) and absolute row positions feed the message text and the
-  sort keys.
+  first-appearance document order, preserving within-document order. Per-document row ids and
+  absolute row positions feed the message text and the sort keys.
 * **4-key stable sort.** Every error carries ``(document_rank, type_rank, key_a, key_b)`` and
-  the combined errors are sorted by that tuple (R ``setorder``): within a document, mandatory
-  errors (by column then row), then year errors (by year first-appearance then check kind),
-  then duplicate errors (by group first-appearance).
+  the combined errors are sorted by that tuple: within a document, mandatory errors (by column
+  then row), then year errors (by year first-appearance then check kind), then duplicate errors
+  (by group first-appearance).
 
-The R ``current_year`` comes from ``Sys.Date()``; it is exposed here as a parameter (defaulting
-to the system year, matching R) so the plausible-year range is deterministic in tests — the
-same rationale R gives for ``validate_year_values(current_year=)``.
-
-R source: ``r/1-import_pipeline/13-output/13-validate.R`` (``validate_long_df_by_document``; the
-non-vectorized ``validate_long_df`` + per-check helpers are the reference it replaces).
+``current_year`` is exposed as a parameter (defaulting to the system year) so the
+plausible-year range is deterministic in tests.
 """
 
 from __future__ import annotations
@@ -47,14 +42,14 @@ _TYPE_DUPLICATE = 3
 
 @dataclass(frozen=True, slots=True)
 class ValidationResult:
-    """Result of long-format validation (R ``list(data, errors)``)."""
+    """Result of long-format validation: the validated data plus the ordered error messages."""
 
     data: pl.DataFrame
     errors: tuple[str, ...]
 
 
 class _ErrorRecord(NamedTuple):
-    """One error with its four sort keys (R error-table row)."""
+    """One error message with its four ordering keys."""
 
     document_rank: int
     type_rank: int
@@ -63,8 +58,8 @@ class _ErrorRecord(NamedTuple):
     message: str
 
 
-def _r_str(value: object) -> str:
-    """Coerce a value for message embedding, mapping ``None`` -> ``"NA"`` (R ``as.character``)."""
+def _message_text(value: object) -> str:
+    """Coerce a value for message embedding, rendering ``None`` as the literal ``"NA"``."""
     return "NA" if value is None else str(value)
 
 
@@ -81,8 +76,8 @@ def _mandatory_field_error_frame(work: pl.DataFrame, mandatory_cols: list[str]) 
     """Per document, column-major then row: rows with a null/blank mandatory value (vectorized).
 
     Built entirely in polars — the message via ``pl.format`` — rather than a per-row Python loop:
-    on the real dataset these are the overwhelming majority of the error volume (150k+). The four
-    sort keys and the message text match the R error-table rows exactly.
+    on the real dataset these are the overwhelming majority of the error volume (150k+). The
+    message text and the four sort keys are contractual; see the module docstring.
     """
     frames = [
         work.filter(pl.col(col).is_null() | (pl.col(col) == "")).select(
@@ -181,7 +176,7 @@ def _duplicate_errors(work: pl.DataFrame, doc_rank_map: dict[object, int]) -> li
     )
     records: list[_ErrorRecord] = []
     for group_index, row in enumerate(duplicates.iter_rows(named=True), start=1):
-        key_description = ", ".join(f"{col} = {_r_str(row[col])}" for col in key_columns)
+        key_description = ", ".join(f"{col} = {_message_text(row[col])}" for col in key_columns)
         message = (
             f"duplicate entries detected (count {row['duplicate_count']}) for {key_description}"
         )
@@ -200,7 +195,7 @@ def validate_long_df_by_document(
         long_df: Long-format frame with a ``document`` column.
         config: Pipeline configuration (``column_required`` are the mandatory columns).
         current_year: Reference year for the plausible-year range ``[1900, current_year + 1]``;
-            defaults to the system year (R ``Sys.Date()``).
+            defaults to the system year.
 
     Returns:
         A :class:`ValidationResult` with the document-major validated frame and the verbatim
@@ -243,10 +238,10 @@ def validate_long_df_by_document(
         work.select("document", "_document_rank").unique().iter_rows()
     )
 
-    # Assemble every check's errors as one frame and sort by the 4 keys in polars (R setorder).
-    # The keys are unique within each check (mandatory: global row + column; year: appearance +
-    # kind; duplicate: group index), so the ordering is fully key-determined — byte-identical to
-    # the previous stable Python sort. ``maintain_order`` keeps it deterministic regardless.
+    # Assemble every check's errors as one frame and sort by the 4 keys in polars. The keys are
+    # unique within each check (mandatory: global row + column; year: appearance + kind;
+    # duplicate: group index), so the ordering is fully key-determined. ``maintain_order`` keeps
+    # it deterministic regardless.
     error_frame = pl.concat(
         [
             _mandatory_field_error_frame(work, mandatory_cols),

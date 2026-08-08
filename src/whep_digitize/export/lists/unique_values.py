@@ -1,10 +1,11 @@
-"""Unique-list building blocks (ports ``01-sheet-order-and-infer.R`` + ``02-build-path...``).
+"""Unique-list building blocks.
 
 The fixed layer sheet order, the object-name -> sheet-label inference, the per-column
 unique-value computation (drop null, code-point sort, ``"(blank)"`` prepended when any value is
 missing), the workbook-path build, the layer-by-sheet grouping, and the union-of-columns
-collection. All ordering is locale-independent (code point == R ``sort(method = "radix")`` in the
-C locale — the pipeline's determinism contract; verified against R in ``tests/parity``).
+collection. All ordering is by Unicode code point (equivalently, UTF-8 byte order) and therefore
+locale-independent — part of the pipeline's determinism contract. One visible consequence:
+accented values sort *after* every ASCII one.
 """
 
 from __future__ import annotations
@@ -17,11 +18,11 @@ import polars as pl
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.helpers.strings import normalize_filename
 
-# Fixed sheet order for lists workbooks (R ``get_lists_sheet_order``). Also the order in which
-# layers are grouped into merged sheets.
+# Fixed sheet order for lists workbooks. Also the order in which layers are grouped into
+# merged sheets.
 LISTS_SHEET_ORDER: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
 _LIST_BLANK_LABEL = get_pipeline_constants().defaults.list_blank_label
 
@@ -29,7 +30,7 @@ _LIST_BLANK_LABEL = get_pipeline_constants().defaults.list_blank_label
 def infer_layer_sheet_name(object_name: str) -> str:
     """Infer the canonical sheet label (``raw`` / ``clean`` / ``normalize`` / ``harmonize``).
 
-    Ports R ``infer_layer_sheet_name``: the first layer suffix the name ends in wins.
+    The first layer suffix the name ends in wins.
 
     Args:
         object_name: A layer object name (e.g. ``"whep_data_harmonize"``).
@@ -49,9 +50,9 @@ def infer_layer_sheet_name(object_name: str) -> str:
 def build_column_lists_export_path(config: Config, column_name: str) -> Path:
     """Resolve the ``unique_<column>.xlsx`` path for a column's list workbook.
 
-    Ports R ``build_column_lists_export_path``. The stem is ``unique_`` + the normalized column
-    name (R prefixes ``unique_``; the misformatted ``export_config.list_suffix`` constant is dead
-    code and deliberately unused). The directory is not created here (the runner ensures it).
+    The stem is the ``unique_`` prefix plus the normalized column name (the misformatted
+    ``export_config.list_suffix`` constant is dead code and deliberately unused). The directory
+    is not created here (the runner ensures it).
 
     Args:
         config: The resolved pipeline configuration.
@@ -75,11 +76,11 @@ def compute_unique_column_values(
 ) -> list[str]:
     """Return one layer's sorted unique values for a column, as strings.
 
-    Ports R ``compute_unique_column_values``. Missing (null) values are dropped and, when any
-    were present, ``blank_label`` is prepended (it is never sorted in — R prepends after the
-    sort). Sorting is code-point for text and numeric for numbers (R ``sort(method = "radix")``);
-    a float column is rendered via :func:`~whep_digitize.setup.helpers.numeric.format_double_r`
-    so a numeric list matches R ``as.character``. An absent column yields ``[]``.
+    Missing (null) values are dropped and, when any were present, ``blank_label`` is prepended
+    *after* the sort, so it is never sorted in. Sorting is by code point for text and numeric for
+    numbers; a float column is rendered via
+    :func:`~whep_digitize.setup.helpers.numeric.format_double_fixed`, the same double formatter the
+    processed-data TSVs use. An absent column yields ``[]``.
 
     Args:
         frame: The layer frame.
@@ -99,7 +100,7 @@ def compute_unique_column_values(
     if sorted_values.dtype == pl.String:
         values = sorted_values.to_list()
     elif sorted_values.dtype.is_float():
-        values = [format_double_r(value) for value in sorted_values.to_list()]
+        values = [format_double_fixed(value) for value in sorted_values.to_list()]
     else:
         values = sorted_values.cast(pl.String).to_list()
 
@@ -111,10 +112,9 @@ def build_layer_tables_by_sheet(
 ) -> dict[str, pl.DataFrame]:
     """Key detected layer tables by sheet label, filling missing layers with empty frames.
 
-    Ports R ``build_layer_tables_by_sheet``. Multiple objects mapping to the same sheet label
-    (e.g. two ``*_raw`` tables) are unioned (``pl.concat(how="diagonal")`` == R
-    ``rbindlist(use.names=TRUE, fill=TRUE)``) rather than dropped; absent layers become an empty
-    :class:`polars.DataFrame`.
+    Multiple objects mapping to the same sheet label (e.g. two ``*_raw`` tables) are unioned
+    rather than dropped, matching on column name and filling the gaps where their schemas differ
+    (``pl.concat(how="diagonal")``); absent layers become an empty :class:`polars.DataFrame`.
 
     Args:
         layer_tables: Detected layer tables keyed by object name.
@@ -141,7 +141,7 @@ def build_layer_tables_by_sheet(
 def collect_union_columns(layer_by_sheet: Mapping[str, pl.DataFrame]) -> list[str]:
     """Return the code-point-sorted union of column names across all layer sheets.
 
-    Ports R ``collect_union_columns`` (radix / C-locale order == code point).
+    The ordering is by code point, so it does not depend on the ambient locale.
 
     Args:
         layer_by_sheet: Layer frames keyed by sheet label.

@@ -1,7 +1,6 @@
 """Tests for the unique-list export (``export.lists``).
 
-Mirrors the R suites ``tests/3-export_pipeline/test-export-lists.R`` and
-``tests/testthat/scripts/test_export_column_centric_lists.R``: sheet order + inference, unique
+sheet order + inference, unique
 values (blank/NA + radix sort + numeric), layer-by-sheet grouping, union columns, column
 resolution, identical-layer merging, path naming, the workbook write, and ``export_lists``
 (harmonize-by-default filtering, exclusions, and the filename-collision guard).

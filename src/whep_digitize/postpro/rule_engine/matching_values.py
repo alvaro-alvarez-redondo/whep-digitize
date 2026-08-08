@@ -1,13 +1,12 @@
 """Target-condition matching, value merging, and change counting.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-values.R``
-(split from ``23-matching-strategy.R`` under the >500-line policy). Three pure functions:
+Three pure functions:
 
 * :func:`match_rule_target_condition_values` — decide, element-wise, whether each rule
   target-condition value matches the current dataset value. For tokenized columns the current
   value is split on ``;`` and the condition matches by **token membership** (or a full-string
-  match), with an explicit wildcard token (``__ANY__``). ``NA`` conditions match ``NA`` current
-  values (parity risk #5).
+  match), with an explicit wildcard token (``__ANY__``). A null condition matches a null current
+  value, and only that.
 * :func:`concatenate_existing_and_incoming_values` — order-preserving, existing-first
   deduplicating merge of ``;``-delimited token sets (the ``concatenate`` strategy).
 * :func:`count_elementwise_value_changes` — the element-wise change count that drives
@@ -15,7 +14,7 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-matching-val
 
 All keying goes through
 :func:`whep_digitize.postpro.rule_engine.matching_strategy.encode_rule_match_key`, so match
-correctness inherits the normalization policy (NFD diacritic strip, not R's ICU ``Latin-ASCII``).
+correctness inherits the normalization policy (NFD diacritic strip + non-alphanumeric collapse).
 """
 
 from __future__ import annotations
@@ -30,8 +29,8 @@ from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class trimmed from values: space, tab, CR, LF.
+_TRIM_CHARS = " \t\r\n"
 
 
 def _encode_keys_list(values: Sequence[str | None], *, apply_normalization: bool) -> list[str]:
@@ -54,7 +53,7 @@ def _blank_to_none(value: str | None) -> str | None:
     """Return ``None`` for missing / whitespace-only values, else the value unchanged."""
     if value is None:
         return None
-    return None if value.strip(_R_TRIMWS_CHARS) == "" else value
+    return None if value.strip(_TRIM_CHARS) == "" else value
 
 
 def _split_dedup_tokens(value: str) -> list[str]:
@@ -66,7 +65,7 @@ def _split_dedup_tokens(value: str) -> list[str]:
     Returns:
         The ordered, deduplicated, non-empty tokens.
     """
-    tokens = [token.strip(_R_TRIMWS_CHARS) for token in value.split(";")]
+    tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
     non_empty = [token for token in tokens if token != ""]
     return list(dict.fromkeys(non_empty))
 
@@ -121,7 +120,7 @@ def match_rule_target_condition_values(
     condition_chr = condition_values.cast(pl.String).to_list()
 
     def _is_wildcard(condition: str | None) -> bool:
-        return condition is not None and condition.strip(_R_TRIMWS_CHARS) == wildcard_token
+        return condition is not None and condition.strip(_TRIM_CHARS) == wildcard_token
 
     # NA condition -> matches an NA current value; wildcard -> always matches; else False so far.
     match_mask = [False] * length
@@ -157,10 +156,9 @@ def match_rule_target_condition_values(
 
     for position, out_index in enumerate(non_na_idx):
         current_value = current_subset[position]
-        # An NA current value never matches. An empty-string current value also never matches:
-        # R keys the token lookup by the current value, and base R cannot retrieve a list
-        # element by an empty-string name (`list[[""]]` -> NULL, so `%in% NULL` is FALSE).
-        # Reproduce both quirks so the tokenized match stays byte-identical to R.
+        # A null current value never matches, and neither does an empty string: the token
+        # lookup is keyed by the current value and the empty key is treated as absent, so
+        # membership is False. Both are intentional -- see docs/pipeline-behaviors.md.
         if current_value is None or current_value == "":
             match_mask[out_index] = False
             continue

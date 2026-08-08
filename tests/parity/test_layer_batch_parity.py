@@ -1,9 +1,9 @@
-"""Parity test: the multi-pass clean/harmonize driver must match the R golden.
+"""Parity test: the multi-pass clean/harmonize driver must match the frozen reference.
 
-Exercises the port of ``22-layer-runner.R`` (``run_rule_stage_layer_batch``) + the payload
-composition (``23-payload-application.R``) end-to-end over committed rule workbooks. For each of
+Exercises ``run_rule_stage_layer_batch`` + the payload
+composition end-to-end over committed rule workbooks. For each of
 the clean and harmonize stages it asserts the converged data columns, the ``stop_reason`` /
-``passes_executed`` / ``converged`` multi-pass diagnostics, and the ``matched_count`` all match R.
+``passes_executed`` / ``converged`` multi-pass diagnostics, and ``matched_count`` all match.
 
 Each stage rewrites ``unit`` on pass 1 and no-ops on pass 2, so it converges (``changed_value_count
 == 0``) in two passes — the common convergence path. Goldens are committed, so this runs on any
@@ -18,8 +18,7 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.clean_harmonize.layer_runner import (
     StageLayerResult,
@@ -28,7 +27,7 @@ from whep_digitize.postpro.clean_harmonize.layer_runner import (
 )
 from whep_digitize.setup.config import Config
 
-_SPEC = CAPTURES["layer_batch"]
+_SPEC = GOLDENS["layer_batch"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -39,8 +38,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

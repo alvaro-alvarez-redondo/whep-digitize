@@ -1,22 +1,21 @@
-r"""Parity test: the processed-data TSV writer must match R ``fwrite`` byte-for-byte.
+r"""Parity test: the processed-data TSV writer must reproduce the reference bytes exactly.
 
 Builds a harmonize-layer export frame from the frozen fixture (character columns + a
 ``Float64`` value, matching the post-audit dtype) and asserts
 :func:`whep_digitize.export.processed_data.export.write_processed_table` reproduces the exact
-bytes of ``data.table::fwrite(sep = "\t")`` captured from R. The golden is the whole file as a
-hex string, so this pins every byte-level divergence that a naive
-``write_csv(separator="\t")`` would introduce: fwrite's auto-quoting (embedded tab / newline /
-quote, and empty-string ``""`` vs NA) and double formatting (15 significant figures, fixed
-notation under ``scipen=999``, trailing ``.0`` dropped).
+reference bytes. The golden is the whole file as a hex string, so this pins every byte-level
+divergence a naive ``write_csv(separator="\t")`` would introduce: the auto-quoting rules
+(embedded tab / newline / quote, and empty string vs null) and the double formatting (15
+significant figures, fixed notation, trailing ``.0`` dropped).
 
-**The record separator is platform-relative, and deliberately so.** ``fwrite`` writes the
-platform newline (``\r\n`` on Windows, ``\n`` on unix — ``.Platform$OS.type``) and the port
-mirrors that, so the golden's separators belong to whichever OS ran the capture. Comparing the
-raw bytes would therefore fail purely for being on a different OS than the capture (goldens are
-captured on Windows; CI runs Linux). :func:`_retarget_record_separators` re-terminates the
-golden's *records* — and only those, never a newline embedded inside a quoted field — with the
-eol this platform's ``fwrite`` would use. The comparison stays byte-exact and still pins the eol
-convention itself: a writer that emitted ``\n`` on Windows (or ``\r\n`` on Linux) fails here.
+**The record separator is platform-relative, and deliberately so.** The writer emits the
+platform newline (``\r\n`` on Windows, ``\n`` elsewhere), so the golden's separators belong to
+whichever OS produced it. Comparing the raw bytes would therefore fail purely for running on a
+different OS (the goldens were produced on Windows; CI runs Linux).
+:func:`_retarget_record_separators` re-terminates the golden's *records* — and only those,
+never a newline embedded inside a quoted field — with the eol this platform uses. The
+comparison stays byte-exact and still pins the eol convention itself: a writer that emitted
+``\n`` on Windows (or ``\r\n`` on Linux) fails here.
 The expected eol is derived independently from :data:`os.name`, never imported from the module
 under test, so the assertion cannot go tautological.
 """
@@ -29,23 +28,22 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.export.processed_data import export as export_module
 from whep_digitize.export.processed_data.export import write_processed_table
 
-_SPEC = CAPTURES["export_processed_data"]
+_SPEC = GOLDENS["export_processed_data"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
 
-# R ``fwrite``'s eol default, derived from the platform exactly as R derives it. Mirrors — but
-# is intentionally independent of — ``export._FWRITE_EOL``.
+# The expected record separator for this platform. Mirrors — but is intentionally independent
+# of — ``export._FWRITE_EOL``, so the assertion cannot go tautological.
 _PLATFORM_EOL = b"\r\n" if os.name == "nt" else b"\n"
 
-# The R capture builds the data.table in this column order; the frame must match it (fwrite and
-# write_csv both emit columns in frame order). `value` is the only numeric column.
+# The golden was produced with this column order; the frame must match it (columns are emitted
+# in frame order). `value` is the only numeric column.
 _COLUMN_ORDER = [
     "hemisphere",
     "continent",
@@ -66,10 +64,10 @@ def _retarget_record_separators(data: bytes, eol: bytes) -> bytes:
     r"""Re-terminate every record of an RFC 4180-style delimited file with ``eol``.
 
     Walks the bytes tracking quote state and rewrites ``\r\n`` / ``\n`` only where it is a
-    record separator. A newline inside a quoted field is *data* (fwrite quotes any field
+    record separator. A newline inside a quoted field is *data* (the writer quotes any field
     containing one) and is copied through untouched — which is why a blind
     ``replace(b"\n", b"\r\n")`` cannot be used here. Quote state toggles on every ``"``, so
-    fwrite's doubled-quote escape (``""``) toggles twice and leaves the state correct.
+    the doubled-quote escape (``""``) toggles twice and leaves the state correct.
 
     Args:
         data: The captured file bytes.
@@ -101,8 +99,8 @@ def _golden_bytes() -> bytes:
     path = _SPEC.golden_paths()["tsv_hex"]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     hex_string: list[str] = json.loads(path.read_text(encoding="utf-8"))
     return bytes.fromhex(hex_string[0])
@@ -116,14 +114,16 @@ def export_frame() -> pl.DataFrame:
     for name in _COLUMN_ORDER:
         series = pl.Series(name, [record[name] for record in records], dtype=pl.String)
         if name == "value":
-            # R coerces value via readr::parse_double -> as.numeric; String -> Float64 matches.
+            # `value` is parsed to Float64 by the audit stage; String -> Float64 matches.
             series = series.cast(pl.Float64, strict=False)
         columns[name] = series
     return pl.DataFrame(columns).select(_COLUMN_ORDER)
 
 
 @pytest.mark.parity
-def test_write_processed_table_matches_r_bytes(export_frame: pl.DataFrame, tmp_path: Path) -> None:
+def test_write_processed_table_matches_reference_bytes(
+    export_frame: pl.DataFrame, tmp_path: Path
+) -> None:
     assert export_frame.schema["value"] == pl.Float64  # the numeric-formatting path is exercised
     expected = _retarget_record_separators(_golden_bytes(), _PLATFORM_EOL)
     assert _PLATFORM_EOL in expected  # the eol convention is pinned, not normalized away
@@ -133,14 +133,14 @@ def test_write_processed_table_matches_r_bytes(export_frame: pl.DataFrame, tmp_p
 
 @pytest.mark.parity
 @pytest.mark.parametrize("eol", [b"\r\n", b"\n"], ids=["windows", "unix"])
-def test_write_processed_table_matches_r_bytes_under_both_platform_eols(
+def test_write_processed_table_matches_reference_under_both_platform_eols(
     export_frame: pl.DataFrame, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, eol: bytes
 ) -> None:
-    """Both ``fwrite`` eol conventions are pinned, whichever OS is running.
+    """Both eol conventions are pinned, whichever OS is running.
 
     The test above can only exercise the eol of the host it runs on, which would leave a
     byte divergence on the *other* OS hidden until that OS ran CI. Overriding the writer's
-    platform constant (the port's ``.Platform$OS.type`` stand-in) covers both from anywhere:
+    platform constant covers both from anywhere:
     on Windows this proves the Linux CI bytes, and vice versa.
     """
     monkeypatch.setattr(export_module, "_FWRITE_EOL", eol.decode("ascii"))

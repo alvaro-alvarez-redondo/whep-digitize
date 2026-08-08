@@ -5,7 +5,7 @@ read_only = ["tests/**", ".claude/bench/**", "tests/golden/**"]
 
 [metrics]
 
-# Tests are the ground truth (mirrors testthat). Highest weight — breaking tests, including
+# Tests are the ground truth. Highest weight — breaking tests, including
 # @pytest.mark.parity tests, is never acceptable. Weights re-normalized to sum to 1.0 when the
 # performance metric was enabled (Phase 6): tests 0.42, quality 0.14, types 0.14, performance 0.30.
 [metrics.tests]
@@ -31,7 +31,7 @@ weight = 0.14
 direction = "down"
 
 # Performance: full-pipeline wall-clock (.claude/bench/bench.py prints "PIPELINE_SECONDS: <n>").
-# Enabled in Phase 6 (stages 1-3 migrated + bench.py exists). bench.py freezes the input dataset
+# bench.py freezes the input dataset
 # for A/Bs (defaults to the sibling frozen corpus, else the committed fixture corpus) and reports
 # the min over WHEP_BENCH_ITERATIONS runs to damp OS/spawn jitter.
 [metrics.performance]

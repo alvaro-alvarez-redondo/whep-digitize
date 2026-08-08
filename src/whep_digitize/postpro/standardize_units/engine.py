@@ -1,7 +1,6 @@
 r"""Postpro / standardize_units — the affine unit-conversion engine.
 
-The Python port of ``r/2-postpro_pipeline/24-standardize_units/24-standardize-engine.R``
-(``apply_standardize_rules``), the HIGH-risk numeric core (parity risk #9). For each row it:
+(``apply_standardize_rules``), the HIGH-risk numeric core. For each row it:
 
 1. coerces ``value`` to numeric (aborting on a non-blank non-numeric value);
 2. **folds a leading numeric multiplier** in the unit string (``"1000 head"``, value 5 → 5000,
@@ -14,7 +13,7 @@ The Python port of ``r/2-postpro_pipeline/24-standardize_units/24-standardize-en
 5. **affine converts** matched rows (``value * factor + offset``) and rewrites the unit to the
    target.
 
-Order is exactly fold → revert-probe → match → convert. R mutated ``mapped_df`` by reference and
+Order is exactly fold → revert-probe → match → convert. ``mapped_df`` is never mutated and
 returned a list; this port is functional and returns :class:`StandardizeResult`.
 """
 
@@ -37,7 +36,7 @@ _MULTIPLIER_PATTERN = _CONSTANTS.patterns.standardize_multiplier_prefix
 
 @dataclass(frozen=True, slots=True)
 class StandardizeResult:
-    """Result of :func:`apply_standardize_rules` (R ``list(data, ...)``).
+    """Result of :func:`apply_standardize_rules`.
 
     Attributes:
         data: The dataset with ``value`` coerced/converted (Float64) and ``unit`` rewritten to the
@@ -62,8 +61,6 @@ def apply_standardize_rules(
     commodity_column: str,
 ) -> StandardizeResult:
     """Apply unit-standardization rules with multiplier fold, two-stage match, and affine convert.
-
-    The Python port of R ``apply_standardize_rules``.
 
     Args:
         mapped_df: The dataset to standardize.
@@ -134,7 +131,7 @@ def apply_standardize_rules(
 
 
 def _abort_on_non_numeric(raw_value: pl.Series, numeric_raw: pl.Series) -> None:
-    """Abort when a value is non-null, non-blank, yet fails numeric coercion (R invalid check)."""
+    """Abort when a value is non-null, non-blank, yet fails numeric coercion."""
     if raw_value.dtype == pl.String:
         blank = raw_value.is_not_null() & (raw_value.str.strip_chars() == "")
     else:
@@ -155,7 +152,7 @@ def _fold_multiplier(
     original_key: pl.Series,
     commodity_key: pl.Series,
 ) -> pl.DataFrame:
-    """Fold a leading numeric multiplier in the unit string into the value (parity risk #9)."""
+    """Fold a leading numeric multiplier in the unit string into the value."""
     working = pl.DataFrame(
         {
             "row_index": pl.Series("row_index", range(height), dtype=pl.UInt32),
@@ -326,7 +323,7 @@ def _match_and_convert(working: pl.DataFrame, rules: pl.DataFrame) -> pl.DataFra
 
 
 def _build_matched_rule_counts(matched: pl.DataFrame) -> pl.DataFrame:
-    """Group matched rows into per-applied-rule counts + the effective multiplier (R aggregate)."""
+    """Group matched rows into per-applied-rule counts + the effective multiplier."""
     rows = matched.filter(pl.col("is_matched"))
     if rows.height == 0:
         return _empty_matched_rule_counts()
@@ -367,7 +364,7 @@ def _build_matched_rule_counts(matched: pl.DataFrame) -> pl.DataFrame:
 
 
 def _empty_matched_rule_counts() -> pl.DataFrame:
-    """Return the 4-column empty matched-rule-counts frame (R's zero-match / zero-rule schema)."""
+    """Return the 4-column empty matched-rule-counts frame."""
     return pl.DataFrame(
         schema={
             "rule_commodity_match_key": pl.String,
@@ -379,5 +376,5 @@ def _empty_matched_rule_counts() -> pl.DataFrame:
 
 
 def _unit_nonempty_count(unit_key: pl.Series) -> int:
-    """Count rows whose unit key is non-null and non-empty (R ``sum(!is.na & nzchar)``)."""
+    """Count rows whose unit key is non-null and non-empty."""
     return int((unit_key.is_not_null() & (unit_key != "")).sum())

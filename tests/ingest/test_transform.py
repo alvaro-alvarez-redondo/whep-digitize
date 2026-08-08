@@ -1,9 +1,9 @@
 """Tests for ingest transform: transform_utils + reshape.
 
-Functional coverage that runs without R: year-column identification, key-field
+Functional coverage: year-column identification, key-field
 normalization, year-header cleanup + collision guard, the wide->long melt (including the
 column-drop behaviour), metadata enrichment, the per-file transform, and commodity
-resolution. Byte-for-byte R parity on the long shape lives in
+resolution. Reference parity on the long shape lives in
 ``tests/parity/test_transform_parity.py``.
 """
 
@@ -110,7 +110,7 @@ def test_convert_year_columns_no_change(config: Config) -> None:
 
 
 def test_reshape_to_long_drops_non_id_non_year(config: Config) -> None:
-    # 'extra' is neither an id column nor a year column -> dropped (like R melt).
+    # 'extra' is neither an id column nor a year column -> dropped.
     frame = pl.DataFrame({"continent": ["eu", "as"], "extra": ["p", "q"], "2020": ["1", "2"]})
     long = reshape_to_long(frame, config)
     assert long.columns == ["continent", "year", "value"]
@@ -127,7 +127,7 @@ def test_reshape_to_long_no_year_columns(config: Config) -> None:
 def test_reshape_to_long_variable_major_order(config: Config) -> None:
     frame = pl.DataFrame({"continent": ["a", "b"], "2019": ["1", "2"], "2020": ["3", "4"]})
     long = reshape_to_long(frame, config)
-    # data.table melt / polars unpivot stack measures: all rows of 2019, then all of 2020.
+    # polars unpivot stack measures: all rows of 2019, then all of 2020.
     assert long["year"].to_list() == ["2019", "2019", "2020", "2020"]
     assert long["value"].to_list() == ["1", "2", "3", "4"]
 

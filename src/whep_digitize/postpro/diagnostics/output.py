@@ -1,14 +1,12 @@
 """Postpro / diagnostics — cross-stage diagnostics assembly + persistence.
 
-The Python port of ``r/2-postpro_pipeline/25-postpro_diagnostics/25-diagnostics-output.R``:
-
 * :func:`build_postpro_diagnostics` — the clean / harmonize / standardize matched-rule summaries;
 * :func:`build_last_rule_wins_overwrite_subset` — one row per final-stage row that a
   ``last_rule_wins`` update overwrote, with the overwrite events collapsed (group-by row + join);
 * :func:`persist_postpro_audit` — write the per-stage audit workbooks (matched + unmatched sheets)
   and the overwrite-subset workbook.
 
-Workbooks are written with openpyxl (the writexl/openxlsx analogue).
+Workbooks are written with openpyxl.
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ from whep_digitize.setup.directories import ensure_directories_exist
 
 _CONSTANTS = get_pipeline_constants()
 _POSTPRO = _CONSTANTS.postpro
-_R_TRIMWS = " \t\r\n"
+_TRIM_CHARS = " \t\r\n"
 _OVERWRITE_META_COLUMNS = (
     "row_id",
     "overwrite_event_count",
@@ -46,7 +44,7 @@ _OVERWRITE_META_COLUMNS = (
     "overwritten_stages",
 )
 _OVERWRITE_EVENT_COLUMNS = ("row_id", "column_target", "rule_file_identifier", "execution_stage")
-# Standardize audit workbook column subset (R ``excel_columns``; effective before offset).
+# Standardize audit workbook column subset (effective before the header offset).
 _STANDARDIZE_EXCEL_COLUMNS = (
     "affected_rows",
     "rule_file_identifier",
@@ -61,7 +59,7 @@ _STANDARDIZE_EXCEL_COLUMNS = (
 
 @dataclass(frozen=True, slots=True)
 class PostproDiagnosticsSummaries:
-    """The three stage matched-rule summaries (R ``build_postpro_diagnostics`` list)."""
+    """The three stage matched-rule summaries."""
 
     clean_rule_summary: pl.DataFrame
     harmonize_rule_summary: pl.DataFrame
@@ -73,7 +71,7 @@ def build_postpro_diagnostics(
     harmonize_audit_df: pl.DataFrame,
     standardize_audit_df: pl.DataFrame,
 ) -> PostproDiagnosticsSummaries:
-    """Summarize the clean / harmonize / standardize audits (R ``build_postpro_diagnostics``)."""
+    """Summarize the clean / harmonize / standardize audits."""
     return PostproDiagnosticsSummaries(
         clean_rule_summary=summarize_stage_rules(clean_audit_df),
         harmonize_rule_summary=summarize_stage_rules(harmonize_audit_df),
@@ -83,7 +81,7 @@ def build_postpro_diagnostics(
 
 def _collapse_expr(column: str) -> pl.Expr:
     """Aggregate a group's values into a sorted, unique, ``; ``-joined string (null if empty)."""
-    text = pl.col(column).cast(pl.String).str.strip_chars(_R_TRIMWS)
+    text = pl.col(column).cast(pl.String).str.strip_chars(_TRIM_CHARS)
     kept = text.filter(text.is_not_null() & (text.str.len_chars() > 0))
     return (
         pl.when(kept.len() == 0)
@@ -97,7 +95,7 @@ def build_last_rule_wins_overwrite_subset(
 ) -> pl.DataFrame:
     """Return one row per final-stage row a ``last_rule_wins`` update overwrote.
 
-    The Python port of R ``build_last_rule_wins_overwrite_subset``: overwrite events are grouped by
+    overwrite events are grouped by
     (1-based) ``row_id``, the affected columns/files/stages collapsed, and joined to the final-stage
     row values.
 
@@ -158,7 +156,7 @@ def persist_postpro_audit(
 ) -> dict[str, Path]:
     """Write the per-stage audit workbooks + the overwrite-subset workbook.
 
-    The Python port of R ``persist_postpro_audit``. Each stage workbook has ``matched_rules`` and
+    Each stage workbook has ``matched_rules`` and
     ``unmatched_rules`` sheets; the overwrite workbook has a single ``last_rule_wins_overwrites``
     sheet.
 
@@ -253,7 +251,7 @@ def _empty_overwrite_subset(final: pl.DataFrame, final_columns: list[str]) -> pl
 
 
 def _standardize_excel_subset(frame: pl.DataFrame) -> pl.DataFrame:
-    """Select the standardize audit workbook column subset (R ``excel_columns``)."""
+    """Select the standardize audit workbook column subset."""
     return frame.select(_STANDARDIZE_EXCEL_COLUMNS)
 
 

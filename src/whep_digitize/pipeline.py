@@ -1,8 +1,8 @@
-"""Top-level orchestrator — the Python port of ``r/run_pipeline.R``.
+"""Top-level orchestrator.
 
 Runs the four stages (setup -> ingest -> postpro -> export) in fixed order and reports
-elapsed time plus the harmonized row/column counts. Unlike the R version there is no
-auto-run-on-import: :func:`run_pipeline` is an explicit call.
+elapsed time plus the harmonized row/column counts. Nothing runs on import: every stage is an
+explicit call that returns a typed result, and :func:`run_pipeline` chains those calls.
 """
 
 from __future__ import annotations
@@ -72,8 +72,7 @@ def run_pipeline(
     """Run the setup -> ingest -> postpro -> export pipeline in order.
 
     Args:
-        show_view: Reserved for API parity with R (the RStudio viewer has no Python
-            equivalent); currently a no-op.
+        show_view: Reserved for an interactive view of the result; currently a no-op.
         dataset_name: Dataset name; defaults to the constant default.
         root: Project root; defaults to the resolved project root.
         options: Runtime options; defaults are used when ``None``.
@@ -81,7 +80,7 @@ def run_pipeline(
     Returns:
         The :class:`~whep_digitize.contracts.ExportResult` of the run.
     """
-    _ = show_view  # no RStudio-viewer analogue; kept for signature parity
+    _ = show_view  # accepted to keep the signature stable; no interactive view is implemented
     start = time.perf_counter()
     effective_options = options if options is not None else RuntimeOptions()
 

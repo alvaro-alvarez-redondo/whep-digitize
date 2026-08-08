@@ -1,8 +1,7 @@
-"""Console messaging — the Python port of the console helpers in ``02-progress.R``.
+"""Console messaging — the pipeline's status-line helpers.
 
-Palette-matched status lines (``pipeline_alert_info`` / ``pipeline_alert_success`` etc.)
-built on :mod:`rich`. Progress bars themselves are handled by ``rich.progress`` at the
-stage runners (Phase 5 of the roadmap).
+Palette-matched status lines (info / success / warning / error) built on :mod:`rich`.
+Progress bars themselves live in :mod:`whep_digitize.setup.helpers.progress`.
 """
 
 from __future__ import annotations
@@ -21,12 +20,12 @@ def get_console() -> Console:
 # Windows renderer when stdout is a cp1252 console, so the markers stay in the ASCII
 # range to guarantee the pipeline never fails on output encoding, on any platform.
 def alert_info(message: str) -> None:
-    """Print an informational line (R ``pipeline_alert_info``)."""
+    """Print an informational line."""
     _console.print(f"[cyan]i[/cyan] {message}")
 
 
 def alert_success(message: str) -> None:
-    """Print a success line (R ``pipeline_alert_success``)."""
+    """Print a success line."""
     _console.print(f"[bold green]OK[/bold green] {message}")
 
 

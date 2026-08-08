@@ -1,8 +1,8 @@
-"""Canonical sorting — the Python port of ``02-sorting.R``.
+"""Canonical sorting of stage frames.
 
 Provides deterministic, stable row ordering by the canonical business-key column order.
-polars sorts by Unicode code point (locale-independent), which matches R's radix/C-locale
-``setorderv`` for the ASCII-normalized keys the pipeline produces.
+polars sorts by Unicode code point, so for the ASCII-normalized keys the pipeline produces
+the order is locale-independent and identical on every host.
 """
 
 from __future__ import annotations

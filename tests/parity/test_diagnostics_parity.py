@@ -1,6 +1,6 @@
-"""Parity test: postpro diagnostics summary tables must match the R golden.
+"""Parity test: postpro diagnostics summary tables must match the frozen reference.
 
-Exercises the port of ``25-rule-summaries.R`` + ``25-standardize-summaries.R``:
+Exercises:
 ``summarize_stage_rules`` (value filled from ``*_result``), ``build_unmatched_rule_summary``
 (anti-join with NA-matching), ``summarize_standardize_rules``, and
 ``build_unmatched_standardize_rule_summary`` via the normalized-key counts branch. If a golden is
@@ -13,8 +13,7 @@ import json
 
 import polars as pl
 import pytest
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
+from goldens import FIXTURES_DIR, GOLDENS
 
 from whep_digitize.postpro.diagnostics.rule_summaries import (
     build_unmatched_rule_summary,
@@ -25,7 +24,7 @@ from whep_digitize.postpro.diagnostics.standardize_summaries import (
     summarize_standardize_rules,
 )
 
-_SPEC = CAPTURES["diagnostics"]
+_SPEC = GOLDENS["diagnostics"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -35,8 +34,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data

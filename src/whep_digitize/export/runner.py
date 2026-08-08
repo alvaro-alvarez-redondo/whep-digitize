@@ -1,4 +1,4 @@
-"""Stage 3 runner — ports ``r/3-export_pipeline/run_export_pipeline.R``.
+"""Stage 3 runner — export orchestration.
 
 Assembles the layer objects (``whep_data_raw`` from the import output plus the postpro
 ``clean`` / ``normalize`` / ``harmonize`` frames), ensures the export directories exist, writes
@@ -32,16 +32,15 @@ def run_export_pipeline(
 ) -> ExportResult:
     """Export processed-data TSVs and per-column unique-list workbooks.
 
-    Ports R ``run_export_pipeline``. Builds the canonically-named layer mapping (``whep_data_raw``
-    when ``raw`` is supplied, plus ``whep_data_clean`` / ``_normalize`` / ``_harmonize`` from the
-    post-processing result), creates the export directories, then writes both export families and
-    asserts the paths contract.
+    Builds the canonically-named layer mapping (``whep_data_raw`` when ``raw`` is supplied, plus
+    ``whep_data_clean`` / ``_normalize`` / ``_harmonize`` from the post-processing result), creates
+    the export directories, then writes both export families and asserts the paths contract.
 
     Args:
         config: The resolved pipeline configuration.
         result: The post-processing result (source of the clean/normalize/harmonize layers).
-        raw: The raw import layer (R ``whep_data_raw``); included in the unique-list export when
-            provided. ``None`` omits the raw sheet.
+        raw: The raw import layer (exported as ``whep_data_raw``); included in the unique-list
+            export when provided. ``None`` omits the raw sheet.
         overwrite: Whether to overwrite existing output files.
         options: Runtime options; defaults are used when ``None`` (gates the progress bar and
             resolves the list-export worker count).

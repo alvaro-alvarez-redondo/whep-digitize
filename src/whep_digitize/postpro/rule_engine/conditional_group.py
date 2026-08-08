@@ -1,8 +1,7 @@
 """Apply one source->target conditional rule group.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-conditional-group.R``
-(``apply_conditional_rule_group`` + ``prepare_conditional_rule_group``). For one
-``(column_source, column_target)`` rule group it:
+``apply_conditional_rule_group`` (with ``prepare_conditional_rule_group``) applies one
+``(column_source, column_target)`` rule group. For each group it:
 
 1. builds deterministic match keys for each rule (source key, target-condition key, encoded
    target result);
@@ -13,9 +12,8 @@ The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-conditional-
 4. emits a per-rule audit table and reports the changed columns **independently** — a group
    whose only effect was a source rewrite marks the source column, not the target.
 
-R mutates ``dataset_df`` by reference (``data.table::set`` + the target-apply scatter); this
-port is functional and returns the updated frame in :class:`ConditionalGroupResult`. The
-cartesian join reproduces data.table's Y-then-X row order (dataset row, then rule order) via an
+``dataset_df`` is never mutated: the flow is functional and returns the updated frame in
+:class:`ConditionalGroupResult`. The cartesian join is ordered by (dataset row, rule order) via an
 explicit ``__rule_order__`` sort, which the source/target last-rule-wins reductions depend on.
 """
 
@@ -48,8 +46,8 @@ from whep_digitize.postpro.utilities.stage_definitions import (
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
 
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class trimmed from values: space, tab, CR, LF.
+_TRIM_CHARS = " \t\r\n"
 _RULE_ORDER = "__whep_rule_order__"
 _CURRENT_TARGET = "__whep_current_target__"
 _AUDIT_KEY = ("source_key", "target_key", "value_source_result", "value_target_result_encoded")
@@ -58,7 +56,7 @@ _AUDIT_ORDER = ("column_source", "column_target", "value_source_raw", "value_tar
 
 @dataclass(frozen=True, slots=True)
 class PreparedConditionalGroup:
-    """A validated conditional rule group (R ``prepare_conditional_rule_group``)."""
+    """A validated conditional rule group."""
 
     group_rules: pl.DataFrame
     stage_name: str
@@ -66,10 +64,10 @@ class PreparedConditionalGroup:
 
 @dataclass(frozen=True, slots=True)
 class ConditionalGroupResult:
-    """Result of applying one conditional rule group (R ``list(data, audit, ...)``).
+    """Result of applying one conditional rule group.
 
     Attributes:
-        data: The updated dataset (R mutated its argument in place; this port returns it).
+        data: The updated dataset (returned; the input frame is never mutated).
         audit: One row per applied rule (empty when nothing changed).
         overwrite_events: Last-rule-wins overwrite diagnostics from the target update.
         changed_value_count: Total source + target cell changes.
@@ -108,7 +106,7 @@ def _scatter_column(
 ) -> pl.DataFrame:
     """Return ``dataset`` with ``column`` overwritten at (unique) 0-based ``indices`` by ``values``.
 
-    The functional analogue of ``data.table::set``: a left join on a synthesized row index plus
+    Functional scatter: a left join on a synthesized row index plus
     ``when/then/otherwise``. A ``None`` in ``values`` overwrites to null.
     """
     index_name = "__whep_scatter_index__"
@@ -143,7 +141,7 @@ def _build_normalize_rules(
     apply_source_norm: bool,
     apply_target_norm: bool,
 ) -> pl.DataFrame:
-    """Build the deduplicated, keyed rule table (R ``normalize_rules``)."""
+    """Build the deduplicated, keyed rule table."""
     value_source_raw = group.get_column("value_source_raw")
     value_target_raw = group.get_column("value_target_raw")
     normalize_rules = pl.DataFrame(
@@ -175,9 +173,7 @@ def _build_normalize_rules(
             decoded_target,
         )
         .with_columns(
-            pl.when(
-                pl.col("value_source_result").str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0
-            )
+            pl.when(pl.col("value_source_result").str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
             .then(pl.lit(None, dtype=pl.String))
             .otherwise(pl.col("value_source_result"))
             .alias("value_source_result")
@@ -266,8 +262,8 @@ def apply_conditional_rule_group(
         }
     )
 
-    # data.table X[Y] keeps Y (dataset) rows, joining X (rules) columns; cartesian on multi-match.
-    # The (row_id, rule-order) sort reproduces its deterministic order, which the source/target
+    # Left join keeps every dataset row and fans out on a multi-rule match. The
+    # (row_id, rule-order) sort makes that order deterministic, which the source/target
     # last-rule-wins reductions rely on.
     joined = join_input.join(normalize_rules, on="source_key", how="left").sort(
         ["row_id", _RULE_ORDER], nulls_last=True, maintain_order=True
@@ -278,8 +274,8 @@ def apply_conditional_rule_group(
     joined = joined.with_columns(current_target.alias(_CURRENT_TARGET))
 
     source_matched = joined.get_column("column_source").is_not_null()
-    # Computing the condition match over every joined row (then AND-ing with the source match) is
-    # equivalent to R's matched-subset computation: unmatched rows are masked out regardless.
+    # Computing the condition over every joined row and AND-ing with the source match is
+    # equivalent to evaluating it on the matched subset: unmatched rows are masked out regardless.
     target_condition = match_rule_target_condition_values(
         joined.get_column(_CURRENT_TARGET),
         joined.get_column("value_target_raw"),
@@ -354,8 +350,8 @@ def _apply_source_rewrite(
 ) -> tuple[pl.DataFrame, int]:
     """Rewrite the source column for source-update rows (last rule wins per row).
 
-    The change count is taken over every source-update row (with duplicate row ids), matching R's
-    ``count_elementwise_value_changes`` over the un-deduplicated before/after vectors.
+    The change count is taken over every source-update row (duplicate row ids included), i.e.
+    element-wise over the un-deduplicated before/after vectors.
     """
     if not bool(source_update_mask.any()):
         return dataset, 0

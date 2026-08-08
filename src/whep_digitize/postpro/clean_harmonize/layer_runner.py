@@ -1,20 +1,25 @@
 r"""Postpro / clean_harmonize — the multi-pass rule-stage driver.
 
-The Python port of ``r/2-postpro_pipeline/22-clean_harmonize_data/22-layer-runner.R``
-(``run_rule_stage_layer_batch`` + the ``run_cleaning_layer_batch`` / ``run_harmonize_layer_batch``
-entry points), the algorithmic core of the clean and harmonize stages.
+:func:`run_rule_stage_layer_batch` plus the :func:`run_cleaning_layer_batch` /
+:func:`run_harmonize_layer_batch` entry points — the algorithmic core of the clean and harmonize
+stages.
 
-For a stage it loads the coerced rule payloads (from ``payload_cache``, C2), validates each
-against the dataset once, then iterates rule-application passes (max 10): each pass applies every
-payload (``apply_rule_payload``) and accumulates the change count. It stops when a pass changes
-nothing (``changed_value_count == 0`` → converged), a pass reproduces an earlier pass state
-(cycle → warn or abort per policy), or the pass limit is hit. Match-key normalization is applied
-on pass 1 only (the centralized default). After the loop the ``;``-annotation columns are
-canonicalized and an all-missing ``footnotes`` column is dropped.
+For a stage it loads the coerced rule payloads (from
+:mod:`whep_digitize.postpro.utilities.payload_cache`), validates each against the dataset once,
+then iterates rule-application passes (max 10). Each pass applies every payload via
+``apply_rule_payload`` and accumulates the change count. The multi-pass contract:
 
-R attached the results as ``data.table`` attributes; this port returns a typed
-:class:`StageLayerResult`. R's ``serialize()`` cycle detection is replaced with a deterministic
-content hash (parity risk #6, see :mod:`whep_digitize.postpro.clean_harmonize.controls_cache`).
+* stop when a pass changes nothing (``changed_value_count == 0`` → converged);
+* stop when a pass reproduces an earlier pass state (cycle → warn or abort per the configured
+  cycle policy);
+* stop when the pass limit is hit (warn).
+
+Match-key normalization runs on pass 1 only (the centralized default). After the loop the
+``;``-annotation columns are canonicalized and an all-missing ``footnotes`` column is dropped.
+
+Results are returned as a typed :class:`StageLayerResult`. State comparison for cycle detection
+uses the deterministic content hash in
+:mod:`whep_digitize.postpro.clean_harmonize.controls_cache`.
 """
 
 from __future__ import annotations
@@ -70,7 +75,7 @@ _PASS_DIAGNOSTICS_SCHEMA: dict[str, type[pl.DataType]] = {
 
 @dataclass(frozen=True, slots=True)
 class StageLayerResult:
-    """Result of one rule-stage layer batch (R attached these as ``data.table`` attributes).
+    """Result of one rule-stage layer batch.
 
     Attributes:
         data: The transformed stage dataset (converged, annotations canonicalized).
@@ -97,7 +102,8 @@ def run_rule_stage_layer_batch(
 ) -> StageLayerResult:
     """Run a stage's rule payloads to convergence over the multi-pass loop.
 
-    The Python port of R ``run_rule_stage_layer_batch``.
+    Rules are validated against the dataset once up front, before any pass runs, so a malformed
+    rule file fails before the frame has been touched.
 
     Args:
         dataset: The input stage dataset.
@@ -296,7 +302,7 @@ def run_cleaning_layer_batch(
     dataset_name: str = _DEFAULT_DATASET_NAME,
     execution_timestamp_utc: str | None = None,
 ) -> StageLayerResult:
-    """Run the ``clean`` stage layer batch (R ``run_cleaning_layer_batch``)."""
+    """Run the ``clean`` stage layer batch."""
     return run_rule_stage_layer_batch(
         dataset,
         config,
@@ -313,7 +319,7 @@ def run_harmonize_layer_batch(
     dataset_name: str = _DEFAULT_DATASET_NAME,
     execution_timestamp_utc: str | None = None,
 ) -> StageLayerResult:
-    """Run the ``harmonize`` stage layer batch (R ``run_harmonize_layer_batch``)."""
+    """Run the ``harmonize`` stage layer batch."""
     return run_rule_stage_layer_batch(
         dataset,
         config,
@@ -324,7 +330,7 @@ def run_harmonize_layer_batch(
 
 
 def _combine_audit(frames: list[pl.DataFrame]) -> pl.DataFrame:
-    """Row-bind schema-bearing audit frames (R ``rbindlist``); empty frame when there are none."""
+    """Row-bind the schema-bearing audit frames; return an empty frame when there are none."""
     schema_bearing = [frame for frame in frames if frame.width > 0]
     if not schema_bearing:
         return pl.DataFrame()

@@ -1,25 +1,25 @@
-r"""Processed-data TSV export (ports ``01`` / ``03`` / ``04`` of ``30-processed_data/``).
+r"""Processed-data TSV export.
 
-Writes the exportable layer tables (only ``harmonize`` by default) to
-``{stem}.tsv`` via :meth:`polars.DataFrame.write_csv` with a tab separator. Two byte-parity
-adjustments reproduce R ``data.table::fwrite(sep = "\t")`` exactly (verified against the R
-4.6.0 install; see the parity test and ``.claude/docs/r-to-python-mapping.md``):
+Writes the exportable layer tables (only ``harmonize`` by default) to ``{stem}.tsv`` via
+:meth:`polars.DataFrame.write_csv` with a tab separator. The byte-level output contract (the
+export tests pin the first two bullets):
 
-* **Line terminator.** ``fwrite`` uses the platform newline (``\r\n`` on Windows, ``\n`` on
-  unix — ``.Platform$OS.type``); polars defaults to ``\n``. :data:`_FWRITE_EOL` mirrors
-  ``fwrite`` so the golden (captured from R on this platform) and the port agree, on every
-  platform, without hard-coding either newline.
-* **Float formatting.** The exported ``value`` column is ``Float64`` (the audit stage parses
-  it via ``readr::parse_double``). ``fwrite`` renders a double exactly like R
-  ``as.character()`` under the pipeline's ``scipen = 999``: **15 significant figures, fixed
-  notation, trailing zeros and a bare ``.0`` dropped** (``1.0`` -> ``1``, ``1000.0`` ->
-  ``1000``). polars' shortest-round-trip formatter instead keeps ``1.0`` and switches to
-  ``1e16``-style scientific. :func:`~whep_digitize.setup.helpers.numeric.format_double_r`
-  reproduces the R rendering, so numeric
-  columns are stringified before the write. For the finite decimals the pipeline actually
-  produces (parsed inputs times exact unit factors) this is byte-identical to ``fwrite``; the
-  two can only diverge in the 15th digit for *arbitrary* >=16-significant-figure doubles, which
-  the pipeline never generates.
+* **Record separator.** The platform newline — ``\r\n`` on Windows, ``\n`` elsewhere — resolved
+  once into :data:`_FWRITE_EOL`; polars would otherwise always write ``\n``. Resolving it at
+  runtime keeps the output correct on every platform without hard-coding either newline.
+* **Float formatting.** The exported ``value`` column is ``Float64``, and doubles are rendered at
+  **15 significant figures, fixed (never scientific) notation, trailing zeros and a bare trailing
+  ``.`` removed** (``1.0`` -> ``1``, ``1000.0`` -> ``1000``, ``1e16`` -> ``10000000000000000``).
+  polars' shortest-round-trip formatter instead keeps ``1.0`` and switches to ``1e16``-style
+  scientific notation, so float columns are stringified with
+  :func:`~whep_digitize.setup.helpers.numeric.format_double_fixed` before the write. For the finite
+  decimals the pipeline actually produces (parsed inputs times exact unit factors) the rendering
+  is exact; only *arbitrary* doubles carrying >=16 significant figures, which the pipeline never
+  generates, could differ in the 15th digit.
+* **Quoting and missing values.** A field is quoted only when it has to be — when it embeds a
+  tab, a newline, or a double quote (which is then doubled). An empty string is written as ``""``
+  while a null is written as a completely empty field, so the two stay distinguishable on
+  re-read. Output is UTF-8.
 """
 
 from __future__ import annotations
@@ -34,18 +34,18 @@ import polars as pl
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_r
+from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.helpers.strings import normalize_filename
 
-# ``data.table::fwrite`` eol default: "\r\n" on Windows, "\n" on unix (``.Platform$OS.type``).
+# Record separator: the platform newline — "\r\n" on Windows, "\n" elsewhere.
 _FWRITE_EOL: str = "\r\n" if os.name == "nt" else "\n"
 
 
 def build_processed_export_path(config: Config, object_name: str) -> Path:
     """Resolve the processed-export ``.tsv`` path for an object.
 
-    Ports R ``build_processed_export_path``. The directory itself is **not** created here;
-    the caller (the export runner) is responsible for it, as in R.
+    The directory itself is **not** created here; the caller (the export runner) is responsible
+    for it.
 
     Args:
         config: The resolved pipeline configuration.
@@ -68,11 +68,11 @@ def build_processed_export_path(config: Config, object_name: str) -> Path:
 def write_processed_table(
     frame: pl.DataFrame, output_path: Path, *, overwrite: bool = True
 ) -> Path:
-    """Write one frame to a tab-separated ``.tsv`` file, byte-for-byte like R ``fwrite``.
+    """Write one frame to a tab-separated ``.tsv`` file under the fixed byte-level contract.
 
-    Ports R ``write_processed_table_fast``. Float columns are rendered with the R
-    ``as.character`` / ``fwrite`` convention and the platform newline is matched (see module
-    docstring). The parent directory must already exist.
+    Float columns are stringified with the pipeline's fixed-notation double rendering and the
+    record separator is the platform newline (see the module docstring). The parent directory
+    must already exist.
 
     Args:
         frame: The table to write.
@@ -99,10 +99,10 @@ def export_processed_data(
 ) -> dict[str, Path]:
     """Export the configured layer tables to processed-data TSVs.
 
-    Ports R ``export_processed_data``. Detects all layer tables for traceability, keeps only
-    those whose name ends in a configured export layer (``config.export_config.export_layers``,
-    default ``("harmonize",)``), and writes each via :func:`write_processed_table`. The output
-    directory must already exist (created by the export runner, as in R).
+    Detects all layer tables for traceability, keeps only those whose name ends in a configured
+    export layer (``config.export_config.export_layers``, default ``("harmonize",)``), and writes
+    each via :func:`write_processed_table`. The output directory must already exist (the export
+    runner creates it).
 
     Args:
         config: The resolved pipeline configuration.
@@ -139,10 +139,10 @@ def export_processed_data(
 
 
 def _format_float_columns(frame: pl.DataFrame) -> pl.DataFrame:
-    """Return ``frame`` with every float column rendered as R-``fwrite``-style strings.
+    """Return ``frame`` with every float column rendered as contract-conformant strings.
 
-    Non-float columns (string, integer) are left untouched — polars already writes them like
-    ``fwrite``.
+    Non-float columns (string, integer) are left untouched — polars already writes them exactly
+    as the output contract requires.
     """
     float_columns = [name for name, dtype in frame.schema.items() if dtype.is_float()]
     if not float_columns:
@@ -156,12 +156,12 @@ def _format_float_series(series: pl.Series) -> pl.Series:
     """Render a float :class:`polars.Series` as strings via the cardinality fast path.
 
     Distinct values are formatted once and mapped back (the idiom used by
-    ``helpers.strings.normalize_string``); nulls are preserved as nulls (``fwrite`` writes
-    ``NA`` as an empty field, which is exactly how :meth:`polars.DataFrame.write_csv` renders
-    a null string).
+    ``helpers.strings.normalize_string``); nulls stay null, which
+    :meth:`polars.DataFrame.write_csv` renders as an empty field — the contract's missing-value
+    form.
     """
     uniques = series.drop_nulls().unique().to_list()
     if not uniques:
         return series.cast(pl.String)
-    mapping = {value: format_double_r(value) for value in uniques}
+    mapping = {value: format_double_fixed(value) for value in uniques}
     return series.replace_strict(mapping, default=None, return_dtype=pl.String)

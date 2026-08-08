@@ -1,15 +1,15 @@
-r"""Postpro / audit validators — ports ``r/2-postpro_pipeline/20-data_audit/20-audit-validation.R``.
+r"""Postpro / audit validators.
 
 The non-empty and numeric-string validators, the validation plan, the master validation
-registry, and audit-column resolution. Row indices are **1-based** (R ``which()``), preserved
-so findings line up with the exported invalid-row subset.
+registry, and audit-column resolution. Row indices are **1-based** so findings line up with the
+exported invalid-row subset and with the spreadsheet rows a human reads.
 
 The numeric-string validator uses ``^[0-9]+(\.[0-9]+)?$`` (constant
 :attr:`~whep_digitize.setup.constants.Patterns.audit_numeric_string`), which is deliberately
-stricter than the float parser used downstream — negatives/scientific/signed values are flagged
-here yet still parse in :mod:`whep_digitize.postpro.audit.audit` (parity risk #8).
+stricter than the float parser used downstream — negative, signed, and scientific-notation
+values are flagged here yet still parse in :mod:`whep_digitize.postpro.audit.audit`.
 
-R mutates ``data.table``s by reference; this port is functional and returns new frames.
+Every validator is pure: it reads the frame and returns a findings frame, never mutating input.
 """
 
 from __future__ import annotations
@@ -36,15 +36,16 @@ from whep_digitize.setup.helpers.assertions import require
 _CONSTANTS = get_pipeline_constants()
 _NUMERIC_STRING_PATTERN = _CONSTANTS.patterns.audit_numeric_string
 _VALUE_COLUMN = _CONSTANTS.defaults.value_column
-# R ``trimws()`` default whitespace class is ``[ \t\r\n]``; match it exactly.
-_R_TRIMWS_CHARS = " \t\r\n"
+# The whitespace class used for blank detection: space, tab, CR, LF only — deliberately not the
+# full Unicode whitespace set, so exotic separators are not silently treated as blank.
+_TRIM_CHARS = " \t\r\n"
 # Internal row-index column (1-based), prefixed to never collide with a dataset column.
 _ROW_INDEX_INTERNAL = "__whep_audit_row_index__"
 
 
 @dataclass(frozen=True, slots=True)
 class MasterValidationResult:
-    """Result of :func:`run_master_validation` (R ``list(findings, invalid_row_index)``).
+    """Result of :func:`run_master_validation`.
 
     Attributes:
         findings: The findings table (``row_index`` 1-based, ``audit_column``, ``audit_type``,
@@ -57,7 +58,7 @@ class MasterValidationResult:
 
 
 def _invalid_row_indices(dataset: pl.DataFrame, mask: pl.Expr) -> list[int]:
-    """Return the 1-based indices of rows matching ``mask`` (R ``which(...)``)."""
+    """Return the 1-based indices of the rows matching ``mask``, in frame order."""
     return (
         dataset.with_row_index(_ROW_INDEX_INTERNAL, offset=1)
         .filter(mask)
@@ -87,7 +88,7 @@ def _findings(
 def audit_character_non_empty(dataset: pl.DataFrame, column_name: str) -> pl.DataFrame:
     """Flag rows whose ``column_name`` value is null or blank after trimming.
 
-    The Python port of R ``audit_character_non_empty`` (``is.na(v) | !nzchar(trimws(v))``).
+    A value fails when it is null, or when trimming leaves an empty string.
 
     Args:
         dataset: The dataset to audit.
@@ -104,7 +105,7 @@ def audit_character_non_empty(dataset: pl.DataFrame, column_name: str) -> pl.Dat
     require(column_name in dataset.columns, f"column '{column_name}' is missing from the dataset")
 
     column = pl.col(column_name).cast(pl.String)
-    mask = column.is_null() | (column.str.strip_chars(_R_TRIMWS_CHARS).str.len_chars() == 0)
+    mask = column.is_null() | (column.str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
     invalid = _invalid_row_indices(dataset, mask)
     return _findings(
         invalid, column_name, AUDIT_TYPE_CHARACTER_NON_EMPTY, CHARACTER_NON_EMPTY_MESSAGE
@@ -114,8 +115,8 @@ def audit_character_non_empty(dataset: pl.DataFrame, column_name: str) -> pl.Dat
 def audit_numeric_string(dataset: pl.DataFrame, column_name: str = _VALUE_COLUMN) -> pl.DataFrame:
     """Flag non-null rows whose ``column_name`` value is not a plain numeric string.
 
-    The Python port of R ``audit_numeric_string``: ``!is.na(v) & !grepl(pattern, v)`` with the
-    stricter-than-parser pattern. Null values are **not** flagged.
+    A value fails when it is non-null and does not match the stricter-than-parser pattern. Null
+    values are **not** flagged — absence is a separate concern from malformed text.
 
     Args:
         dataset: The dataset to audit.
@@ -136,7 +137,7 @@ def audit_numeric_string(dataset: pl.DataFrame, column_name: str = _VALUE_COLUMN
     return _findings(invalid, column_name, AUDIT_TYPE_NUMERIC_STRING, NUMERIC_STRING_MESSAGE)
 
 
-# Master validation registry: audit-type identifier -> validator (R ``registry`` list).
+# Master validation registry: audit-type identifier -> validator.
 _REGISTRY: dict[str, Callable[[pl.DataFrame, str], pl.DataFrame]] = {
     AUDIT_TYPE_CHARACTER_NON_EMPTY: audit_character_non_empty,
     AUDIT_TYPE_NUMERIC_STRING: audit_numeric_string,
@@ -147,8 +148,6 @@ def build_audit_validation_plan(
     audit_columns_by_type: Mapping[str, Sequence[str]], supported: Sequence[str]
 ) -> pl.DataFrame:
     """Expand an audit-type -> columns mapping into a one-row-per-(type, column) plan.
-
-    The Python port of R ``build_audit_validation_plan``.
 
     Args:
         audit_columns_by_type: Mapping of audit type to the columns it validates.
@@ -190,9 +189,9 @@ def run_master_validation(
 ) -> MasterValidationResult:
     """Execute the configured validators and collect their findings.
 
-    The Python port of R ``run_master_validation``. Unsupported audit types are skipped with a
-    warning; ``selected_validations`` (when given) further restricts execution. Findings are
-    concatenated in validation-plan order.
+    Unsupported audit types are skipped with a warning rather than aborting the run;
+    ``selected_validations`` (when given) further restricts execution. Findings are concatenated
+    in validation-plan order.
 
     Args:
         dataset: The dataset to audit.
@@ -248,14 +247,14 @@ def resolve_audit_columns_by_type(
 ) -> dict[str, tuple[str, ...]]:
     """Resolve the audit columns grouped by validator type.
 
-    The Python port of R ``resolve_audit_columns_by_type``: an explicit override is returned as
-    given; otherwise the default mapping is built from ``config.audit_columns`` (non-empty check)
-    and ``config.column_order`` (numeric string only when ``"value"`` is present).
+    An explicit override is returned as given; otherwise the default mapping is built from
+    ``config.audit_columns`` (deduplicated, order preserved) and ``config.column_order`` — the
+    numeric-string validator is registered only when a ``"value"`` column is present.
 
     Args:
         config: The resolved pipeline configuration.
-        audit_columns_by_type: Optional explicit mapping (the R ``config$audit_columns_by_type``);
-            when ``None`` the default is derived from ``config``.
+        audit_columns_by_type: Optional explicit mapping; when ``None`` the default is derived
+            from ``config``.
 
     Returns:
         Mapping of audit type to the columns it validates.

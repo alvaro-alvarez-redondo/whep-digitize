@@ -1,6 +1,5 @@
 """Per-rule-file payload orchestration.
 
-The Python port of ``r/2-postpro_pipeline/23-postpro_rule_engine/23-payload-application.R``
 (``prepare_rule_payload_execution_plan`` + ``apply_rule_payload``). For one rule file's canonical
 rules it splits footnote-sourced rules from standard rules, builds the conditional dictionary for
 deterministic group order, then applies footnote rules first (see
@@ -8,8 +7,7 @@ deterministic group order, then applies footnote rules first (see
 :mod:`whep_digitize.postpro.rule_engine.conditional_group`), accumulating the audit, overwrite
 events, change count, and changed columns.
 
-R mutated ``dataset_df`` by reference; this port is functional — each applier returns a new frame
-and this composes them.
+Every applier is functional and returns a new frame; this module composes them.
 """
 
 from __future__ import annotations
@@ -34,7 +32,7 @@ _COLUMN_SOURCE = "column_source"
 
 @dataclass(frozen=True, slots=True)
 class PreparedRulePayload:
-    """A rule file's execution plan (R ``prepare_rule_payload_execution_plan``).
+    """A rule file's execution plan.
 
     Attributes:
         footnote_rules: Rules whose ``column_source`` is ``footnotes``.
@@ -52,7 +50,7 @@ class PreparedRulePayload:
 
 @dataclass(frozen=True, slots=True)
 class RulePayloadResult:
-    """Result of applying one rule payload (R ``list(data, audit, ...)``).
+    """Result of applying one rule payload.
 
     Attributes:
         data: The updated dataset.
@@ -73,8 +71,6 @@ def prepare_rule_payload_execution_plan(
     canonical_rules: pl.DataFrame, stage_name: str
 ) -> PreparedRulePayload:
     """Split a rule file's rules into footnote + grouped standard rules.
-
-    The Python port of R ``prepare_rule_payload_execution_plan``.
 
     Args:
         canonical_rules: The canonical rule table.
@@ -111,8 +107,6 @@ def apply_rule_payload(
     trigger_columns: Sequence[str] | None = None,
 ) -> RulePayloadResult:
     """Apply one rule file's payload: footnote rules first, then each conditional group.
-
-    The Python port of R ``apply_rule_payload``.
 
     Args:
         dataset: The dataset to transform.
@@ -205,12 +199,12 @@ def apply_rule_payload(
 
 
 def _union_ordered(existing: list[str], incoming: Sequence[str]) -> list[str]:
-    """Return ``existing`` + new ``incoming`` values in first-appearance order (R ``union``)."""
+    """Return ``existing`` + new ``incoming`` values in first-appearance order."""
     return list(dict.fromkeys([*existing, *incoming]))
 
 
 def _combine_frames(frames: Sequence[pl.DataFrame]) -> pl.DataFrame:
-    """Row-bind schema-bearing frames (R ``rbindlist(use.names, fill)``); empty frame if none."""
+    """Row-bind schema-bearing frames; empty frame if none."""
     schema_bearing = [frame for frame in frames if frame.width > 0]
     if not schema_bearing:
         return pl.DataFrame()

@@ -1,19 +1,17 @@
 """Postpro / utilities — rule-payload runtime cache.
 
-The Python port of ``r/2-postpro_pipeline/21-postpro_utilities/21-runtime-cache.R``: a two-level
-(memory + disk) cache of coerced rule payloads, keyed by an md5 fingerprint of the stage's
-ordered rule files. **Disabled by default** (the :class:`RuntimeCache` constant); when off,
-:func:`get_cached_stage_payload_bundle` just builds the payloads.
+A two-level (memory + disk) cache of coerced rule payloads, keyed by an md5 fingerprint of the
+stage's ordered rule files. **Disabled by default** (the :class:`RuntimeCache` constant); when
+off, :func:`get_cached_stage_payload_bundle` simply builds the payloads on every call.
 
-Divergences from R (all deliberate):
+Design notes:
 
-* R's ``new.env`` module cache becomes a module-level ``dict`` (the sanctioned pattern — see
-  ``.claude/docs/r-to-python-mapping.md``).
-* R persisted with ``saveRDS``; the disk layer here uses ``pickle`` (the direct arbitrary-object
-  analogue — a payload bundle is a nested structure of frames + metadata that parquet cannot
-  represent). It is only touched when the cache is explicitly enabled.
-* R auto-enabled the cache whenever a ``runtime_cache_dir`` was configured; this port keeps it
-  off by default (the documented Python behavior), overridable via the resolved settings.
+* The memory layer is a module-level ``dict``, the only sanctioned module-level state here.
+* The disk layer uses ``pickle`` because a payload bundle is a nested structure of frames plus
+  metadata that parquet cannot represent. It is touched only when the cache is enabled.
+* The cache stays off unless explicitly enabled in the resolved settings — the presence of a
+  configured ``runtime_cache_dir`` is not enough to activate it. Correctness must never depend on
+  cache state, so the default path is always a fresh build.
 """
 
 from __future__ import annotations
@@ -36,13 +34,13 @@ from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.directories import ensure_directories_exist
 
 _CONSTANTS = get_pipeline_constants()
-# Sanctioned module-level cache (R ``.stage_payload_bundle_cache`` env). Keyed by cache key.
+# Sanctioned module-level memory cache, keyed by the payload cache key.
 _MEMORY_CACHE: dict[str, StagePayloadBundle] = {}
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeCacheSettings:
-    """Resolved runtime-cache settings (R ``resolve_stage_runtime_cache_settings``).
+    """Resolved runtime-cache settings.
 
     Attributes:
         enabled: Whether the cache is active (off by default).
@@ -72,7 +70,7 @@ class CanonicalPayload:
 
 @dataclass(frozen=True, slots=True)
 class StagePayloadBundle:
-    """A stage's cached canonical payloads (R ``list(cache_key, canonical_payloads)``).
+    """A stage's cached canonical payloads together with the key they were built for.
 
     Attributes:
         cache_key: The md5-fingerprint cache key the bundle was built for.
@@ -86,7 +84,7 @@ class StagePayloadBundle:
 def resolve_stage_runtime_cache_settings(config: Config) -> RuntimeCacheSettings:
     """Resolve the runtime-cache settings from the config's post-processing constants.
 
-    The Python port of R ``resolve_stage_runtime_cache_settings`` (kept off by default).
+    The cache is off unless the configuration turns it on.
 
     Args:
         config: The resolved pipeline configuration.
@@ -105,8 +103,8 @@ def resolve_stage_runtime_cache_settings(config: Config) -> RuntimeCacheSettings
 def build_stage_payload_cache_key(config: Config, stage_name: str) -> str:
     """Build the deterministic cache key from the stage's ordered rule-file md5 fingerprints.
 
-    The Python port of R ``build_stage_payload_cache_key``: ``<stage>::<file>::<md5>||...@@<dir>``,
-    or ``<stage>::<no_rule_files>`` when the stage has none.
+    The key has the form ``<stage>::<file>::<md5>||...@@<dir>``, or ``<stage>::<no_rule_files>``
+    when the stage has no rule files at all. Any edit to any rule file changes the key.
 
     Args:
         config: The resolved pipeline configuration.
@@ -132,7 +130,8 @@ def prune_runtime_cache_entries(
 ) -> dict[str, StagePayloadBundle]:
     """Deterministically prune to ``max_entries`` by keeping the lowest-sorted keys.
 
-    The Python port of R ``prune_runtime_cache_entries``.
+    Key order — not insertion order or recency — decides what survives, so pruning is
+    reproducible across runs and processes.
 
     Args:
         cache_entries: The cache entries to prune.
@@ -152,8 +151,8 @@ def get_cached_stage_payload_bundle(
 ) -> StagePayloadBundle:
     """Return the stage's canonical payload bundle, via the two-level cache when enabled.
 
-    The Python port of R ``get_cached_stage_payload_bundle``: memory cache, then disk cache, then
-    build-and-persist. When the cache is disabled (the default) the bundle is built each call.
+    Lookup order is memory cache, then disk cache, then build-and-persist. When the cache is
+    disabled (the default) the bundle is built fresh on each call and nothing is stored.
 
     Args:
         config: The resolved pipeline configuration.
@@ -194,7 +193,7 @@ def clear_stage_payload_memory_cache() -> None:
 
 
 def _md5_file(path: Path) -> str:
-    """Return the hex md5 digest of a file's bytes (R ``tools::md5sum``)."""
+    """Return the hex md5 digest of a file's bytes."""
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 

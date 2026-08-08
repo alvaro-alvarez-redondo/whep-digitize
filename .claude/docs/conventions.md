@@ -12,14 +12,13 @@ whep-digitize run          # full pipeline (CLI)
 whep-digitize bootstrap    # Stage 0 only: build config + create dirs
 ```
 
-Unlike the R pipeline, **importing a module never runs anything** — stages are explicit
-calls. All four stages (setup → ingest → postpro → export) are implemented and wired, so
+**Importing a module never runs anything** — stages are explicit calls. All four stages (setup → ingest → postpro → export) are implemented and wired, so
 `run` executes the full pipeline end-to-end.
 
 ## Environment (this Windows host)
 
 - Python is invoked via the launcher: **`py -3.14`** (Python 3.14.5). `python` on PATH is
-  the Microsoft Store stub — do not use it. (Same "not on PATH" pattern as R here.)
+  the Microsoft Store stub — do not use it.
 - The dev environment lives in `.venv/` (created with `py -3.14 -m venv .venv`).
 - **`uv` is not installed** on this host. The canonical workflow is `uv sync --extra dev`
   / `uv run …`; the pip fallback is `.venv/Scripts/python.exe -m pip install -e ".[dev]"`.
@@ -29,7 +28,7 @@ calls. All four stages (setup → ingest → postpro → export) are implemented
 ## Running tests / quality gates
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q            # tests (ground truth; mirrors testthat)
+.venv/Scripts/python.exe -m pytest -q            # tests (ground truth)
 .venv/Scripts/python.exe -m ruff check .          # lint
 .venv/Scripts/python.exe -m ruff format .         # format
 .venv/Scripts/python.exe -m mypy                  # strict type check
@@ -40,7 +39,7 @@ calls. All four stages (setup → ingest → postpro → export) are implemented
 
 ## Loading / import order
 
-- A real package — explicit imports, no `source()` and no numeric-prefix load order.
+- A real package — explicit imports, no dynamic loading and no numeric-prefix load order.
 - No import-time side effects: modules only define; running happens in `run_*` functions.
 - `setup` is the shared foundation every stage imports (`constants`, `Config`, helpers).
 
@@ -49,16 +48,15 @@ calls. All four stages (setup → ingest → postpro → export) are implemented
 - Identical inputs + options ⇒ identical outputs.
 - String-typed through import; `value` → `Float64` only at the postpro audit step.
 - Every sort goes through `sort_pipeline_stage_df` (`nulls_last=True, maintain_order=True`);
-  polars sorts by Unicode code point (locale-independent) — matches R radix for ASCII keys.
+  polars sorts by Unicode code point (locale-independent). Never use locale-aware collation.
 - Seed any randomness; tests use temp dirs + in-memory fixtures, no network/FS side effects.
-- **Normalization** follows the documented POLICY (NFD diacritic strip + non-alphanumeric
-  collapse), deliberately NOT R's ICU `Latin-ASCII` — see
-  [r-to-python-mapping.md](r-to-python-mapping.md). Deterministic via stdlib `unicodedata`;
-  pin behavior with policy tests, not R goldens.
+- **Normalization** follows the documented policy (NFD diacritic strip + non-alphanumeric
+  collapse) — see [pipeline-behaviors.md](pipeline-behaviors.md). Deterministic via stdlib
+  `unicodedata`; pinned by policy tests.
 
-## Parallelism (planned, Phase 5)
+## Parallelism
 
-Two sites parallelize in R: the fused import read+transform and list export. In Python use
+Two sites parallelize: the fused import read+transform, and list export. Both use
 `concurrent.futures.ProcessPoolExecutor`. Preserve the invariant: **deterministic output
 order independent of worker count**, and parallel-only-when->1-batch with a graceful
 sequential fallback. Default is sequential.
@@ -68,7 +66,7 @@ sequential fallback. Default is sequential.
 - Stages return typed frozen dataclasses (`contracts.py`); never assign into globals or hang
   data on frame attributes (polars has none).
 - `mypy` runs in **strict** mode over `src` and `tests`. Public functions are fully typed
-  with Google-style docstrings (the roxygen2 analogue; enforced by ruff `D`).
+  with Google-style docstrings (enforced by ruff `D`).
 
 ## Temporary & scratch files
 

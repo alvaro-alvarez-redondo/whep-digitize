@@ -1,10 +1,10 @@
-"""Numeric coercion — the Python port of ``02-numeric-coercion.R``.
+"""Numeric coercion and double -> string rendering.
 
-``coerce_numeric_safe`` in R turns character values into doubles, mapping empty strings
-and non-numeric text to ``NA`` without warnings, and trimming surrounding whitespace.
+The coercion helpers turn character values into doubles, mapping empty strings and
+non-numeric text to null without warnings, and trimming surrounding whitespace.
 
-Also hosts :func:`format_double_r`, the double -> string rendering that reproduces R
-``as.character()`` / ``data.table::fwrite`` (shared by the TSV and unique-list exporters).
+Also hosts :func:`format_double_fixed`, the double -> string rendering shared by the TSV and
+unique-list exporters.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 
 import polars as pl
 
-# R ``as.character(<double>)`` / ``fwrite`` render doubles at 15 significant figures.
-_R_SIGNIFICANT_DIGITS = 15
+# Doubles are rendered at 15 significant figures wherever they become text.
+_SIGNIFICANT_DIGITS = 15
 
 
 def coerce_numeric(value: str | float | int | bool | None) -> float | None:
@@ -60,15 +60,16 @@ def coerce_numeric_series(values: pl.Series) -> pl.Series:
     return values.cast(pl.String).str.strip_chars().cast(pl.Float64, strict=False)
 
 
-def format_double_r(value: float) -> str | None:
-    """Render one double exactly like R ``as.character()`` / ``fwrite`` under ``scipen = 999``.
+def format_double_fixed(value: float) -> str | None:
+    """Render one double at 15 significant figures in fixed, never-scientific notation.
 
     15 significant figures, fixed (never scientific) notation, with trailing zeros and a bare
     trailing ``.`` removed (``1.0`` -> ``"1"``, ``1000.0`` -> ``"1000"``, ``1e16`` ->
-    ``"10000000000000000"``). This is the byte-parity rule the processed-data TSV writer and the
-    numeric branch of the unique-list exporter both depend on; verified against R 4.6.0 over a
-    254-value battery (see ``tests/parity``). ``NaN`` maps to ``None`` (rendered as an empty
-    field); the pipeline produces nulls rather than ``NaN``, so this is defensive.
+    ``"10000000000000000"``). This is the byte-exact rule the processed-data TSV writer and the
+    numeric branch of the unique-list exporter both depend on; pinned by the numeric-rendering
+    tests in ``tests/export`` and the byte-level export tests in ``tests/parity``. ``NaN`` maps
+    to ``None`` (rendered as an empty field); the pipeline produces nulls rather than ``NaN``,
+    so this is defensive.
 
     Args:
         value: The double to render.
@@ -80,10 +81,10 @@ def format_double_r(value: float) -> str | None:
         return None
     if math.isinf(value):
         return "Inf" if value > 0 else "-Inf"
-    if value == 0.0:  # collapses -0.0 to "0", matching R
+    if value == 0.0:  # collapses -0.0 to "0"
         return "0"
     with localcontext() as ctx:
-        ctx.prec = _R_SIGNIFICANT_DIGITS
+        ctx.prec = _SIGNIFICANT_DIGITS
         ctx.rounding = ROUND_HALF_EVEN
         rounded = +Decimal(value)  # round the exact binary value to 15 significant figures
     text = format(rounded, "f")  # fixed notation; never scientific

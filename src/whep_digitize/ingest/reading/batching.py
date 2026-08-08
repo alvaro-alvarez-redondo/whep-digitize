@@ -1,19 +1,12 @@
-"""Workbook batching + worker resolution — the Python port of ``11-batching.R``.
+"""Workbook batching + worker resolution.
 
 Splits discovered workbooks into fixed-size batches, resolves the effective parallel worker
 count (``"auto"`` -> ``min(auto_max, cpu_count - 1)``; an explicit count wins, ``1`` forces
 sequential), and reads one batch of workbooks (deduplicating repeated paths).
 
-Two R behaviours map differently here (documented divergences):
-
-* R deep-copies each duplicate path's frame (``data.table::copy``) because data.table mutates
-  in place; polars frames are immutable, so duplicates share one frame reference.
-* The parallel orchestration over batches (R ``read_pipeline_files`` via ``future.apply``, and
-  its ``import_future_scheduling`` relay knob) lands with the stage runner in a later phase —
-  ``future.apply`` chunk scheduling has no direct ``ProcessPoolExecutor`` analogue. This module
-  is the sequential batch reader plus the resolvers the runner will call.
-
-R source: ``r/1-import_pipeline/11-reading/11-batching.R``.
+This module holds the sequential batch reader plus the resolvers; the parallel orchestration
+over batches lives in :mod:`whep_digitize.ingest.transform.processing`. Because polars frames
+are immutable, a repeated path yields the same frame reference twice instead of a copy.
 """
 
 from __future__ import annotations
@@ -45,7 +38,7 @@ class BatchReadResult:
 
 
 def split_workbook_batches(file_paths: Sequence[str] | None, batch_size: int) -> list[list[str]]:
-    """Divide file paths into consecutive batches of at most ``batch_size`` (R ``split``).
+    """Divide file paths into consecutive batches of at most ``batch_size``.
 
     Args:
         file_paths: Paths to batch (empty or ``None`` -> no batches).
@@ -63,7 +56,7 @@ def split_workbook_batches(file_paths: Sequence[str] | None, batch_size: int) ->
 
 
 def resolve_import_workbook_batch_size(config: Config) -> int:
-    """Resolve the workbook batch size from ``config`` (R equivalent resolver)."""
+    """Resolve the workbook batch size from ``config``."""
     batch_size = int(config.performance.import_workbook_batch_size)
     require(batch_size >= 1, "import_workbook_batch_size must be >= 1")
     return batch_size
@@ -72,11 +65,11 @@ def resolve_import_workbook_batch_size(config: Config) -> int:
 def resolve_import_effective_workers(config: Config, options: RuntimeOptions | None = None) -> int:
     """Resolve the effective import worker count (>= 1).
 
-    Mirrors R ``resolve_import_effective_workers``: the ``import_parallel_workers`` option (here
-    :class:`~whep_digitize.setup.options.RuntimeOptions`, the ``WHEP_*`` env layer) wins over
-    the constant default. The ``"auto"`` sentinel resolves to ``min(auto_max, cpu_count - 1)``
-    (readxl/calamine reading is I/O + serialization bound, so returns taper past ~8 workers); an
-    explicit integer is honored, with anything below 1 forced to sequential (``1``).
+    The ``import_parallel_workers`` option (:class:`~whep_digitize.setup.options.RuntimeOptions`,
+    the ``WHEP_*`` env layer) wins over the constant default. The ``"auto"`` sentinel resolves to
+    ``min(auto_max, cpu_count - 1)`` (workbook reading is I/O + serialization bound, so returns
+    taper past ~8 workers); an explicit integer is honored, with anything below 1 forced to
+    sequential (``1``).
 
     Args:
         config: Pipeline configuration (supplies ``auto_max``).
@@ -126,7 +119,7 @@ def read_workbook_batch(
         )
         results[path] = normalize_pipeline_read_result(safe)
 
-    # Duplicates share the immutable frame (R deep-copied per path for its in-place mutation).
+    # Duplicates share the same immutable frame; no defensive copy is needed.
     read_data_list = tuple(results[path].data for path in paths)
     errors = tuple(error for path in paths for error in results[path].errors)
     return BatchReadResult(read_data_list=read_data_list, errors=errors)

@@ -1,9 +1,8 @@
 """Unit tests for the post-processing utilities modules.
 
-Ports of ``21-output-roots.R`` / ``21-diagnostics.R`` / ``21-template-rules.R`` /
-``21-runtime-cache.R`` (:mod:`whep_digitize.postpro.utilities`). Byte parity vs R for
+Covers :mod:`whep_digitize.postpro.utilities`. Reference parity for
 ``read_rule_table`` + ``build_layer_diagnostics`` lives in
-``tests/parity/test_utilities_parity.py``; these pin the behavioral contract without needing R.
+``tests/parity/test_utilities_parity.py``; these pin the behavioral contract.
 """
 
 from __future__ import annotations
@@ -104,7 +103,7 @@ def test_build_layer_diagnostics_empty_audit_warns() -> None:
 
 
 def test_build_layer_diagnostics_missing_affected_rows_column() -> None:
-    # A non-empty audit table without affected_rows sums to 0 (R sum(NULL) == 0).
+    # A non-empty audit table without affected_rows sums to 0 == 0).
     audit = pl.DataFrame({"other": pl.Series(["x"], dtype=pl.String)})
     diagnostics = build_layer_diagnostics("clean", 3, 3, audit)
     assert diagnostics.matched_count == 0
@@ -152,7 +151,7 @@ def test_read_rule_table_csv_all_text(tmp_path: Path) -> None:
 
 
 def test_read_rule_table_csv_maps_empty_and_literal_na_to_null(tmp_path: Path) -> None:
-    # Matches R readr's default na = c("", "NA"): both the empty cell and the literal "NA" become
+    # Both the empty cell and the literal "NA" become
     # null, while a leading-zero code, a quoted comma, and an internal space survive verbatim.
     csv_path = tmp_path / "clean_rules.csv"
     csv_path.write_text(

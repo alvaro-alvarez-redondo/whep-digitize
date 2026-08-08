@@ -1,9 +1,9 @@
 """Unit tests for post-processing stage definitions and rule-schema validation.
 
-Ports of ``21-stage-definitions.R`` (:mod:`whep_digitize.postpro.utilities.stage_definitions`)
-and ``23-schema-validation.R`` (:mod:`whep_digitize.postpro.rule_engine.schema_validation`).
-Byte parity vs R is covered in ``tests/parity/test_schema_validation_parity.py``; these tests
-pin the behavioral contract without needing R.
+Covers :mod:`whep_digitize.postpro.utilities.stage_definitions`
+and :mod:`whep_digitize.postpro.rule_engine.schema_validation`.
+Reference parity is covered in ``tests/parity/test_schema_validation_parity.py``; these tests
+pin the behavioral contract.
 """
 
 from __future__ import annotations
@@ -166,9 +166,9 @@ def test_ensure_is_noop_for_empty_rules() -> None:
     assert result.columns == ["commodity"]
 
 
-# Note: R's duplicate-dataset-column guard cannot be exercised here — polars forbids duplicate
-# column names at construction, so a duplicate-column frame is unconstructable (the guard is a
-# faithful but structurally-unreachable mirror of the data.table check).
+# Note: the duplicate-dataset-column guard cannot be exercised here — polars forbids duplicate
+# column names at construction, so a duplicate-column frame is unconstructable (the guard is
+# structurally unreachable for a valid frame).
 
 
 # --------------------------------------------------------------------------- type compatibility

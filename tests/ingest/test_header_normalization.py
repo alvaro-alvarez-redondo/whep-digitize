@@ -1,8 +1,8 @@
 """Tests for ingest header normalization (``ingest.reading.header_normalization``).
 
-Functional coverage that runs without R: the ordered normalization chain, the fast-path
+Functional coverage: the ordered normalization chain, the fast-path
 short-circuit, the canonical + ``country``->``polity`` alias renames with every collision
-guard, and collision validation. Byte-for-byte R parity (incl. the accented/unicode
+guard, and collision validation. Reference parity (incl. the accented/unicode
 transliteration) lives in ``tests/parity/test_header_normalization_parity.py``.
 """
 
@@ -41,7 +41,7 @@ _CANON = ["continent", "polity", "unit", "footnotes", "commodity", "variable", "
         ("value %", "value"),  # % -> _ -> trimmed
         ("%", ""),  # all-punctuation collapses to empty
         ("", ""),  # empty stays empty
-        ("½ unit", "unit"),  # policy: ½ has no ASCII base -> dropped (ICU would give "1/2_unit")
+        ("½ unit", "unit"),  # policy: ½ has no ASCII base -> dropped (no expansion)
     ],
 )
 def test_normalize_header_name(raw: str, expected: str) -> None:
@@ -80,7 +80,7 @@ def test_shared_transliteration_with_match_keys() -> None:
     assert normalize_header_name("Résumé") == "resume"
     assert normalize_text("Résumé") == "resume"
     # Policy consequence: ß has no canonical decomposition, so it is dropped (not folded to
-    # "ss" as ICU's Latin-ASCII would) — identically by both entry points.
+    # "ss" as a compatibility fold would) — identically by both entry points.
     assert normalize_header_name("groß") == "gro"
     assert normalize_text("groß") == "gro"
 

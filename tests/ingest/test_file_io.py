@@ -1,8 +1,8 @@
 """Tests for ingest file IO — discovery + file-name metadata (``ingest.file_io``).
 
-Functional coverage that runs without R: discovery against the real committed corpus
+Functional coverage: discovery against the real committed corpus
 (sorted forward-slash paths, filtering, recursion, empty/blank/missing folders) and metadata
-token parsing across every branch. Byte-for-byte R parity lives in
+token parsing across every branch. Reference parity lives in
 ``tests/parity/test_file_metadata_parity.py``.
 """
 
@@ -22,7 +22,7 @@ _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
 
 _METADATA_COLUMNS = ["file_path", "file_name", "commodity", "yearbook", "is_ascii", "error_message"]
 
-# Ground truth for the committed corpus, verified against R fs::dir_ls + extract_file_metadata
+# Ground truth for the committed corpus, verified against the committed fixtures
 # (sorted by full path string). See tests/parity for the byte-for-byte golden comparison.
 _CORPUS_FILE_NAMES = [
     "r_fao_1949_crops_92_92_date.xlsx",
@@ -93,7 +93,7 @@ def test_discover_files_recurses_and_filters(tmp_path: Path) -> None:
 
 
 def test_discover_files_extension_match_is_case_sensitive(tmp_path: Path) -> None:
-    # R globs `*.xlsx` case-sensitively (glob2rx -> ^.*\.xlsx$); an uppercase extension
+    # Discovery matches `*.xlsx` case-sensitively; an uppercase extension
     # must not be discovered even on a case-insensitive filesystem.
     (tmp_path / "report_2000_a_b_c_c_wheat.XLSX").touch()
     with pytest.warns(UserWarning, match="no xlsx files"):
@@ -149,7 +149,7 @@ def test_extract_file_metadata_schema_and_dtypes() -> None:
 def test_extract_file_metadata_basename_and_verbatim_path() -> None:
     path = "some/nested/dir/r_fao_1949_crops_92_92_date.xlsx"
     result = extract_file_metadata([path])
-    assert result["file_path"].to_list() == [path]  # retained verbatim (R as.character)
+    assert result["file_path"].to_list() == [path]  # retained verbatim
     assert result["file_name"].to_list() == ["r_fao_1949_crops_92_92_date.xlsx"]
     assert result["yearbook"].to_list() == ["fao_1949"]
     assert result["commodity"].to_list() == ["date"]

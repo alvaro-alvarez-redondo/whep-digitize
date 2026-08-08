@@ -1,8 +1,8 @@
-"""Parity test: conditional rule-group application must match the R golden byte-for-byte.
+"""Parity test: conditional rule-group application must match the frozen reference byte-for-byte.
 
-Runs ``apply_conditional_rule_group`` (port of ``23-conditional-group.R``) over four scenarios and
+Runs ``apply_conditional_rule_group`` over four scenarios and
 asserts the mutated source/target columns, ``changed_value_count``, ``changed_columns``, and the
-audit table all equal R's output:
+audit table all equal the expected output:
 
 * **M** — two rules over four rows incl. a transliteration match (``"Café"`` via ``"cafe"``):
   audit grouping + affected-row counts + both columns changing.
@@ -10,9 +10,9 @@ audit table all equal R's output:
 * **TO** — no source-result value: target-only.
 * **NM** — no match: nothing changes, empty audit.
 
-Guards the cartesian-join ordering (parity risk #4/#7) and the in-place ``set`` -> functional
-scatter (#10). Goldens are committed, so this runs on any checkout — CI included. A missing one
-still skips here; ``test_goldens_present.py`` is what makes that a hard failure.
+Guards the cartesian-join ordering and the functional scatter. Goldens are committed, so this runs
+on any checkout — CI included. A missing one still skips here; ``test_goldens_present.py`` is what
+makes that a hard failure.
 """
 
 from __future__ import annotations
@@ -21,16 +21,15 @@ import json
 
 import polars as pl
 import pytest
+from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_frame_equal
-from r_harness import FIXTURES_DIR
-from registry import CAPTURES
 
 from whep_digitize.postpro.rule_engine.conditional_group import (
     ConditionalGroupResult,
     apply_conditional_rule_group,
 )
 
-_SPEC = CAPTURES["conditional_group"]
+_SPEC = GOLDENS["conditional_group"]
 _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
@@ -55,8 +54,8 @@ def _gold(name: str) -> list[str | None]:
     path = _SPEC.golden_paths()[name]
     if not path.is_file():
         pytest.skip(
-            f"Golden {path} missing; regenerate with "
-            f"`python tests/parity/capture.py {_SPEC.module}`"
+            f"Golden {path} is missing from the checkout; restore it from version control "
+            "(the goldens are frozen and have no regeneration path)."
         )
     data: list[str | None] = json.loads(path.read_text(encoding="utf-8"))
     return data
