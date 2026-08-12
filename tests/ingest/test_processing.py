@@ -67,7 +67,8 @@ def test_transform_single_file_missing_commodity_uses_default(config: Config) ->
     result = transform_single_file(file_row, _wide(), config)
     assert result is not None
     # resolve_commodity_name -> "(unknown_commodity)", then normalize_key_fields normalizes it.
-    assert result.long_raw["commodity"].unique().to_list() == ["unknown commodity"]
+    # Parentheses are retained punctuation, so they survive; the "_" does not.
+    assert result.long_raw["commodity"].unique().to_list() == ["(unknown commodity)"]
 
 
 # ------------------------------------------------------------------ read_transform_pipeline_files

@@ -13,14 +13,31 @@ Companion docs: [architecture.md](architecture.md) (stages, data flow),
 ## String normalization policy
 
 `setup.helpers.strings` folds text to lowercase ASCII: **NFD decomposition, drop combining
-marks, lowercase**, then replace runs of non-alphanumerics with a single space and trim.
+marks, lowercase**, then replace runs of characters that are neither alphanumeric nor **retained
+punctuation** with a single space, and trim.
 
+- **The retained punctuation set is exactly `; , : ( ) [ ]`** — the same for every column,
+  footnotes included. `normalize_text` and `clean_footnote` are behaviourally identical; they
+  remain separate entry points only because footnotes are the tokenized column.
+- Every other symbol is replaced, including ones that were previously kept in footnotes:
+  `.`, `/`, `*`, `-`, `#`, `%`, `'`. So `incl. burma` → `incl burma` and
+  `sodium fluosilicate, 98 %` → `sodium fluosilicate, 98`.
+- Runs collapse to a **single** space, so a stripped symbol next to a space does not produce a
+  double space.
 - Accented Latin letters fold to their base: `café` → `cafe`, `ñ` → `n`.
 - A character with **no canonical ASCII base** is *not* expanded — it is simply dropped by the
-  non-alphanumeric step. So `ø`, `ß`, `æ`, `œ`, ligatures, superscripts and symbols (`®`, `½`,
+  replacement step. So `ø`, `ß`, `æ`, `œ`, ligatures, superscripts and symbols (`®`, `½`,
   `±`) disappear rather than becoming `o`, `ss`, `ae`, `oe`, `(R)`, `1/2`.
 - **No character-specific exceptions exist, by design.** Do not add any: match keys route
   through this one implementation, so a special case here silently changes which rules fire.
+
+Because `;` is retained, it now survives into match keys. That only affects **tokenization** for
+the tokenized columns (`footnotes`, `notes` — see the rule-engine section); every other column is
+matched as a whole string, so a `;` in `polity` or `continent` is a literal character, never a
+token separator.
+
+One visible consequence: the `(unknown_commodity)` placeholder normalizes to
+`(unknown commodity)` — the parentheses are retained, the underscore is not.
 
 Pinned by policy tests in `tests/setup/test_helpers.py`.
 
