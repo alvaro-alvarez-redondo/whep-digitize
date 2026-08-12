@@ -56,7 +56,7 @@ AUDIT_COLUMNS: tuple[str, ...] = (
 class Patterns:
     """Regex patterns. Kept as Python raw strings (``re`` / polars ``.str`` compatible)."""
 
-    normalize_non_alnum: str = r"[^a-z0-9]+"
+    normalize_non_alnum: str = r"[^a-z0-9;,:()\[\]]+"
     normalize_already_clean: str = r"^([a-z0-9]+( [a-z0-9]+)*)?$"
     header_normalize_whitespace: str = r"\s+"
     header_normalize_separator_spacing: str = r"\s*([/-])\s*"
@@ -73,7 +73,7 @@ class Patterns:
     # Leading numeric multiplier in a unit string ("1000 head"): group 1 = the number (digits,
     # dots/commas, optional exponent), group 2 = the base unit.
     standardize_multiplier_prefix: str = r"^(\s*[0-9][0-9.,]*(?:[eE][+-]?[0-9]+)?)[ _-]+(.+)$"
-    footnote_non_alnum: str = r"[^a-z0-9 ;/*().,#%:-]+"
+    footnote_non_alnum: str = r"[^a-z0-9;,:()\[\]]+"
     file_extension: str = r"\.[a-z0-9]+$"
 
 

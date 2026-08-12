@@ -23,11 +23,14 @@ from whep_digitize.setup.helpers import (
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("Hello, World!", "hello world"),
+        ("Hello, World!", "hello, world"),  # ',' is retained; '!' is not
         ("Café  Región", "cafe region"),
         ("ÑOÑO", "nono"),
         ("  spaced  out  ", "spaced out"),
         ("", ""),
+        # The retained set, in a column that is not footnotes.
+        ("Wheat (grain); dry", "wheat (grain); dry"),
+        ("FAO [1949]: p.4", "fao [1949]: p 4"),  # '[', ']' and ':' retained; '.' is not
     ],
 )
 def test_normalize_text(raw: str, expected: str) -> None:
@@ -45,7 +48,12 @@ def test_normalize_string_series_preserves_nulls() -> None:
 
 
 def test_clean_footnote_preserves_punctuation() -> None:
-    assert strings.clean_footnote("See note (a); ref #3.") == "see note (a); ref #3."
+    # The retained set is exactly ``; , : ( ) [ ]``; every other symbol collapses to one space.
+    assert strings.clean_footnote("See note (a); ref #3.") == "see note (a); ref 3"
+    assert strings.clean_footnote("FAO [1949]: milk, cheese; 50%") == "fao [1949]: milk, cheese; 50"
+    assert strings.clean_footnote("a/b *c* d-e") == "a b c d e"
+    # Runs collapse rather than accumulating, so a stripped symbol beside a space stays single.
+    assert strings.clean_footnote("incl. burma") == "incl burma"
 
 
 def test_normalize_filename() -> None:

@@ -1,16 +1,18 @@
 """String normalization — the pipeline's canonical text-folding policy.
 
 Implements the normalization **policy** directly: fold text to lowercase ASCII, replace runs of
-non-alphanumerics with a single space, then squish and trim. Match-key normalization uses the
-same policy, so it decides whether post-processing rules fire.
+characters that are neither alphanumeric nor **retained punctuation** with a single space, then
+squish and trim. The retained punctuation is ``; , : ( ) [ ]`` — the same set for every column,
+footnotes included. Match-key normalization uses the same policy, so it decides whether
+post-processing rules fire.
 
 The "fold to ASCII" step is a principled Unicode diacritic strip: NFD decomposition, then drop
 the combining marks. No historical or compatibility expansions are applied — a symbol such as
-``®``, ``½`` or ``±`` carries no ASCII base, so it is removed by the non-alphanumeric step
+``®``, ``½`` or ``±`` carries no ASCII base, so it is removed by the replacement step
 rather than expanded (``Philippines®`` -> ``philippines``, ``½ kg`` -> ``kg``), and
 super/subscripts and ligatures are likewise never unpacked. Accented Latin letters fold to
 their base (``café`` -> ``cafe``, ``ñ`` -> ``n``); letters with no canonical decomposition
-(``ø``, ``ß``, ``æ``, ligatures) are treated like any other non-``[a-z0-9]`` character and
+(``ø``, ``ß``, ``æ``, ligatures) are treated like any other non-retained character and
 dropped (``straße`` -> ``stra e``). There are no character-specific exceptions.
 """
 
@@ -58,10 +60,12 @@ def transliterate_ascii_lower(text: str) -> str:
 
 
 def normalize_text(text: str | None) -> str | None:
-    """Normalize a single string to lowercase ASCII alphanumerics + single spaces.
+    """Normalize a single string to lowercase ASCII alphanumerics, retained punctuation + spaces.
 
-    Transliterate -> lowercase -> replace runs of non-alphanumerics with a single
-    space -> strip. ``None`` passes through unchanged as ``None``.
+    Transliterate -> lowercase -> replace runs of characters that are neither alphanumeric nor
+    retained punctuation with a single space -> strip. The retained punctuation is
+    ``; , : ( ) [ ]``; everything else (``.``, ``/``, ``*``, ``-``, ``#``, ``%``, ``'``, ...) is
+    replaced. ``None`` passes through unchanged as ``None``.
 
     Args:
         text: The value to normalize.
@@ -93,7 +97,11 @@ def normalize_string(values: pl.Series) -> pl.Series:
 
 
 def clean_footnote(text: str | None) -> str | None:
-    """Normalize a footnote, preserving footnote punctuation (``; / * ( ) . , - # % :``).
+    """Normalize a footnote, retaining the punctuation set ``; , : ( ) [ ]``.
+
+    Behaviourally identical to :func:`normalize_text`: the two share one retained-punctuation
+    set and both collapse every run of other characters to a single space. Kept as a separate
+    entry point because footnotes are the tokenized column and may diverge again later.
 
     Args:
         text: The footnote value to clean.
