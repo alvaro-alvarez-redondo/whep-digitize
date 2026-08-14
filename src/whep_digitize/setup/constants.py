@@ -368,7 +368,9 @@ class ExportConfig:
     list_suffix: str = "_unique.xlsx"
     lists_to_export: tuple[str, ...] = FIXED_EXPORT_COLUMNS
     lists_workbook_name: str = "whep_unique_lists_raw"
-    export_layers: tuple[str, ...] = ("harmonize",)
+    # Every pipeline layer is exported to its own TSV. `raw` is exported only when the import
+    # frame is supplied to the export runner; the other three always come from the postpro result.
+    export_layers: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
     # The processed export writes .tsv, not a workbook.
     processed_suffix: str = ".tsv"
     error_highlight: ErrorHighlightStyle = field(default_factory=ErrorHighlightStyle)

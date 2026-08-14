@@ -146,7 +146,9 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
   **15 significant figures, fixed (never scientific) notation**, with trailing zeros and a bare
   trailing `.` removed (`1.0` → `1`, `1e16` → `10000000000000000`). Fields containing a tab,
   newline or quote are quoted, and empty string stays distinct from null. UTF-8.
-- Only the `harmonize` layer is exported to TSV by default.
+- **Every layer is exported to its own TSV** — `whep_data_raw`, `_clean`, `_normalize`,
+  `_harmonize` (`export_config.export_layers`). A configured layer with no table is skipped
+  rather than an error, so `raw` is absent unless the import frame reached the export runner.
 - Layer detection includes names ending `_raw`/`_clean`/`_normalize`/`_harmonize` and **excludes**
   `_wide_raw` and `_post_processed`.
 - **Unique lists:** per (layer, column) unique values with nulls dropped, sorted by Unicode code

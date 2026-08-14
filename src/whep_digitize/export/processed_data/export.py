@@ -1,8 +1,8 @@
 r"""Processed-data TSV export.
 
-Writes the exportable layer tables (only ``harmonize`` by default) to ``{stem}.tsv`` via
-:meth:`polars.DataFrame.write_csv` with a tab separator. The byte-level output contract (the
-export tests pin the first two bullets):
+Writes the exportable layer tables — every layer by default: ``raw``, ``clean``, ``normalize``,
+``harmonize`` — to ``{stem}.tsv`` via :meth:`polars.DataFrame.write_csv` with a tab separator.
+The byte-level output contract (the export tests pin the first two bullets):
 
 * **Record separator.** The platform newline — ``\r\n`` on Windows, ``\n`` elsewhere — resolved
   once into :data:`_FWRITE_EOL`; polars would otherwise always write ``\n``. Resolving it at
@@ -33,12 +33,15 @@ import polars as pl
 
 from whep_digitize.export.processed_data.layers import collect_layer_tables_for_export
 from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.helpers.strings import normalize_filename
 
 # Record separator: the platform newline — "\r\n" on Windows, "\n" elsewhere.
 _FWRITE_EOL: str = "\r\n" if os.name == "nt" else "\n"
+# Fallback for an explicitly-emptied config: the configured default is every layer.
+_DEFAULT_EXPORT_LAYERS = get_pipeline_constants().export_config.export_layers
 
 
 def build_processed_export_path(config: Config, object_name: str) -> Path:
@@ -99,10 +102,12 @@ def export_processed_data(
 ) -> dict[str, Path]:
     """Export the configured layer tables to processed-data TSVs.
 
-    Detects all layer tables for traceability, keeps only those whose name ends in a configured
-    export layer (``config.export_config.export_layers``, default ``("harmonize",)``), and writes
-    each via :func:`write_processed_table`. The output directory must already exist (the export
-    runner creates it).
+    Detects all layer tables for traceability, keeps those whose name ends in a configured export
+    layer (``config.export_config.export_layers``, which by default is every layer: ``raw``,
+    ``clean``, ``normalize``, ``harmonize``), and writes each via
+    :func:`write_processed_table`. A configured layer with no corresponding table is simply not
+    written -- ``raw`` is absent unless the import frame was supplied to the export runner. The
+    output directory must already exist (the export runner creates it).
 
     Args:
         config: The resolved pipeline configuration.
@@ -116,7 +121,7 @@ def export_processed_data(
         ValidationError: If no layer tables are detected, or none match the export layers.
     """
     layer_tables = collect_layer_tables_for_export(data_objects)
-    export_layers = config.export_config.export_layers or ("harmonize",)
+    export_layers = config.export_config.export_layers or _DEFAULT_EXPORT_LAYERS
     export_pattern = re.compile(
         r"_(" + "|".join(re.escape(layer) for layer in export_layers) + r")$"
     )

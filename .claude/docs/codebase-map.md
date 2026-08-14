@@ -116,7 +116,7 @@ processed-data TSVs + unique-list workbooks, asserts the paths contract).
 | Module | Key API |
 |--------|---------|
 | `processed_data/layers.py` | `collect_layer_tables_for_export` (name-based detect from an explicit mapping; excludes `_wide_raw`/`_post_processed`; sorted) |
-| `processed_data/export.py` | `export_processed_data` (harmonize-only default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
+| `processed_data/export.py` | `export_processed_data` (every layer by default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
 | `lists/unique_values.py` | `LISTS_SHEET_ORDER`, `infer_layer_sheet_name`, `compute_unique_column_values` (drop-null, code-point sort, `(blank)` prepend), `build_column_lists_export_path`, `build_layer_tables_by_sheet`, `collect_union_columns` |
 | `lists/merge.py` | `resolve_lists_export_columns`, `resolve_list_sheet_payloads` (identical-layer merge, fixed sheet order) |
 | `lists/write.py` | `build_column_unique_cache`, `write_column_lists_workbook` (no-header multi-sheet `xlsxwriter`), `export_lists` (filename-collision guard) |

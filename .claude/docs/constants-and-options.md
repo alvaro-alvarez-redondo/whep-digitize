@@ -32,7 +32,7 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `tokens.commodity_start_index` | `7` (1-based) |
 | `time_units` | `seconds_per_minute`, `seconds_per_hour` |
 | `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `last_rule_wins`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
-| `export_config` | `lists_to_export`, `export_layers=("harmonize",)`, `processed_suffix=".tsv"`, `error_highlight` style |
+| `export_config` | `lists_to_export`, `export_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"`, `error_highlight` style |
 | `progress` | stage labels + per-step messages (presentation left to `rich`) |
 | `fixed_export_columns` / `audit_columns` | export/audit column tuples |
 

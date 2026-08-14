@@ -56,13 +56,18 @@ def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
 
     assert isinstance(result, ExportResult)
 
-    # Processed data: the harmonize layer only, written + non-empty.
-    assert list(result.processed_paths) == ["whep_data_harmonize"]
-    tsv = result.processed_paths["whep_data_harmonize"]
-    assert tsv.is_file() and tsv.stat().st_size > 0
-    lines = tsv.read_text(encoding="utf-8").splitlines()
-    assert lines[0].split("\t") == _LONG_COLUMNS
-    assert len(lines) > 1  # header + at least one data row
+    # Processed data: one TSV per layer, each written + non-empty with the canonical header.
+    assert sorted(result.processed_paths) == [
+        "whep_data_clean",
+        "whep_data_harmonize",
+        "whep_data_normalize",
+        "whep_data_raw",
+    ]
+    for tsv in result.processed_paths.values():
+        assert tsv.is_file() and tsv.stat().st_size > 0
+        lines = tsv.read_text(encoding="utf-8").splitlines()
+        assert lines[0].split("\t") == _LONG_COLUMNS
+        assert len(lines) > 1  # header + at least one data row
 
     # Per-column unique-list workbooks: all written and non-empty.
     assert result.lists_paths

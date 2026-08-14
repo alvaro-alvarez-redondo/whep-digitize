@@ -43,7 +43,12 @@ def test_run_export_pipeline_returns_valid_result(config: Config) -> None:
     result = run_export_pipeline(config, _postpro_result())
 
     assert_export_paths_contract(result)  # does not raise
-    assert list(result.processed_paths) == ["whep_data_harmonize"]
+    # Every layer is exported. `raw` is absent here because no import frame was supplied.
+    assert sorted(result.processed_paths) == [
+        "whep_data_clean",
+        "whep_data_harmonize",
+        "whep_data_normalize",
+    ]
     assert result.processed_paths["whep_data_harmonize"].is_file()
     # Default lists_to_export keeps only the categorical columns present (continent, polity).
     assert set(result.lists_paths) == {"continent", "polity"}

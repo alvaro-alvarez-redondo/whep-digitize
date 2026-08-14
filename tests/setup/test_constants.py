@@ -85,5 +85,5 @@ def test_constants_are_immutable() -> None:
 def test_alias_and_export_config() -> None:
     constants = get_pipeline_constants()
     assert constants.header_normalization.canonical_aliases["country"] == "polity"
-    assert constants.export_config.export_layers == ("harmonize",)
+    assert constants.export_config.export_layers == ("raw", "clean", "normalize", "harmonize")
     assert constants.export_config.processed_suffix == ".tsv"
