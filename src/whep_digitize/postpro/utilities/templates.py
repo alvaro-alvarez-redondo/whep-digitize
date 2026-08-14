@@ -34,8 +34,13 @@ from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.directories import ensure_directories_exist
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import (
+    canonicalize_token_cell,
+    resolve_exact_match_directive,
+)
 
 _CONSTANTS = get_pipeline_constants()
+_EXACT_TOKEN = _CONSTANTS.postpro.rule_match_exact_token
 _TEMPLATE_FILE_NAME = _CONSTANTS.postpro.clean_harmonize_template_file_name
 _OPTIONAL_RULE_COLUMN = _CONSTANTS.postpro.stage_source_value_column
 _STAGE_PREFIX_RE = re.compile(r"^(clean|harmonize)_")
@@ -89,10 +94,51 @@ def read_rule_table(file_path: Path | str) -> pl.DataFrame:
 
     extension = path.suffix.lower().lstrip(".")
     if extension == "csv":
-        return pl.read_csv(path, infer_schema_length=0, null_values=list(_CSV_NA_VALUES))
-    if extension in ("xlsx", "xls"):
-        return _read_rule_workbook(path)
-    raise ValidationError(f"Unsupported rule extension for {path}")
+        frame = pl.read_csv(path, infer_schema_length=0, null_values=list(_CSV_NA_VALUES))
+    elif extension in ("xlsx", "xls"):
+        frame = _read_rule_workbook(path)
+    else:
+        raise ValidationError(f"Unsupported rule extension for {path}")
+    return canonicalize_rule_token_cells(frame)
+
+
+def canonicalize_rule_token_cells(rules: pl.DataFrame) -> pl.DataFrame:
+    """Canonicalize every ``;``-delimited rule cell: split, trim, dedupe, sort, rejoin.
+
+    Applied to every string column as the rule file is loaded, so authoring order and incidental
+    duplicates never reach the engine: ``"c; a; b; a"`` becomes ``"a; b; c"``. Canonicalization is
+    strictly **within one cell** — tokens are never mixed, shared, or reordered across cells, rows,
+    or columns.
+
+    An ``#EXACT#`` prefix is split off first and re-attached afterwards. Sorting the marker along
+    with the tokens could move it away from the start of the cell (``"#EXACT#c; a"`` ->
+    ``"a; #EXACT#c"``), which would stop it being recognised as the directive.
+
+    Args:
+        rules: The freshly-read rule frame (not mutated).
+
+    Returns:
+        A new frame with every string column canonicalized.
+    """
+    string_columns = [
+        name for name, dtype in zip(rules.columns, rules.dtypes, strict=True) if dtype == pl.String
+    ]
+    if not string_columns:
+        return rules
+
+    def canonicalize(value: str | None) -> str | None:
+        body, is_exact = resolve_exact_match_directive(value)
+        canonical = canonicalize_token_cell(body)
+        if not is_exact:
+            return canonical
+        return f"{_EXACT_TOKEN}{canonical}" if canonical is not None else _EXACT_TOKEN
+
+    return rules.with_columns(
+        [
+            rules.get_column(name).map_elements(canonicalize, return_dtype=pl.String).alias(name)
+            for name in string_columns
+        ]
+    )
 
 
 def _read_rule_workbook(path: Path) -> pl.DataFrame:

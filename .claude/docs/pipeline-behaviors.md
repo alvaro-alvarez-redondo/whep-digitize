@@ -75,9 +75,21 @@ Two deliberate behaviors — **do not "fix" either**:
 - Two sentinel tokens are load-bearing and must stay byte-exact: null match keys collapse to
   `"..NA_MATCH_KEY.."`, and null target results ride through joins as `"..NA_INTERNAL.."`.
   Null matches null only because both sides collapse to the former.
-- **Target-condition matching is tokenized for every column.** The current value is split on
-  `;` and the condition matches on **token membership**; a full-string match always also counts.
-  There is no per-column opt-in — `africa` matches a `continent` of `africa; america; asia`.
+- **Matching is element-wise for every column, on both sides.** The **source** cell is exploded on
+  `;` and each rule is evaluated against a single token; a matching token is substituted **in
+  place**, leaving its siblings intact, and the cell is rebuilt deduplicated and sorted. So
+  `hemisphere = "a; b; c; d"` with a rule `a` → `z` yields `b; c; d; z`, not `z`.
+- **Target-condition matching is likewise tokenized.** The current value is split on `;` and the
+  condition matches on **token membership**; a full-string match always also counts. There is no
+  per-column opt-in — `africa` matches a `continent` of `africa; america; asia`.
+- **Rule cells are canonicalized on load.** Every string cell of a rule file is split on `;`,
+  trimmed, deduplicated, sorted, and rejoined as it is read, so `"c; a; b; a"` becomes `"a; b; c"`.
+  This happens strictly **within one cell** — tokens are never mixed across cells, rows, or
+  columns. An `#EXACT#` prefix is split off first and re-attached, since sorting it with the
+  tokens would move it out of the leading position and stop it being recognised.
+- **Token subsetting is not supported, by design.** A rule value is either a single token (default)
+  or an exact full cell (`#EXACT#`). A multi-token rule value without `#EXACT#` matches nothing,
+  because it is keyed whole and is not one of the cell's tokens.
 - **`#EXACT#` opts a single rule out.** Prefixing a target-condition value with `#EXACT#`
   (constant `postpro.rule_match_exact_token`) forces full-string matching for that rule: no token
   membership, and no wildcard interpretation — which is how a literal `#ANY#` is matched. The

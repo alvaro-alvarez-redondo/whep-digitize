@@ -26,6 +26,7 @@ import polars as pl
 from whep_digitize.postpro.rule_engine.matching_strategy import encode_rule_match_key
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import resolve_exact_match_directive
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
@@ -69,35 +70,6 @@ def _split_dedup_tokens(value: str) -> list[str]:
     tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
     non_empty = [token for token in tokens if token != ""]
     return list(dict.fromkeys(non_empty))
-
-
-def resolve_exact_match_directive(
-    condition: str | None, exact_token: str = _EXACT_TOKEN
-) -> tuple[str | None, bool]:
-    """Split the exact-match directive off a rule target-condition value.
-
-    A condition value prefixed with ``exact_token`` (default ``#EXACT#``) opts that rule out of
-    ``;``-token membership and out of wildcard interpretation, so it matches the full string
-    only. The marker is a rule-authoring directive, not data, so it is stripped before keying.
-
-    Rule files are hand-authored, so the marker is matched **case-insensitively** and any
-    whitespace around it is ignored: ``#EXACT#africa``, ``#exact# africa`` and
-    ``  #Exact#   africa  `` are equivalent. Getting the case wrong would otherwise leave the
-    marker in the value and silently stop the rule from ever matching.
-
-    Args:
-        condition: The raw target-condition value.
-        exact_token: The directive marker.
-
-    Returns:
-        ``(condition_without_marker, is_exact)``. Untouched values return ``(condition, False)``.
-    """
-    if condition is None:
-        return None, False
-    stripped = condition.strip(_TRIM_CHARS)
-    if stripped[: len(exact_token)].casefold() != exact_token.casefold():
-        return condition, False
-    return stripped[len(exact_token) :].strip(_TRIM_CHARS), True
 
 
 def match_rule_target_condition_values(

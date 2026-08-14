@@ -5,10 +5,13 @@
 
 1. builds deterministic match keys for each rule (source key, target-condition key, encoded
    target result);
-2. cartesian-joins every dataset row to the rules on the source key, then keeps rows whose
-   current target value also satisfies the rule's target condition;
-3. rewrites the **source** column for matched rules that carry a source-result value, and
-   updates the **target** column via :func:`apply_target_updates_with_strategy`;
+2. explodes each source cell on ``;`` into one match candidate per token, plus one candidate for
+   the whole cell, and cartesian-joins those candidates to the rules on the source key; a rule
+   matches tokens by default and the whole cell only when marked ``#EXACT#``. Matched candidates
+   are then kept only where the current target value satisfies the rule's target condition;
+3. rewrites the **source** column **element-wise** — a matched token is substituted in place and
+   its siblings are preserved, then the cell is rebuilt deduplicated and sorted — and updates the
+   **target** column via :func:`apply_target_updates_with_strategy`;
 4. emits a per-rule audit table and reports the changed columns **independently** — a group
    whose only effect was a source rewrite marks the source column, not the target.
 
@@ -41,13 +44,24 @@ from whep_digitize.postpro.utilities.stage_definitions import (
     get_stage_target_value_column,
     validate_postpro_stage_name,
 )
+from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import (
+    canonicalize_token_cell,
+    resolve_exact_match_directive,
+)
 
 # The whitespace class trimmed from values: space, tab, CR, LF.
 _TRIM_CHARS = " \t\r\n"
+_TOKEN_DELIMITER = get_pipeline_constants().postpro.target_update_strategies.concatenate_delimiter
 _RULE_ORDER = "__whep_rule_order__"
 _CURRENT_TARGET = "__whep_current_target__"
+_TOKEN_INDEX = "__whep_token_index__"
+_IS_FULL_CELL = "__whep_is_full_cell__"
+_RULE_IS_EXACT = "__whep_rule_is_exact__"
+# Token index reserved for the whole-cell candidate that #EXACT# rules match against.
+_FULL_CELL_INDEX = -1
 _AUDIT_KEY = ("source_key", "target_key", "value_source_result", "value_target_result_encoded")
 _AUDIT_ORDER = ("column_source", "column_target", "value_source_raw", "value_target_raw")
 
@@ -142,6 +156,15 @@ def _build_normalize_rules(
     """Build the deduplicated, keyed rule table."""
     value_source_raw = group.get_column("value_source_raw")
     value_target_raw = group.get_column("value_target_raw")
+    # The #EXACT# marker is a directive, not data: strip it before keying so the key is the value
+    # the author meant, and carry the flag so the join can require the matching mode.
+    resolved_source = [resolve_exact_match_directive(value) for value in value_source_raw.to_list()]
+    source_match_values = pl.Series(
+        "source_match_values", [body for body, _ in resolved_source], dtype=pl.String
+    )
+    rule_is_exact = pl.Series(
+        _RULE_IS_EXACT, [is_exact for _, is_exact in resolved_source], dtype=pl.Boolean
+    )
     normalize_rules = pl.DataFrame(
         {
             "column_source": group.get_column("column_source"),
@@ -153,8 +176,9 @@ def _build_normalize_rules(
             "value_target_result_encoded": encode_target_rule_value(
                 group.get_column(target_value_column)
             ),
+            _RULE_IS_EXACT: rule_is_exact,
             "source_key": encode_rule_match_key(
-                value_source_raw, apply_normalization=apply_source_norm
+                source_match_values, apply_normalization=apply_source_norm
             ),
             "target_key": encode_rule_match_key(
                 value_target_raw, apply_normalization=apply_target_norm
@@ -250,25 +274,27 @@ def apply_conditional_rule_group(
 
     source_pre = dataset.get_column(source_column)
     target_pre = dataset.get_column(target_column)
-    join_input = pl.DataFrame(
-        {
-            "row_id": pl.Series("row_id", range(1, dataset.height + 1), dtype=pl.Int64),
-            "source_key": encode_rule_match_key(source_pre, apply_normalization=apply_source_norm),
-        }
+    join_input, per_row_tokens = _explode_source_candidates(
+        source_pre, apply_normalization=apply_source_norm
     )
 
-    # Left join keeps every dataset row and fans out on a multi-rule match. The
-    # (row_id, rule-order) sort makes that order deterministic, which the source/target
-    # last-rule-wins reductions rely on.
+    # Left join keeps every candidate and fans out on a multi-rule match. The
+    # (row_id, token-index, rule-order) sort makes that order deterministic, which the
+    # source/target last-rule-wins reductions rely on.
     joined = join_input.join(normalize_rules, on="source_key", how="left").sort(
-        ["row_id", _RULE_ORDER], nulls_last=True, maintain_order=True
+        ["row_id", _TOKEN_INDEX, _RULE_ORDER], nulls_last=True, maintain_order=True
     )
     current_target = target_pre.gather(
         [row_id - 1 for row_id in joined.get_column("row_id").to_list()]
     )
     joined = joined.with_columns(current_target.alias(_CURRENT_TARGET))
 
-    source_matched = joined.get_column("column_source").is_not_null()
+    # A rule matches in exactly one mode: an ``#EXACT#`` rule against the full-cell candidate, a
+    # plain rule against each exploded token. Requiring the flags to agree keeps the two modes
+    # from ever matching the same candidate.
+    source_matched = joined.get_column("column_source").is_not_null() & (
+        joined.get_column(_IS_FULL_CELL) == joined.get_column(_RULE_IS_EXACT).fill_null(False)
+    )
     # Computing the condition over every joined row and AND-ing with the source match is
     # equivalent to evaluating it on the matched subset: unmatched rows are masked out regardless.
     target_condition = match_rule_target_condition_values(
@@ -288,7 +314,7 @@ def apply_conditional_rule_group(
 
     if bool(matched_row_mask.any()):
         new_dataset, source_changed = _apply_source_rewrite(
-            new_dataset, joined, source_update_mask, source_column, source_pre
+            new_dataset, joined, source_update_mask, source_column, source_pre, per_row_tokens
         )
         target_result = apply_target_updates_with_strategy(
             new_dataset,
@@ -335,35 +361,107 @@ def apply_conditional_rule_group(
     )
 
 
+def _explode_source_candidates(
+    source: pl.Series, *, apply_normalization: bool
+) -> tuple[pl.DataFrame, list[list[str]]]:
+    """Build one match candidate per source token, plus one for the whole cell.
+
+    Element-wise matching is the default, so every canonical token of the source cell is offered
+    as a candidate. One extra candidate carries the full cell, which is what an ``#EXACT#`` rule
+    matches against. A row with no tokens (null / blank cell) still gets its full-cell candidate,
+    so exact rules can target missing values.
+
+    Args:
+        source: The source column.
+        apply_normalization: Whether match keys are normalized.
+
+    Returns:
+        ``(candidates, per_row_tokens)`` — the candidate frame and, per dataset row, its canonical
+        token list (index-aligned with the candidates' ``token_index``).
+    """
+    row_ids: list[int] = []
+    token_indexes: list[int] = []
+    is_full_cell: list[bool] = []
+    key_inputs: list[str | None] = []
+    per_row_tokens: list[list[str]] = []
+
+    for row_id, cell in enumerate(source.cast(pl.String).to_list(), start=1):
+        canonical = canonicalize_token_cell(cell)
+        tokens = canonical.split(_TOKEN_DELIMITER) if canonical is not None else []
+        per_row_tokens.append(tokens)
+        for index, token in enumerate(tokens):
+            row_ids.append(row_id)
+            token_indexes.append(index)
+            is_full_cell.append(False)
+            key_inputs.append(token)
+        row_ids.append(row_id)
+        token_indexes.append(_FULL_CELL_INDEX)
+        is_full_cell.append(True)
+        key_inputs.append(cell)
+
+    candidates = pl.DataFrame(
+        {
+            "row_id": pl.Series("row_id", row_ids, dtype=pl.Int64),
+            _TOKEN_INDEX: pl.Series(_TOKEN_INDEX, token_indexes, dtype=pl.Int64),
+            _IS_FULL_CELL: pl.Series(_IS_FULL_CELL, is_full_cell, dtype=pl.Boolean),
+            "source_key": encode_rule_match_key(
+                pl.Series(key_inputs, dtype=pl.String), apply_normalization=apply_normalization
+            ),
+        }
+    )
+    return candidates, per_row_tokens
+
+
 def _apply_source_rewrite(
     dataset: pl.DataFrame,
     joined: pl.DataFrame,
     source_update_mask: pl.Series,
     source_column: str,
     source_pre: pl.Series,
+    per_row_tokens: list[list[str]],
 ) -> tuple[pl.DataFrame, int]:
-    """Rewrite the source column for source-update rows (last rule wins per row).
+    """Substitute matched source tokens, preserving the rest, then rebuild each cell.
 
-    The change count is taken over every source-update row (duplicate row ids included), i.e.
-    element-wise over the un-deduplicated before/after vectors.
+    A token match replaces just that token and leaves its siblings intact; an ``#EXACT#`` match
+    replaces the whole cell. Where several rules hit the same token, the last in join order wins.
+    Each rebuilt cell is canonicalized, so the result is deduplicated and sorted.
+
+    The change count is the number of rows whose stored cell text actually changed.
     """
     if not bool(source_update_mask.any()):
         return dataset, 0
 
-    source_updates = joined.filter(source_update_mask)
-    all_row_ids = source_updates.get_column("row_id").to_list()
-    before = source_pre.gather([row_id - 1 for row_id in all_row_ids])
+    updates = joined.filter(source_update_mask).select(
+        "row_id", _TOKEN_INDEX, "value_source_result"
+    )
+    token_substitutions: dict[int, dict[int, str | None]] = {}
+    full_cell_overrides: dict[int, str | None] = {}
+    for row_id, token_index, value in updates.iter_rows():
+        if token_index == _FULL_CELL_INDEX:
+            full_cell_overrides[row_id] = value
+        else:
+            token_substitutions.setdefault(row_id, {})[token_index] = value
 
-    last_per_row = source_updates.group_by("row_id", maintain_order=True).agg(
-        pl.col("value_source_result").last()
-    )
+    affected = sorted({*token_substitutions, *full_cell_overrides})
+    new_values: list[str | None] = []
+    for row_id in affected:
+        if row_id in full_cell_overrides:
+            new_values.append(canonicalize_token_cell(full_cell_overrides[row_id]))
+            continue
+        substitutions = token_substitutions[row_id]
+        rebuilt = [
+            substitutions.get(index, token)
+            for index, token in enumerate(per_row_tokens[row_id - 1])
+        ]
+        kept = [token for token in rebuilt if token is not None]
+        new_values.append(canonicalize_token_cell(_TOKEN_DELIMITER.join(kept)))
+
+    indexes = [row_id - 1 for row_id in affected]
+    before = source_pre.gather(indexes)
     new_dataset = _scatter_column(
-        dataset,
-        source_column,
-        [row_id - 1 for row_id in last_per_row.get_column("row_id").to_list()],
-        last_per_row.get_column("value_source_result"),
+        dataset, source_column, indexes, pl.Series(new_values, dtype=pl.String)
     )
-    after = new_dataset.get_column(source_column).gather([row_id - 1 for row_id in all_row_ids])
+    after = new_dataset.get_column(source_column).gather(indexes)
     return new_dataset, count_elementwise_value_changes(before, after)
 
 
