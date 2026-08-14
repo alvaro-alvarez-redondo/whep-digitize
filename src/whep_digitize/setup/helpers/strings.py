@@ -27,7 +27,6 @@ from whep_digitize.setup.constants import get_pipeline_constants
 
 _constants = get_pipeline_constants()
 _NORMALIZE_NON_ALNUM = re.compile(_constants.patterns.normalize_non_alnum)
-_FOOTNOTE_NON_ALNUM = re.compile(_constants.patterns.footnote_non_alnum)
 _UNKNOWN_FILENAME = _constants.defaults.unknown_filename
 
 
@@ -93,39 +92,6 @@ def normalize_string(values: pl.Series) -> pl.Series:
     """
     uniques = values.drop_nulls().unique().to_list()
     mapping = {value: normalize_text(value) for value in uniques}
-    return values.replace_strict(mapping, default=None, return_dtype=pl.String)
-
-
-def clean_footnote(text: str | None) -> str | None:
-    """Normalize a footnote, retaining the punctuation set ``; , : ( ) [ ]``.
-
-    Behaviourally identical to :func:`normalize_text`: the two share one retained-punctuation
-    set and both collapse every run of other characters to a single space. Kept as a separate
-    entry point because footnotes are the tokenized column and may diverge again later.
-
-    Args:
-        text: The footnote value to clean.
-
-    Returns:
-        The cleaned footnote, or ``None`` if the input was ``None``.
-    """
-    if text is None:
-        return None
-    cleaned = _FOOTNOTE_NON_ALNUM.sub(" ", transliterate_ascii_lower(text))
-    return cleaned.strip()
-
-
-def clean_footnote_column(values: pl.Series) -> pl.Series:
-    """Apply :func:`clean_footnote` across a column via the cardinality fast path.
-
-    Args:
-        values: A string :class:`polars.Series` of footnotes.
-
-    Returns:
-        A cleaned string :class:`polars.Series` of the same length.
-    """
-    uniques = values.drop_nulls().unique().to_list()
-    mapping = {value: clean_footnote(value) for value in uniques}
     return values.replace_strict(mapping, default=None, return_dtype=pl.String)
 
 

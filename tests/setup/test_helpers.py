@@ -47,13 +47,14 @@ def test_normalize_string_series_preserves_nulls() -> None:
     assert result.to_list() == ["eire", None, "espana"]
 
 
-def test_clean_footnote_preserves_punctuation() -> None:
-    # The retained set is exactly ``; , : ( ) [ ]``; every other symbol collapses to one space.
-    assert strings.clean_footnote("See note (a); ref #3.") == "see note (a); ref 3"
-    assert strings.clean_footnote("FAO [1949]: milk, cheese; 50%") == "fao [1949]: milk, cheese; 50"
-    assert strings.clean_footnote("a/b *c* d-e") == "a b c d e"
+def test_normalize_text_retains_only_the_documented_punctuation() -> None:
+    # One normalizer serves every column, footnotes included: the retained set is exactly
+    # ``; , : ( ) [ ]`` and every other symbol collapses to a single space.
+    assert strings.normalize_text("See note (a); ref #3.") == "see note (a); ref 3"
+    assert strings.normalize_text("FAO [1949]: milk, cheese; 50%") == "fao [1949]: milk, cheese; 50"
+    assert strings.normalize_text("a/b *c* d-e") == "a b c d e"
     # Runs collapse rather than accumulating, so a stripped symbol beside a space stays single.
-    assert strings.clean_footnote("incl. burma") == "incl burma"
+    assert strings.normalize_text("incl. burma") == "incl burma"
 
 
 def test_normalize_filename() -> None:

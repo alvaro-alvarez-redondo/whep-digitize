@@ -17,8 +17,9 @@ marks, lowercase**, then replace runs of characters that are neither alphanumeri
 punctuation** with a single space, and trim.
 
 - **The retained punctuation set is exactly `; , : ( ) [ ]`** — the same for every column,
-  footnotes included. `normalize_text` and `clean_footnote` are behaviourally identical; they
-  remain separate entry points only because footnotes are the tokenized column.
+  footnotes included. There is exactly **one** normalizer: `normalize_text` (scalar) and
+  `normalize_string` (column). The former `clean_footnote` / `clean_footnote_column` pair was a
+  duplicate of it and has been removed.
 - Every other symbol is replaced, including ones that were previously kept in footnotes:
   `.`, `/`, `*`, `-`, `#`, `%`, `'`. So `incl. burma` → `incl burma` and
   `sodium fluosilicate, 98 %` → `sodium fluosilicate, 98`.
@@ -31,10 +32,9 @@ punctuation** with a single space, and trim.
 - **No character-specific exceptions exist, by design.** Do not add any: match keys route
   through this one implementation, so a special case here silently changes which rules fire.
 
-Because `;` is retained, it now survives into match keys. That only affects **tokenization** for
-the tokenized columns (`footnotes`, `notes` — see the rule-engine section); every other column is
-matched as a whole string, so a `;` in `polity` or `continent` is a literal character, never a
-token separator.
+Because `;` is retained, it survives into match keys — and target-condition matching is now
+tokenized for **every** column, so those `;` are token separators everywhere. See the rule-engine
+section for the `#EXACT#` directive that opts a rule out.
 
 One visible consequence: the `(unknown_commodity)` placeholder normalizes to
 `(unknown commodity)` — the parentheses are retained, the underscore is not.
@@ -75,9 +75,18 @@ Two deliberate behaviors — **do not "fix" either**:
 - Two sentinel tokens are load-bearing and must stay byte-exact: null match keys collapse to
   `"..NA_MATCH_KEY.."`, and null target results ride through joins as `"..NA_INTERNAL.."`.
   Null matches null only because both sides collapse to the former.
-- `__ANY__` is the explicit wildcard.
-- In the tokenized (`;`-membership) path an **empty-string current value never matches** — an
-  intentional rule of the lookup, not an oversight.
+- **Target-condition matching is tokenized for every column.** The current value is split on
+  `;` and the condition matches on **token membership**; a full-string match always also counts.
+  There is no per-column opt-in — `africa` matches a `continent` of `africa; america; asia`.
+- **`#EXACT#` opts a single rule out.** Prefixing a target-condition value with `#EXACT#`
+  (constant `postpro.rule_match_exact_token`) forces full-string matching for that rule: no token
+  membership, and no wildcard interpretation — which is how a literal `__ANY__` is matched. The
+  marker is a rule-authoring directive, not data, and is stripped before keying.
+- `__ANY__` is the explicit wildcard, honoured on **every** column (previously only the tokenized
+  ones), unless suppressed by `#EXACT#`.
+- An **empty-string current value never matches** under tokenized matching — the token lookup
+  cannot key it. Under `#EXACT#`, which is pure full-string equality, an empty condition *does*
+  match an empty current value. Both are intentional.
 - `last_rule_wins` = stable sort by the order columns, then take the **last** per group.
   Overwrite events are emitted **only** when a row received more than one *distinct* candidate.
   A null candidate renders as the literal string `"NA"` in `candidate_values`.

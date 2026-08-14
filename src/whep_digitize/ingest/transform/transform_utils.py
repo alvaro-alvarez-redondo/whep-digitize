@@ -15,7 +15,6 @@ from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.strings import (
-    clean_footnote_column,
     normalize_string,
     normalize_text,
 )
@@ -86,7 +85,7 @@ def normalize_key_fields(frame: pl.DataFrame, commodity_name: str, config: Confi
         )
     if "footnotes" in result.columns:
         result = result.with_columns(
-            clean_footnote_column(result.get_column("footnotes")).alias("footnotes")
+            normalize_string(result.get_column("footnotes")).alias("footnotes")
         )
     return result
 

@@ -16,8 +16,8 @@ Every scatter is functional: a join-back on a synthesized row index plus
 
 Deliberate behaviors (do not "fix" these):
 
-* The explicit wildcard token only matches for tokenized targets (``footnotes`` / ``notes``);
-  on any other column it is compared literally.
+* The explicit wildcard token is honoured on every column; ``#EXACT#`` suppresses it so a
+  literal ``__ANY__`` can be matched.
 * Wildcard candidates whose value is already present in the current cell are dropped.
 * ``candidate_values`` renders a missing candidate as the literal string ``"NA"``.
 """
@@ -34,7 +34,6 @@ from whep_digitize.postpro.rule_engine.matching_strategy import (
     get_target_update_strategy_config,
     resolve_last_rule_wins_unique_row_fast_path_enabled,
     resolve_target_update_strategy,
-    resolve_tokenized_target_condition_columns,
 )
 from whep_digitize.postpro.rule_engine.matching_values import (
     concatenate_existing_and_incoming_values,
@@ -208,8 +207,6 @@ def apply_target_updates_with_strategy(
         raise ValidationError("target updates contain row indexes outside dataset boundaries")
 
     strategy_config = get_target_update_strategy_config()
-    tokenized_columns = resolve_tokenized_target_condition_columns(strategy_config)
-    tokenized_target = target_column in tokenized_columns
 
     if apply_condition_match:
         updates = _apply_condition_match(
@@ -218,7 +215,6 @@ def apply_target_updates_with_strategy(
             target_column=target_column,
             value_column=value_column,
             condition_column=condition_column,
-            tokenized_target=tokenized_target,
         )
 
     if updates.height == 0:
@@ -259,7 +255,6 @@ def _apply_condition_match(
     target_column: str,
     value_column: str,
     condition_column: str,
-    tokenized_target: bool,
 ) -> pl.DataFrame:
     """Filter conditioned updates by condition match and drop no-op wildcard candidates.
 
@@ -278,7 +273,6 @@ def _apply_condition_match(
     condition_matches = match_rule_target_condition_values(
         current_values,
         conditioned_raw.get_column(condition_column),
-        tokenized_target=tokenized_target,
     )
     conditioned = conditioned_raw.filter(condition_matches)
 
@@ -294,7 +288,6 @@ def _apply_condition_match(
             already_present = match_rule_target_condition_values(
                 wildcard_current,
                 conditioned.get_column(value_column),
-                tokenized_target=tokenized_target,
             )
             conditioned = conditioned.filter(~(is_wildcard & already_present))
 

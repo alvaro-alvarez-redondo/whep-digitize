@@ -57,7 +57,6 @@ class Patterns:
     """Regex patterns. Kept as Python raw strings (``re`` / polars ``.str`` compatible)."""
 
     normalize_non_alnum: str = r"[^a-z0-9;,:()\[\]]+"
-    normalize_already_clean: str = r"^([a-z0-9]+( [a-z0-9]+)*)?$"
     header_normalize_whitespace: str = r"\s+"
     header_normalize_separator_spacing: str = r"\s*([/-])\s*"
     header_normalize_non_alnum: str = r"[^a-z0-9\-/]+"
@@ -73,7 +72,6 @@ class Patterns:
     # Leading numeric multiplier in a unit string ("1000 head"): group 1 = the number (digits,
     # dots/commas, optional exponent), group 2 = the base unit.
     standardize_multiplier_prefix: str = r"^(\s*[0-9][0-9.,]*(?:[eE][+-]?[0-9]+)?)[ _-]+(.+)$"
-    footnote_non_alnum: str = r"[^a-z0-9;,:()\[\]]+"
     file_extension: str = r"\.[a-z0-9]+$"
 
 
@@ -325,6 +323,10 @@ class Postpro:
     standardize_audit_file_name: str = "standardize_audit.xlsx"
     last_rule_wins_overwrites_file_name: str = "postpro_last_rule_wins_overwrites.xlsx"
     rule_match_wildcard_token: str = "__ANY__"
+    # Rule-authoring directive: prefixing a target-condition value with this marker forces
+    # full-string matching for that rule, opting out of `;`-token membership (and out of
+    # wildcard interpretation, so a literal "__ANY__" can be matched). Stripped before keying.
+    rule_match_exact_token: str = "#EXACT#"
     # The 6 canonical rule columns; value_source is optional.
     canonical_rule_columns: tuple[str, ...] = (
         "column_source",

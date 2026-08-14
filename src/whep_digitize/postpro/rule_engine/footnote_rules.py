@@ -32,9 +32,7 @@ from whep_digitize.postpro.rule_engine.matching_strategy import (
     empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
-    get_target_update_strategy_config,
     resolve_rule_match_normalization_settings,
-    resolve_tokenized_target_condition_columns,
 )
 from whep_digitize.postpro.rule_engine.matching_values import (
     count_elementwise_value_changes,
@@ -173,7 +171,6 @@ def _refine_matched_by_condition(
     *,
     apply_match_normalization: bool,
     excluded_columns: tuple[str, ...],
-    tokenized_columns: tuple[str, ...],
 ) -> pl.Series:
     """Keep conditional-target matches only when the current target value satisfies the rule."""
     column_target = joined.get_column("column_target")
@@ -200,7 +197,6 @@ def _refine_matched_by_condition(
         matches = match_rule_target_condition_values(
             current,
             pl.Series([condition_values[i] for i in positions], dtype=pl.String),
-            tokenized_target=target_column in tokenized_columns,
             apply_match_normalization=apply_match_normalization
             and target_column not in excluded_columns,
         ).to_list()
@@ -348,10 +344,6 @@ def apply_footnote_rules(
         target_value_column=target_value_column,
         footnote_normalization=footnote_normalization,
     )
-    tokenized_columns = resolve_tokenized_target_condition_columns(
-        get_target_update_strategy_config()
-    )
-
     joined = fn_long.join(normalize_rules, on="source_key", how="left").sort(
         ["row_id", "footnote_index", _RULE_ORDER], nulls_last=True, maintain_order=True
     )
@@ -361,7 +353,6 @@ def apply_footnote_rules(
         joined.get_column("column_source").is_not_null(),
         apply_match_normalization=apply_match_normalization,
         excluded_columns=excluded_columns,
-        tokenized_columns=tokenized_columns,
     )
     joined = joined.with_columns(matched.alias(_MATCHED)).with_columns(
         (pl.col(_MATCHED) & pl.col("value_source_result").is_not_null()).alias("is_replace"),

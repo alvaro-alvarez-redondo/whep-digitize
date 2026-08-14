@@ -29,6 +29,7 @@ from whep_digitize.setup.helpers.assertions import require
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
+_EXACT_TOKEN = _CONSTANTS.postpro.rule_match_exact_token
 # The whitespace class trimmed from values: space, tab, CR, LF.
 _TRIM_CHARS = " \t\r\n"
 
@@ -70,35 +71,64 @@ def _split_dedup_tokens(value: str) -> list[str]:
     return list(dict.fromkeys(non_empty))
 
 
+def resolve_exact_match_directive(
+    condition: str | None, exact_token: str = _EXACT_TOKEN
+) -> tuple[str | None, bool]:
+    """Split the exact-match directive off a rule target-condition value.
+
+    A condition value prefixed with ``exact_token`` (default ``#EXACT#``) opts that rule out of
+    ``;``-token membership and out of wildcard interpretation, so it matches the full string
+    only. The marker is a rule-authoring directive, not data, so it is stripped before keying.
+
+    Args:
+        condition: The raw target-condition value.
+        exact_token: The directive marker.
+
+    Returns:
+        ``(condition_without_marker, is_exact)``. Untouched values return ``(condition, False)``.
+    """
+    if condition is None:
+        return None, False
+    stripped = condition.strip(_TRIM_CHARS)
+    if not stripped.startswith(exact_token):
+        return condition, False
+    return stripped[len(exact_token) :].strip(_TRIM_CHARS), True
+
+
 def match_rule_target_condition_values(
     current_values: pl.Series,
     condition_values: pl.Series,
     *,
-    tokenized_target: bool = False,
     apply_match_normalization: bool = True,
     wildcard_token: str = _WILDCARD_TOKEN,
+    exact_token: str = _EXACT_TOKEN,
 ) -> pl.Series:
     """Match rule target-condition values against current dataset target values, element-wise.
 
-    Non-tokenized columns compare full-string match keys. Tokenized columns split the current
-    value on ``;`` and match the condition by **token membership** while still allowing a
-    full-string match; the explicit ``wildcard_token`` matches anything, and an ``NA``
-    condition matches only an ``NA`` current value.
+    Matching is tokenized for **every** column: the current value is split on ``;`` and the
+    condition matches on **token membership**, while a full-string match always also counts.
+    The explicit ``wildcard_token`` matches anything, and an ``NA`` condition matches only an
+    ``NA`` current value.
+
+    Prefixing a condition with ``exact_token`` (``#EXACT#``) forces full-string matching for
+    that rule: no token membership, and no wildcard interpretation — which is how a literal
+    ``__ANY__`` is matched. See ``docs/pipeline-behaviors.md``.
 
     Args:
         current_values: Current dataset target values.
         condition_values: Rule target-condition values (same length as ``current_values``).
-        tokenized_target: Enable tokenized (``;``-membership) matching.
         apply_match_normalization: Normalize match keys before comparison.
-        wildcard_token: The explicit wildcard token (tokenized columns only).
+        wildcard_token: The explicit wildcard token.
+        exact_token: The exact-match directive marker.
 
     Returns:
         A Boolean Series of match decisions (same length as the inputs).
 
     Raises:
-        ValidationError: If the inputs differ in length or ``wildcard_token`` is empty.
+        ValidationError: If the inputs differ in length, or either token is empty.
     """
     require(len(wildcard_token) >= 1, "wildcard_token must be a non-empty string")
+    require(len(exact_token) >= 1, "exact_token must be a non-empty string")
     require(
         current_values.len() == condition_values.len(),
         "current and condition values must have equal length for condition matching",
@@ -106,63 +136,73 @@ def match_rule_target_condition_values(
     if condition_values.len() == 0:
         return pl.Series([], dtype=pl.Boolean)
 
-    if not tokenized_target:
-        current_keys = encode_rule_match_key(
-            current_values, apply_normalization=apply_match_normalization
-        )
-        condition_keys = encode_rule_match_key(
-            condition_values, apply_normalization=apply_match_normalization
-        )
-        return (current_keys == condition_keys).rename("")
-
-    length = condition_values.len()
     current_chr = current_values.cast(pl.String).to_list()
-    condition_chr = condition_values.cast(pl.String).to_list()
+    raw_condition_chr = condition_values.cast(pl.String).to_list()
+    resolved = [resolve_exact_match_directive(value, exact_token) for value in raw_condition_chr]
+    condition_chr = [value for value, _ in resolved]
+    exact_flags = [is_exact for _, is_exact in resolved]
 
-    def _is_wildcard(condition: str | None) -> bool:
-        return condition is not None and condition.strip(_TRIM_CHARS) == wildcard_token
+    # Full-string equality, vectorized. For a current value with no ``;`` this is already the
+    # whole answer: its token set is just itself, so membership reduces to equality. Only rows
+    # whose current value is multi-token need the per-row set lookup below.
+    current_keys = encode_rule_match_key(
+        current_values, apply_normalization=apply_match_normalization
+    )
+    condition_keys = encode_rule_match_key(
+        pl.Series(condition_chr, dtype=pl.String), apply_normalization=apply_match_normalization
+    )
+    full_match = (current_keys == condition_keys).to_list()
+    condition_key_list = condition_keys.to_list()
 
-    # NA condition -> matches an NA current value; wildcard -> always matches; else False so far.
-    match_mask = [False] * length
-    for index in range(length):
+    def _is_wildcard(index: int) -> bool:
         condition = condition_chr[index]
-        if condition is None:
-            match_mask[index] = current_chr[index] is None
-        elif _is_wildcard(condition):
-            match_mask[index] = True
+        return (
+            not exact_flags[index]
+            and condition is not None
+            and condition.strip(_TRIM_CHARS) == wildcard_token
+        )
 
-    non_na_idx = [
-        index
-        for index in range(length)
-        if condition_chr[index] is not None and not _is_wildcard(condition_chr[index])
+    # A null current value matches only a null condition. An empty-string current value never
+    # matches under tokenized matching -- the token lookup cannot key it -- but it does match an
+    # empty condition under ``#EXACT#``, which is pure full-string equality. Both are
+    # intentional; see docs/pipeline-behaviors.md.
+    match_mask = [
+        _is_wildcard(index)
+        or (
+            current_chr[index] is not None
+            and (exact_flags[index] or current_chr[index] != "")
+            and bool(full_match[index])
+        )
+        or (current_chr[index] is None and condition_chr[index] is None)
+        for index in range(condition_values.len())
     ]
-    if not non_na_idx:
+
+    pending = [
+        index
+        for index in range(condition_values.len())
+        if not match_mask[index]
+        and not exact_flags[index]
+        and current_chr[index] is not None
+        and ";" in current_chr[index]
+    ]
+    if not pending:
         return pl.Series(match_mask, dtype=pl.Boolean)
 
-    subset_condition_keys = _encode_keys_list(
-        [condition_chr[index] for index in non_na_idx],
-        apply_normalization=apply_match_normalization,
-    )
-    current_subset = [current_chr[index] for index in non_na_idx]
-
-    # Per distinct current value: the set of token keys plus the full-string key.
+    # Token keys per distinct multi-token current value (the full-string key already matched
+    # above, so only the split tokens are needed here).
     token_lookup: dict[str, set[str]] = {}
-    for value in dict.fromkeys(item for item in current_subset if item is not None):
-        token_keys = _encode_keys_list(
-            _split_dedup_tokens(value), apply_normalization=apply_match_normalization
+    for value in dict.fromkeys(current_chr[index] for index in pending):
+        assert value is not None  # `pending` only holds indexes with a non-null current value
+        token_lookup[value] = set(
+            _encode_keys_list(
+                _split_dedup_tokens(value), apply_normalization=apply_match_normalization
+            )
         )
-        full_key = _encode_keys_list([value], apply_normalization=apply_match_normalization)[0]
-        token_lookup[value] = {*token_keys, full_key}
 
-    for position, out_index in enumerate(non_na_idx):
-        current_value = current_subset[position]
-        # A null current value never matches, and neither does an empty string: the token
-        # lookup is keyed by the current value and the empty key is treated as absent, so
-        # membership is False. Both are intentional -- see docs/pipeline-behaviors.md.
-        if current_value is None or current_value == "":
-            match_mask[out_index] = False
-            continue
-        match_mask[out_index] = subset_condition_keys[position] in token_lookup[current_value]
+    for index in pending:
+        current_value = current_chr[index]
+        assert current_value is not None
+        match_mask[index] = condition_key_list[index] in token_lookup[current_value]
 
     return pl.Series(match_mask, dtype=pl.Boolean)
 
