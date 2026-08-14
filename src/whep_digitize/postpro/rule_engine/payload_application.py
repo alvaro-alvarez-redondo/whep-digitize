@@ -1,11 +1,12 @@
 """Per-rule-file payload orchestration.
 
 (``prepare_rule_payload_execution_plan`` + ``apply_rule_payload``). For one rule file's canonical
-rules it splits footnote-sourced rules from standard rules, builds the conditional dictionary for
-deterministic group order, then applies footnote rules first (see
-:mod:`whep_digitize.postpro.rule_engine.footnote_rules`) and each conditional group in order (see
-:mod:`whep_digitize.postpro.rule_engine.conditional_group`), accumulating the audit, overwrite
-events, change count, and changed columns.
+rules it builds the conditional dictionary for deterministic group order, then applies each
+conditional group in turn (see :mod:`whep_digitize.postpro.rule_engine.conditional_group`),
+accumulating the audit, overwrite events, change count, and changed columns.
+
+Every column runs through the one element-wise engine -- ``footnotes`` included. There is no
+separate footnote path: a footnote rule is just a rule whose source column is ``footnotes``.
 
 Every applier is functional and returns a new frame; this module composes them.
 """
@@ -18,7 +19,6 @@ from dataclasses import dataclass
 import polars as pl
 
 from whep_digitize.postpro.rule_engine.conditional_group import apply_conditional_rule_group
-from whep_digitize.postpro.rule_engine.footnote_rules import apply_footnote_rules
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     empty_last_rule_wins_overwrite_events_df,
 )
@@ -26,7 +26,6 @@ from whep_digitize.postpro.rule_engine.schema_validation import build_conditiona
 from whep_digitize.postpro.utilities.stage_definitions import validate_postpro_stage_name
 from whep_digitize.setup.helpers.assertions import require
 
-_FOOTNOTES_SOURCE = "footnotes"
 _COLUMN_SOURCE = "column_source"
 
 
@@ -35,14 +34,12 @@ class PreparedRulePayload:
     """A rule file's execution plan.
 
     Attributes:
-        footnote_rules: Rules whose ``column_source`` is ``footnotes``.
         grouped_dictionary: The standard rules grouped by ``(column_source, column_target)`` in
             deterministic application order.
         group_source_columns: The source column of each group (aligned with ``grouped_dictionary``).
         stage_name: The validated execution stage.
     """
 
-    footnote_rules: pl.DataFrame
     grouped_dictionary: tuple[pl.DataFrame, ...]
     group_source_columns: tuple[str, ...]
     stage_name: str
@@ -56,8 +53,8 @@ class RulePayloadResult:
         data: The updated dataset.
         audit: The combined per-rule audit (empty frame when nothing applied).
         overwrite_events: The combined last-rule-wins overwrite diagnostics.
-        changed_value_count: Total cells changed across footnote + conditional applications.
-        changed_columns: Columns changed, first-appearance order (footnote then group order).
+        changed_value_count: Total cells changed across every conditional group.
+        changed_columns: Columns changed, in first-appearance (group) order.
     """
 
     data: pl.DataFrame
@@ -70,7 +67,7 @@ class RulePayloadResult:
 def prepare_rule_payload_execution_plan(
     canonical_rules: pl.DataFrame, stage_name: str
 ) -> PreparedRulePayload:
-    """Split a rule file's rules into footnote + grouped standard rules.
+    """Group a rule file's rules by (source, target) column in deterministic order.
 
     Args:
         canonical_rules: The canonical rule table.
@@ -80,18 +77,15 @@ def prepare_rule_payload_execution_plan(
         The :class:`PreparedRulePayload` execution plan.
     """
     stage = validate_postpro_stage_name(stage_name)
-    footnote_rules = canonical_rules.filter(pl.col(_COLUMN_SOURCE) == _FOOTNOTES_SOURCE)
-    standard_rules = canonical_rules.filter(pl.col(_COLUMN_SOURCE) != _FOOTNOTES_SOURCE)
-
     grouped_dictionary = (
-        tuple(build_conditional_rule_dictionary(standard_rules, stage))
-        if standard_rules.height > 0
+        tuple(build_conditional_rule_dictionary(canonical_rules, stage))
+        if canonical_rules.height > 0
         else ()
     )
     group_source_columns = tuple(
         group.get_column(_COLUMN_SOURCE).item(0) for group in grouped_dictionary
     )
-    return PreparedRulePayload(footnote_rules, grouped_dictionary, group_source_columns, stage)
+    return PreparedRulePayload(grouped_dictionary, group_source_columns, stage)
 
 
 def apply_rule_payload(
@@ -106,7 +100,7 @@ def apply_rule_payload(
     prepared_payload: PreparedRulePayload | None = None,
     trigger_columns: Sequence[str] | None = None,
 ) -> RulePayloadResult:
-    """Apply one rule file's payload: footnote rules first, then each conditional group.
+    """Apply one rule file's payload: each conditional group in order.
 
     Args:
         dataset: The dataset to transform.
@@ -144,23 +138,6 @@ def apply_rule_payload(
     overwrite_frames: list[pl.DataFrame] = []
     changed_value_count = 0
     changed_columns: list[str] = []
-
-    if plan.footnote_rules.height > 0:
-        footnote_result = apply_footnote_rules(
-            current,
-            plan.footnote_rules,
-            stage,
-            dataset_name,
-            rule_file_id,
-            execution_timestamp_utc,
-            apply_match_normalization=apply_match_normalization,
-        )
-        current = footnote_result.data
-        audit_frames.append(footnote_result.audit)
-        changed_value_count += footnote_result.changed_value_count
-        changed_columns = _union_ordered(changed_columns, footnote_result.changed_columns)
-        if footnote_result.overwrite_events.height > 0:
-            overwrite_frames.append(footnote_result.overwrite_events)
 
     for group, source_column in zip(
         plan.grouped_dictionary, plan.group_source_columns, strict=True

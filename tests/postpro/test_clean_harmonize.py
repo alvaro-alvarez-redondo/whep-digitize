@@ -26,7 +26,6 @@ from whep_digitize.postpro.clean_harmonize.layer_runner import (
 )
 from whep_digitize.postpro.clean_harmonize.stage_inputs import (
     canonicalize_post_loop_annotation_columns,
-    canonicalize_semicolon_delimited_cells,
     drop_empty_footnotes_column,
 )
 from whep_digitize.postpro.rule_engine.payload_application import (
@@ -35,6 +34,7 @@ from whep_digitize.postpro.rule_engine.payload_application import (
 )
 from whep_digitize.postpro.utilities.payload_cache import clear_stage_payload_memory_cache
 from whep_digitize.setup.config import Config
+from whep_digitize.setup.helpers.strings import canonicalize_token_column
 
 _CANONICAL = (
     "column_source",
@@ -108,9 +108,7 @@ def _write_rule_file(
 
 
 def test_canonicalize_dedupes_sorts_and_blanks() -> None:
-    result = canonicalize_semicolon_delimited_cells(
-        _series(["b; a; a", "solo", None, "   ", "c;;b"])
-    )
+    result = canonicalize_token_column(_series(["b; a; a", "solo", None, "   ", "c;;b"]))
     assert result.to_list() == ["a; b", "solo", None, None, "b; c"]
 
 
@@ -165,7 +163,9 @@ def test_state_record_detects_repeat_and_screens_by_fingerprint() -> None:
 # --------------------------------------------------------------------------- payload_application
 
 
-def test_prepare_plan_splits_footnote_and_standard_rules() -> None:
+def test_prepare_plan_groups_every_rule_including_footnotes() -> None:
+    # There is no separate footnote path any more: a footnote rule is just a rule whose source
+    # column is ``footnotes``, grouped like any other.
     rules = pl.concat(
         [
             _canonical_rule("footnotes", "fao", "footnotes", "fao", "faostat"),
@@ -173,10 +173,9 @@ def test_prepare_plan_splits_footnote_and_standard_rules() -> None:
         ]
     )
     plan = prepare_rule_payload_execution_plan(rules, "clean")
-    assert plan.footnote_rules.height == 1
-    assert plan.footnote_rules.get_column("value_source_raw").to_list() == ["fao"]
-    assert len(plan.grouped_dictionary) == 1
-    assert plan.group_source_columns == ("commodity",)
+    assert len(plan.grouped_dictionary) == 2
+    # Group order is by (column_target, column_source): footnotes -> footnotes, then unit.
+    assert plan.group_source_columns == ("footnotes", "commodity")
 
 
 def test_apply_rule_payload_empty_rules_is_noop() -> None:

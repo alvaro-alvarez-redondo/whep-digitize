@@ -13,58 +13,13 @@ from __future__ import annotations
 import polars as pl
 
 from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.strings import canonicalize_token_column
 
 _CONSTANTS = get_pipeline_constants()
 _CONCAT_DELIMITER = _CONSTANTS.postpro.target_update_strategies.concatenate_delimiter
-# The whitespace class used for token trimming: space, tab, CR, LF only — deliberately not the
-# full Unicode whitespace set.
 _TRIM_CHARS = " \t\r\n"
 _ANNOTATION_COLUMNS = ("notes", "footnotes")
 _FOOTNOTES_COLUMN = "footnotes"
-
-
-def _canonicalize_cell(value: str, delimiter: str) -> str | None:
-    """Split one cell on ``;``, trim + drop empty tokens, dedupe, sort by code point, rejoin.
-
-    Returns ``None`` when the cell is blank or contains no non-empty tokens — a cell of nothing
-    but separators and whitespace is missing data, not an empty string. Deduplication keeps first
-    appearance and the result is then code-point sorted, which is equivalently just a code-point
-    sort of the distinct tokens (UTF-8 byte order equals code-point order).
-    """
-    if value.strip(_TRIM_CHARS) == "":
-        return None
-    tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
-    non_empty = [token for token in tokens if token]
-    if not non_empty:
-        return None
-    return delimiter.join(sorted(dict.fromkeys(non_empty)))
-
-
-def canonicalize_semicolon_delimited_cells(
-    values: pl.Series, delimiter: str = _CONCAT_DELIMITER
-) -> pl.Series:
-    """Canonicalize each ``;``-delimited cell of a Series (dedupe + code-point-sort tokens).
-
-    Missing / blank cells map to ``None``, and nulls pass through as ``None``. The scalar-Python
-    canonicalization is computed once per *distinct* value and mapped back vectorized
-    (``unique()`` + ``replace_strict``), avoiding a Python loop over every row — these annotation
-    columns are low-cardinality, so the distinct set is small.
-
-    Args:
-        values: The cell values (any dtype; cast to string).
-        delimiter: The output token delimiter.
-
-    Returns:
-        A ``String`` Series of canonicalized values, carrying the input's name.
-    """
-    string_values = values.cast(pl.String)
-    mapping = {
-        value: _canonicalize_cell(value, delimiter)
-        for value in string_values.drop_nulls().unique().to_list()
-    }
-    if not mapping:
-        return string_values
-    return string_values.replace_strict(mapping, default=None, return_dtype=pl.String)
 
 
 def canonicalize_post_loop_annotation_columns(dataset: pl.DataFrame) -> pl.DataFrame:
@@ -81,7 +36,7 @@ def canonicalize_post_loop_annotation_columns(dataset: pl.DataFrame) -> pl.DataF
     if not present:
         return dataset
     return dataset.with_columns(
-        canonicalize_semicolon_delimited_cells(dataset.get_column(column), _CONCAT_DELIMITER)
+        canonicalize_token_column(dataset.get_column(column), _CONCAT_DELIMITER)
         for column in present
     )
 

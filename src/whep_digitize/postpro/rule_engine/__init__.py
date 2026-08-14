@@ -15,8 +15,7 @@ Modules:
   emission, and ``concatenate``.
 * ``conditional_group.py`` — cartesian keyed join on ``source_key``, subset target-condition
   match, source+target scatter, audit.
-* ``footnote_rules.py`` — explode ``;`` tokens -> match -> resolve (remove > replace > original)
-  -> reconstruct. The most intricate module here.
+
 * ``schema_validation.py`` — coerce/validate rules, duplicate/conflict checks, code-point-ordered
   conditional dictionary.
 * ``payload_application.py`` — per-file orchestration: footnote rules first, then each

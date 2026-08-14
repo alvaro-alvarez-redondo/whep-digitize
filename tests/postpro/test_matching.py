@@ -239,10 +239,11 @@ def test_concatenate_merges_existing_first_and_dedupes() -> None:
     assert result.to_list() == ["a; b; c"]
 
 
-def test_concatenate_existing_only_passes_through_raw_without_dedupe() -> None:
-    # existing-only values are NOT token-deduplicated (only the both-present branch dedupes).
-    result = concatenate_existing_and_incoming_values(_s(["p; p; q"]), _s([None]), "; ")
-    assert result.to_list() == ["p; p; q"]
+def test_concatenate_canonicalizes_an_existing_only_value() -> None:
+    # Every reconstruction path is canonical now: an existing-only value is deduped and sorted
+    # too, not passed through raw.
+    result = concatenate_existing_and_incoming_values(_s(["q; p; p"]), _s([None]), "; ")
+    assert result.to_list() == ["p; q"]
 
 
 def test_concatenate_both_present_dedupes_existing_tokens() -> None:

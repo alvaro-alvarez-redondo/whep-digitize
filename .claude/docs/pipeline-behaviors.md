@@ -106,12 +106,14 @@ Two deliberate behaviors — **do not "fix" either**:
 - `last_rule_wins` = stable sort by the order columns, then take the **last** per group.
   Overwrite events are emitted **only** when a row received more than one *distinct* candidate.
   A null candidate renders as the literal string `"NA"` in `candidate_values`.
-- `concatenate` merges existing-first and de-duplicates while preserving order.
-- **Footnote token splitting** (exact rules): a null value yields one null token; `""` yields
-  zero tokens; a single trailing empty field is dropped (`"a;"` → `["a"]`) while leading and
-  internal empties are kept (`";;"` → `["", ""]`). Resolution precedence is
-  **remove > replace > original**, first replacement wins, and tokens are reconstructed in index
-  order.
+- `concatenate` merges both sides into one canonical token set: deduplicated and **sorted**,
+  like every other reconstruction path. This applies even when only one side is present.
+- **`footnotes` has no special engine.** A footnote rule is just a rule whose source column is
+  `footnotes`; it runs through the same element-wise path as every other column. A rule whose
+  source result is missing **removes** the matched token and keeps its siblings. Where several
+  rules hit the same token the last in join order wins (there is no remove-over-replace
+  precedence), and the rebuilt cell is deduplicated and sorted rather than kept in original
+  token order.
 - A group whose only effect was a source rewrite marks the **source** column as changed, not the
   target.
 

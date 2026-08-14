@@ -215,6 +215,41 @@ def test_exact_marker_is_case_insensitive(marker: str) -> None:
     assert result.get_column("hemisphere").to_list() == ["z"]
 
 
+# ---------------------------------- 5. footnotes go through the same engine (no special path)
+
+
+def test_footnote_source_rule_replaces_one_token() -> None:
+    dataset = _source_dataset("footnotes", "fao; incl estimate; usda")
+    result = _apply(dataset, [_source_rule("footnotes", "fao", "faostat")])
+    assert result.get_column("footnotes").to_list() == ["faostat; incl estimate; usda"]
+
+
+def test_footnote_source_rule_removes_a_token_when_the_result_is_missing() -> None:
+    # A null source result drops the matched token and keeps its siblings.
+    dataset = _source_dataset("footnotes", "fao; incl estimate; usda")
+    result = _apply(dataset, [_rule("footnotes", "fao", None, "marker", "#ANY#", "m")])
+    assert result.get_column("footnotes").to_list() == ["incl estimate; usda"]
+
+
+def test_footnote_rule_output_is_deduplicated_and_sorted_like_any_column() -> None:
+    dataset = _source_dataset("footnotes", "usda; fao")
+    result = _apply(dataset, [_source_rule("footnotes", "usda", "fao")])
+    # Both tokens collapse to the same value, so the cell holds it once.
+    assert result.get_column("footnotes").to_list() == ["fao"]
+
+
+def test_footnote_rule_can_drive_a_cross_column_target_update() -> None:
+    dataset = pl.DataFrame(
+        {
+            "footnotes": pl.Series(["fao; usda"], dtype=pl.String),
+            "continent": pl.Series(["europe"], dtype=pl.String),
+        }
+    )
+    result = _apply(dataset, [_rule("footnotes", "fao", "faostat", "continent", "europe", "asia")])
+    assert result.get_column("footnotes").to_list() == ["faostat; usda"]
+    assert result.get_column("continent").to_list() == ["asia"]
+
+
 def test_exact_rule_on_a_single_token_cell_still_matches() -> None:
     dataset = _source_dataset("hemisphere", "a")
     result = _apply(dataset, [_source_rule("hemisphere", "#EXACT#a", "z")])

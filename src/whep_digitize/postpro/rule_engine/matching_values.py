@@ -26,7 +26,10 @@ import polars as pl
 from whep_digitize.postpro.rule_engine.matching_strategy import encode_rule_match_key
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.helpers.assertions import require
-from whep_digitize.setup.helpers.strings import resolve_exact_match_directive
+from whep_digitize.setup.helpers.strings import (
+    resolve_exact_match_directive,
+    split_token_cell,
+)
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
@@ -49,27 +52,6 @@ def _encode_keys_list(values: Sequence[str | None], *, apply_normalization: bool
         return []
     series = pl.Series(values, dtype=pl.String)
     return encode_rule_match_key(series, apply_normalization=apply_normalization).to_list()
-
-
-def _blank_to_none(value: str | None) -> str | None:
-    """Return ``None`` for missing / whitespace-only values, else the value unchanged."""
-    if value is None:
-        return None
-    return None if value.strip(_TRIM_CHARS) == "" else value
-
-
-def _split_dedup_tokens(value: str) -> list[str]:
-    """Split on ``;``, trim tokens, drop empties, and deduplicate (first occurrence wins).
-
-    Args:
-        value: A ``;``-delimited string.
-
-    Returns:
-        The ordered, deduplicated, non-empty tokens.
-    """
-    tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
-    non_empty = [token for token in tokens if token != ""]
-    return list(dict.fromkeys(non_empty))
 
 
 def match_rule_target_condition_values(
@@ -174,7 +156,7 @@ def match_rule_target_condition_values(
         assert value is not None  # `pending` only holds indexes with a non-null current value
         token_lookup[value] = set(
             _encode_keys_list(
-                _split_dedup_tokens(value), apply_normalization=apply_match_normalization
+                split_token_cell(value), apply_normalization=apply_match_normalization
             )
         )
 
@@ -213,21 +195,14 @@ def concatenate_existing_and_incoming_values(
         existing_values.len() == incoming_values.len(),
         "existing and incoming values must have equal length for concatenation",
     )
-    existing_norm = [_blank_to_none(value) for value in existing_values.cast(pl.String).to_list()]
-    incoming_norm = [_blank_to_none(value) for value in incoming_values.cast(pl.String).to_list()]
-
     merged: list[str | None] = []
-    for existing, incoming in zip(existing_norm, incoming_norm, strict=True):
-        if existing is not None and incoming is None:
-            merged.append(existing)
-        elif existing is not None and incoming is not None:
-            tokens = list(
-                dict.fromkeys(_split_dedup_tokens(existing) + _split_dedup_tokens(incoming))
-            )
-            merged.append(delimiter.join(tokens) if tokens else None)
-        else:
-            # Existing is missing: the merged value is the (possibly missing) incoming value.
-            merged.append(incoming)
+    for existing, incoming in zip(
+        existing_values.cast(pl.String).to_list(),
+        incoming_values.cast(pl.String).to_list(),
+        strict=True,
+    ):
+        tokens = sorted(set(split_token_cell(existing)) | set(split_token_cell(incoming)))
+        merged.append(delimiter.join(tokens) if tokens else None)
 
     return pl.Series(merged, dtype=pl.String)
 

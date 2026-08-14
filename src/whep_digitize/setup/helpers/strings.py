@@ -129,6 +129,28 @@ def resolve_exact_match_directive(
     return stripped[len(exact_token) :].strip(_TRIM_CHARS), True
 
 
+def split_token_cell(value: str | None) -> list[str]:
+    """Split one ``;``-delimited cell into its canonical tokens.
+
+    **The pipeline's single token-splitting implementation.** Tokens are trimmed, empties are
+    dropped, duplicates are removed, and the result is sorted by Unicode code point (equivalently
+    UTF-8 byte order, so it is locale-independent). Splitting is strictly **within one cell** —
+    tokens are never mixed, shared, or reordered across cells, rows, or columns.
+
+    A null cell, or one holding nothing but separators and whitespace, has no tokens.
+
+    Args:
+        value: The raw cell value.
+
+    Returns:
+        The canonical token list (empty when the cell holds no non-empty token).
+    """
+    if value is None:
+        return []
+    tokens = (token.strip(_TRIM_CHARS) for token in value.split(";"))
+    return sorted({token for token in tokens if token})
+
+
 def canonicalize_token_cell(value: str | None, delimiter: str = _TOKEN_DELIMITER) -> str | None:
     """Canonicalize one ``;``-delimited cell: split, trim, drop empties, dedupe, sort, rejoin.
 
@@ -146,13 +168,8 @@ def canonicalize_token_cell(value: str | None, delimiter: str = _TOKEN_DELIMITER
     Returns:
         The canonical cell, or ``None`` when the cell holds no non-empty token.
     """
-    if value is None or value.strip(_TRIM_CHARS) == "":
-        return None
-    tokens = [token.strip(_TRIM_CHARS) for token in value.split(";")]
-    non_empty = [token for token in tokens if token]
-    if not non_empty:
-        return None
-    return delimiter.join(sorted(set(non_empty)))
+    tokens = split_token_cell(value)
+    return delimiter.join(tokens) if tokens else None
 
 
 def canonicalize_token_column(values: pl.Series, delimiter: str = _TOKEN_DELIMITER) -> pl.Series:

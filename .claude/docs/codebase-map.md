@@ -93,8 +93,7 @@ algorithmic core.
 | `rule_engine/matching_strategy.py` | key encode/decode, strategy config |
 | `rule_engine/matching_values.py` | tokenized match (all columns) + `#EXACT#` directive, concat merge, change count |
 | `rule_engine/target_apply.py` | `last_rule_wins` + overwrite events, `concatenate` |
-| `rule_engine/conditional_group.py` | keyed cartesian join, source+target scatter, audit |
-| `rule_engine/footnote_rules.py` | explode→match→resolve→reconstruct |
+| `rule_engine/conditional_group.py` | the element-wise engine for every column: explode source tokens, match, substitute in place, rebuild canonical; cross-column target updates + audit |
 | `rule_engine/schema_validation.py` | coerce/validate rules, conditional dictionary |
 | `rule_engine/payload_application.py` | `apply_rule_payload`, execution plan |
 | `standardize_units/engine.py` | `apply_standardize_rules` (fold, 2-stage, affine), `StandardizeResult` |
