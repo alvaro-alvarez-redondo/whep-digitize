@@ -29,9 +29,7 @@ from whep_digitize.postpro.rule_engine.matching_strategy import (
     empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
-    get_target_update_strategy_config,
     resolve_rule_match_normalization_settings,
-    resolve_tokenized_target_condition_columns,
 )
 from whep_digitize.postpro.rule_engine.matching_values import (
     count_elementwise_value_changes,
@@ -249,9 +247,6 @@ def apply_conditional_rule_group(
         apply_source_norm=apply_source_norm,
         apply_target_norm=apply_target_norm,
     )
-    tokenized_columns = resolve_tokenized_target_condition_columns(
-        get_target_update_strategy_config()
-    )
 
     source_pre = dataset.get_column(source_column)
     target_pre = dataset.get_column(target_column)
@@ -279,7 +274,6 @@ def apply_conditional_rule_group(
     target_condition = match_rule_target_condition_values(
         joined.get_column(_CURRENT_TARGET),
         joined.get_column("value_target_raw"),
-        tokenized_target=target_column in tokenized_columns,
         apply_match_normalization=apply_target_norm,
     )
     matched_row_mask = source_matched & target_condition

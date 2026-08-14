@@ -24,7 +24,7 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 
 | Module | Key API |
 |--------|---------|
-| `strings.py` | `normalize_text`, `normalize_string` (series), `clean_footnote`, `clean_footnote_column`, `normalize_filename`, `transliterate_ascii_lower` (the NFD diacritic-strip policy) |
+| `strings.py` | `normalize_text`, `normalize_string` (series), `normalize_filename`, `transliterate_ascii_lower` (the NFD diacritic-strip policy) |
 | `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_fixed` (15-sig-fig fixed-notation double rendering) |
 | `sorting.py` | `sort_pipeline_stage_df(frame, sort_columns=None)` |
 | `frames.py` | `drop_na_value_rows(frame, value_column, *, enabled)` |
@@ -91,7 +91,7 @@ algorithmic core.
 | `clean_harmonize/controls_cache.py` | multi-pass controls + two-tier cycle detection |
 | `clean_harmonize/stage_inputs.py` | `;`-token canonicalization; drop empty footnotes |
 | `rule_engine/matching_strategy.py` | key encode/decode, strategy config |
-| `rule_engine/matching_values.py` | tokenized match, concat merge, change count |
+| `rule_engine/matching_values.py` | tokenized match (all columns) + `#EXACT#` directive, concat merge, change count |
 | `rule_engine/target_apply.py` | `last_rule_wins` + overwrite events, `concatenate` |
 | `rule_engine/conditional_group.py` | keyed cartesian join, source+target scatter, audit |
 | `rule_engine/footnote_rules.py` | explode→match→resolve→reconstruct |

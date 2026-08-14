@@ -82,18 +82,25 @@ def columns() -> dict[str, pl.Series]:
 
 @pytest.mark.parity
 def test_match_tokenized_parity(columns: dict[str, pl.Series]) -> None:
-    result = match_rule_target_condition_values(
-        columns["current"], columns["condition"], tokenized_target=True
-    )
+    # Tokenized membership is now unconditional, so the plain call reproduces this golden.
+    result = match_rule_target_condition_values(columns["current"], columns["condition"])
     assert result.dtype == pl.Boolean
     assert result.to_list() == _gold_bool("match_tokenized")
 
 
 @pytest.mark.parity
-def test_match_plain_parity(columns: dict[str, pl.Series]) -> None:
-    result = match_rule_target_condition_values(
-        columns["current"], columns["condition"], tokenized_target=False
+def test_match_exact_directive_parity(columns: dict[str, pl.Series]) -> None:
+    """The ``#EXACT#`` directive reproduces the frozen full-string-matching reference.
+
+    ``match_plain`` was captured when full-string matching was a per-column mode. That mode is
+    now expressed per rule by the directive, so prefixing every non-null condition with
+    ``#EXACT#`` must reproduce the same expected values — which keeps the golden meaningful.
+    """
+    condition = pl.Series(
+        [None if value is None else f"#EXACT#{value}" for value in columns["condition"].to_list()],
+        dtype=pl.String,
     )
+    result = match_rule_target_condition_values(columns["current"], condition)
     assert result.to_list() == _gold_bool("match_plain")
 
 

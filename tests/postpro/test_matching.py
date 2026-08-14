@@ -22,12 +22,12 @@ from whep_digitize.postpro.rule_engine.matching_strategy import (
     resolve_last_rule_wins_unique_row_fast_path_enabled,
     resolve_rule_match_normalization_settings,
     resolve_target_update_strategy,
-    resolve_tokenized_target_condition_columns,
 )
 from whep_digitize.postpro.rule_engine.matching_values import (
     concatenate_existing_and_incoming_values,
     count_elementwise_value_changes,
     match_rule_target_condition_values,
+    resolve_exact_match_directive,
 )
 from whep_digitize.setup.errors import ConfigurationError, ValidationError
 
@@ -100,7 +100,7 @@ def test_match_tokenized_token_membership_and_full_string() -> None:
     current = _s(["a; b; c", "a; b; c", "a; b"])
     condition = _s(["b", "a; b; c", "b; a"])
     # token "b" matches; the full-string key "a b c" matches; reordered "b a" does not.
-    result = match_rule_target_condition_values(current, condition, tokenized_target=True)
+    result = match_rule_target_condition_values(current, condition)
     assert result.to_list() == [True, True, False]
     assert result.dtype == pl.Boolean
 
@@ -108,14 +108,14 @@ def test_match_tokenized_token_membership_and_full_string() -> None:
 def test_match_tokenized_wildcard_matches_anything_including_null_current() -> None:
     current = _s(["anything", None])
     condition = _s(["__ANY__", "__ANY__"])
-    result = match_rule_target_condition_values(current, condition, tokenized_target=True)
+    result = match_rule_target_condition_values(current, condition)
     assert result.to_list() == [True, True]
 
 
 def test_match_tokenized_na_matches_only_na() -> None:
     current = _s([None, "a", None])
     condition = _s([None, None, "a"])
-    result = match_rule_target_condition_values(current, condition, tokenized_target=True)
+    result = match_rule_target_condition_values(current, condition)
     # NA<->NA True; NA-condition vs present current False; present-condition vs NA current False.
     assert result.to_list() == [True, False, False]
 
@@ -123,31 +123,63 @@ def test_match_tokenized_na_matches_only_na() -> None:
 def test_match_tokenized_empty_string_current_never_matches() -> None:
     # The token lookup is keyed by the current value and treats the empty key as absent
     # (`list[[""]]` -> NULL); the port reproduces that quirk.
-    result = match_rule_target_condition_values(_s([""]), _s([""]), tokenized_target=True)
+    result = match_rule_target_condition_values(_s([""]), _s([""]))
     assert result.to_list() == [False]
 
 
 def test_match_tokenized_ignores_blank_and_internal_empty_tokens() -> None:
-    result = match_rule_target_condition_values(_s(["a; ; b"]), _s(["b"]), tokenized_target=True)
+    result = match_rule_target_condition_values(_s(["a; ; b"]), _s(["b"]))
     assert result.to_list() == [True]
 
 
 def test_match_tokenized_custom_wildcard_token() -> None:
-    result = match_rule_target_condition_values(
-        _s(["x"]), _s(["*"]), tokenized_target=True, wildcard_token="*"
-    )
+    result = match_rule_target_condition_values(_s(["x"]), _s(["*"]), wildcard_token="*")
     assert result.to_list() == [True]
 
 
-# --------------------------------------------------------------------------- plain matching
+# ------------------------------------------------------- exact-match directive (#EXACT#)
 
 
-def test_match_plain_compares_normalized_full_string() -> None:
+def test_match_compares_normalized_full_string() -> None:
     current = _s(["Café", "a; b; c", "a; b"])
     condition = _s(["cafe", "a; b; c", "b; a"])
-    result = match_rule_target_condition_values(current, condition, tokenized_target=False)
+    result = match_rule_target_condition_values(current, condition)
     # accents normalize equal; full string equal; reordered tokens differ.
     assert result.to_list() == [True, True, False]
+
+
+def test_tokenization_applies_to_every_column() -> None:
+    # A single token matches a multi-token current value -- no per-column opt-in any more.
+    current = _s(["africa; america; asia", "north; south", "spain"])
+    condition = _s(["africa", "south", "spain"])
+    assert match_rule_target_condition_values(current, condition).to_list() == [True, True, True]
+
+
+def test_exact_directive_suppresses_token_membership() -> None:
+    current = _s(["africa; america", "africa; america"])
+    condition = _s(["africa", "#EXACT#africa"])
+    # Without the directive a token matches; with it, only the full string would.
+    assert match_rule_target_condition_values(current, condition).to_list() == [True, False]
+
+
+def test_exact_directive_still_matches_the_full_string() -> None:
+    current = _s(["africa; america"])
+    condition = _s(["#EXACT#africa; america"])
+    assert match_rule_target_condition_values(current, condition).to_list() == [True]
+
+
+def test_exact_directive_makes_the_wildcard_literal() -> None:
+    current = _s(["__ANY__", "anything"])
+    condition = _s(["#EXACT#__ANY__", "#EXACT#__ANY__"])
+    # The directive opts out of wildcard interpretation, so __ANY__ is matched literally.
+    assert match_rule_target_condition_values(current, condition).to_list() == [True, False]
+
+
+def test_resolve_exact_match_directive_strips_marker_and_flags() -> None:
+    assert resolve_exact_match_directive("#EXACT#africa") == ("africa", True)
+    assert resolve_exact_match_directive("  #EXACT# africa ") == ("africa", True)
+    assert resolve_exact_match_directive("africa") == ("africa", False)
+    assert resolve_exact_match_directive(None) == (None, False)
 
 
 def test_match_plain_na_matches_na() -> None:
@@ -155,14 +187,15 @@ def test_match_plain_na_matches_na() -> None:
     assert result.to_list() == [True, False]
 
 
-def test_match_plain_wildcard_is_literal() -> None:
-    # Outside tokenized mode the wildcard token has no special meaning.
+def test_wildcard_now_applies_to_every_column() -> None:
+    # Tokenized matching is unconditional, so the wildcard is honoured everywhere. Use the
+    # #EXACT# directive (covered above) when a literal "__ANY__" is wanted instead.
     result = match_rule_target_condition_values(_s(["x"]), _s(["__ANY__"]))
-    assert result.to_list() == [False]
+    assert result.to_list() == [True]
 
 
 def test_match_empty_inputs_return_empty_boolean_series() -> None:
-    result = match_rule_target_condition_values(_s([]), _s([]), tokenized_target=True)
+    result = match_rule_target_condition_values(_s([]), _s([]))
     assert result.to_list() == []
     assert result.dtype == pl.Boolean
 
@@ -280,10 +313,6 @@ def test_resolve_target_update_strategy_rejects_unsupported_strategy() -> None:
 
 def test_resolve_last_rule_wins_unique_row_fast_path_enabled() -> None:
     assert resolve_last_rule_wins_unique_row_fast_path_enabled() is True
-
-
-def test_resolve_tokenized_target_condition_columns_sorted_unique() -> None:
-    assert resolve_tokenized_target_condition_columns() == ("footnotes", "notes")
 
 
 def test_empty_last_rule_wins_overwrite_events_df_schema() -> None:

@@ -13,7 +13,7 @@ Two responsibilities:
     :func:`decode_target_rule_value`).
 
 * **Strategy configuration** — resolve, per target column, whether updates use
-  ``last_rule_wins`` or ``concatenate``, plus the tokenized-target column set and the
+  ``last_rule_wins`` or ``concatenate``, plus the
   match-key normalization policy.
 
 Match-key normalization reuses :func:`whep_digitize.setup.helpers.strings.normalize_string`
@@ -278,24 +278,3 @@ def resolve_last_rule_wins_unique_row_fast_path_enabled() -> bool:
         The fast-path toggle.
     """
     return bool(_CONSTANTS.postpro.target_update_fast_path.last_rule_wins_unique_row_id)
-
-
-def resolve_tokenized_target_condition_columns(
-    strategy_config: TargetUpdateStrategyConfig | None = None,
-) -> tuple[str, ...]:
-    """Return the target columns whose condition matching treats ``;`` values as token sets.
-
-    Tokenized matching is enabled for every ``concatenate``-strategy column and always for
-    ``footnotes``. The result is unique and sorted by code point, so it is order-stable.
-
-    Args:
-        strategy_config: Strategy configuration (defaults to the centralized config).
-
-    Returns:
-        The sorted, unique tuple of tokenized target-condition columns.
-    """
-    config = strategy_config if strategy_config is not None else get_target_update_strategy_config()
-    concatenate_columns = [
-        column for column, strategy in config.by_column.items() if strategy == "concatenate"
-    ]
-    return tuple(sorted({*concatenate_columns, "footnotes"}))

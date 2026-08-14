@@ -8,7 +8,7 @@ no frame is ever mutated in place.
 Modules:
 
 * ``matching_strategy.py`` — match-key encoding (missing -> ``na_match_key``), strategy config,
-  tokenized target columns (``footnotes``, ``notes``).
+  the ``#EXACT#`` exact-match directive.
 * ``matching_values.py`` — tokenized ``;``-membership match, order-preserving concat merge,
   elementwise change count (drives multi-pass convergence).
 * ``target_apply.py`` — ``last_rule_wins`` (stable-sort + group-last) with overwrite-event
