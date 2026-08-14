@@ -5,7 +5,7 @@ Three pure functions:
 * :func:`match_rule_target_condition_values` — decide, element-wise, whether each rule
   target-condition value matches the current dataset value. For tokenized columns the current
   value is split on ``;`` and the condition matches by **token membership** (or a full-string
-  match), with an explicit wildcard token (``__ANY__``). A null condition matches a null current
+  match), with an explicit wildcard token (``#ANY#``). A null condition matches a null current
   value, and only that.
 * :func:`concatenate_existing_and_incoming_values` — order-preserving, existing-first
   deduplicating merge of ``;``-delimited token sets (the ``concatenate`` strategy).
@@ -80,6 +80,11 @@ def resolve_exact_match_directive(
     ``;``-token membership and out of wildcard interpretation, so it matches the full string
     only. The marker is a rule-authoring directive, not data, so it is stripped before keying.
 
+    Rule files are hand-authored, so the marker is matched **case-insensitively** and any
+    whitespace around it is ignored: ``#EXACT#africa``, ``#exact# africa`` and
+    ``  #Exact#   africa  `` are equivalent. Getting the case wrong would otherwise leave the
+    marker in the value and silently stop the rule from ever matching.
+
     Args:
         condition: The raw target-condition value.
         exact_token: The directive marker.
@@ -90,7 +95,7 @@ def resolve_exact_match_directive(
     if condition is None:
         return None, False
     stripped = condition.strip(_TRIM_CHARS)
-    if not stripped.startswith(exact_token):
+    if stripped[: len(exact_token)].casefold() != exact_token.casefold():
         return condition, False
     return stripped[len(exact_token) :].strip(_TRIM_CHARS), True
 
@@ -112,7 +117,7 @@ def match_rule_target_condition_values(
 
     Prefixing a condition with ``exact_token`` (``#EXACT#``) forces full-string matching for
     that rule: no token membership, and no wildcard interpretation — which is how a literal
-    ``__ANY__`` is matched. See ``docs/pipeline-behaviors.md``.
+    ``#ANY#`` is matched. See ``docs/pipeline-behaviors.md``.
 
     Args:
         current_values: Current dataset target values.
@@ -159,7 +164,9 @@ def match_rule_target_condition_values(
         return (
             not exact_flags[index]
             and condition is not None
-            and condition.strip(_TRIM_CHARS) == wildcard_token
+            # Case-insensitive for the same reason as the exact marker: rule files are typed by
+            # hand, and a case slip would silently turn the wildcard into a literal.
+            and condition.strip(_TRIM_CHARS).casefold() == wildcard_token.casefold()
         )
 
     # A null current value matches only a null condition. An empty-string current value never

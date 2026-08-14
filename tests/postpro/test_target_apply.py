@@ -179,7 +179,7 @@ def test_concatenate_requires_string_target() -> None:
 
 
 def test_wildcard_removed_when_value_already_present() -> None:
-    updates = _updates(row_id=["1"], value_target_result=["a"], value_target_raw=["__ANY__"])
+    updates = _updates(row_id=["1"], value_target_result=["a"], value_target_raw=["#ANY#"])
     result = _apply(_ds("notes", ["a; b"]), updates, "notes")
     # candidate "a" already a token of "a; b" -> removed -> nothing applied.
     assert result.applied is False
@@ -187,7 +187,7 @@ def test_wildcard_removed_when_value_already_present() -> None:
 
 
 def test_wildcard_kept_when_value_absent() -> None:
-    updates = _updates(row_id=["1"], value_target_result=["z"], value_target_raw=["__ANY__"])
+    updates = _updates(row_id=["1"], value_target_result=["z"], value_target_raw=["#ANY#"])
     result = _apply(_ds("notes", ["a; b"]), updates, "notes")
     assert result.dataset.get_column("notes").to_list() == ["a; b; z"]
 

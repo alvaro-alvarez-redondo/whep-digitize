@@ -144,7 +144,7 @@ def test_audit_groups_and_counts_affected_rows() -> None:
 
 def test_concatenate_target_column() -> None:
     dataset = _dataset(commodity=["rice"], notes=["a; b"])
-    group = _group([("commodity", "rice", None, "notes", "__ANY__", "b; c")], present=[False])
+    group = _group([("commodity", "rice", None, "notes", "#ANY#", "b; c")], present=[False])
     result = _apply(dataset, group_rules=group)
     # notes uses the concatenate strategy: existing "a; b" merged with "b; c" -> "a; b; c".
     assert result.data.get_column("notes").to_list() == ["a; b; c"]

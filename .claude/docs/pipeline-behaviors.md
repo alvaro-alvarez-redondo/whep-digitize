@@ -80,9 +80,13 @@ Two deliberate behaviors — **do not "fix" either**:
   There is no per-column opt-in — `africa` matches a `continent` of `africa; america; asia`.
 - **`#EXACT#` opts a single rule out.** Prefixing a target-condition value with `#EXACT#`
   (constant `postpro.rule_match_exact_token`) forces full-string matching for that rule: no token
-  membership, and no wildcard interpretation — which is how a literal `__ANY__` is matched. The
+  membership, and no wildcard interpretation — which is how a literal `#ANY#` is matched. The
   marker is a rule-authoring directive, not data, and is stripped before keying.
-- `__ANY__` is the explicit wildcard, honoured on **every** column (previously only the tokenized
+- **Both markers are case-insensitive and whitespace-tolerant**, because rule files are typed by
+  hand and a case slip would otherwise leave the marker in the value and silently stop the rule
+  from ever matching. `#EXACT#africa`, `#EXACT# africa` and `  #exact#   africa  ` are all
+  equivalent; likewise `#ANY#` / `#any#`.
+- `#ANY#` is the explicit wildcard, honoured on **every** column (previously only the tokenized
   ones), unless suppressed by `#EXACT#`.
 - An **empty-string current value never matches** under tokenized matching — the token lookup
   cannot key it. Under `#EXACT#`, which is pure full-string equality, an empty condition *does*

@@ -17,7 +17,7 @@ Every scatter is functional: a join-back on a synthesized row index plus
 Deliberate behaviors (do not "fix" these):
 
 * The explicit wildcard token is honoured on every column; ``#EXACT#`` suppresses it so a
-  literal ``__ANY__`` can be matched.
+  literal ``#ANY#`` can be matched.
 * Wildcard candidates whose value is already present in the current cell are dropped.
 * ``candidate_values`` renders a missing candidate as the literal string ``"NA"``.
 """
@@ -279,7 +279,8 @@ def _apply_condition_match(
     if conditioned.height > 0:
         condition_series = conditioned.get_column(condition_column)
         is_wildcard = condition_series.is_not_null() & (
-            condition_series.str.strip_chars(_TRIM_CHARS) == _WILDCARD_TOKEN
+            condition_series.str.strip_chars(_TRIM_CHARS).str.to_lowercase()
+            == _WILDCARD_TOKEN.lower()
         )
         if is_wildcard.any():
             wildcard_current = dataset.get_column(target_column).gather(
