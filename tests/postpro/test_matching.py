@@ -27,9 +27,9 @@ from whep_digitize.postpro.rule_engine.matching_values import (
     concatenate_existing_and_incoming_values,
     count_elementwise_value_changes,
     match_rule_target_condition_values,
-    resolve_exact_match_directive,
 )
 from whep_digitize.setup.errors import ConfigurationError, ValidationError
+from whep_digitize.setup.helpers.strings import resolve_exact_match_directive
 
 _NA_MATCH_KEY = "..NA_MATCH_KEY.."
 _NA_PLACEHOLDER = "..NA_INTERNAL.."
