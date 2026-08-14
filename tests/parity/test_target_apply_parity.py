@@ -5,7 +5,7 @@ scenarios and asserts the mutated target column, ``applied`` flag, ``changed_val
 overwrite-events table all equal the expected output:
 
 * **A** — ``last_rule_wins`` fast path (unique rows) with condition match / no-match, the
-  ``__ANY__`` wildcard (honoured on every column now that matching is tokenized throughout), and
+  ``#ANY#`` wildcard (honoured on every column now that matching is tokenized throughout), and
   a transliteration match.
 * **B** — ``last_rule_wins`` slow path: order-column stable sort, group-last, overwrite events
   only where candidates differ, a null candidate pasted as ``"NA"``, and a null selected value.

@@ -107,7 +107,7 @@ def test_match_tokenized_token_membership_and_full_string() -> None:
 
 def test_match_tokenized_wildcard_matches_anything_including_null_current() -> None:
     current = _s(["anything", None])
-    condition = _s(["__ANY__", "__ANY__"])
+    condition = _s(["#ANY#", "#ANY#"])
     result = match_rule_target_condition_values(current, condition)
     assert result.to_list() == [True, True]
 
@@ -169,9 +169,9 @@ def test_exact_directive_still_matches_the_full_string() -> None:
 
 
 def test_exact_directive_makes_the_wildcard_literal() -> None:
-    current = _s(["__ANY__", "anything"])
-    condition = _s(["#EXACT#__ANY__", "#EXACT#__ANY__"])
-    # The directive opts out of wildcard interpretation, so __ANY__ is matched literally.
+    current = _s(["#ANY#", "anything"])
+    condition = _s(["#EXACT##ANY#", "#EXACT##ANY#"])
+    # The directive opts out of wildcard interpretation, so #ANY# is matched literally.
     assert match_rule_target_condition_values(current, condition).to_list() == [True, False]
 
 
@@ -182,6 +182,27 @@ def test_resolve_exact_match_directive_strips_marker_and_flags() -> None:
     assert resolve_exact_match_directive(None) == (None, False)
 
 
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "#EXACT#africa; america",
+        "#EXACT# africa; america",  # a space after the marker reads better in a rule file
+        "#EXACT#   africa; america",
+        "  #EXACT# africa; america  ",
+        "#exact# africa; america",  # hand-authored rule files must not depend on case
+        "#Exact#africa; america",
+    ],
+)
+def test_exact_directive_ignores_case_and_surrounding_whitespace(condition: str) -> None:
+    result = match_rule_target_condition_values(_s(["africa; america"]), _s([condition]))
+    assert result.to_list() == [True]
+
+
+@pytest.mark.parametrize("wildcard", ["#ANY#", "#any#", "#Any#", "  #ANY#  "])
+def test_wildcard_ignores_case_and_surrounding_whitespace(wildcard: str) -> None:
+    assert match_rule_target_condition_values(_s(["anything"]), _s([wildcard])).to_list() == [True]
+
+
 def test_match_plain_na_matches_na() -> None:
     result = match_rule_target_condition_values(_s([None, None]), _s([None, "a"]))
     assert result.to_list() == [True, False]
@@ -189,8 +210,8 @@ def test_match_plain_na_matches_na() -> None:
 
 def test_wildcard_now_applies_to_every_column() -> None:
     # Tokenized matching is unconditional, so the wildcard is honoured everywhere. Use the
-    # #EXACT# directive (covered above) when a literal "__ANY__" is wanted instead.
-    result = match_rule_target_condition_values(_s(["x"]), _s(["__ANY__"]))
+    # #EXACT# directive (covered above) when a literal "#ANY#" is wanted instead.
+    result = match_rule_target_condition_values(_s(["x"]), _s(["#ANY#"]))
     assert result.to_list() == [True]
 
 

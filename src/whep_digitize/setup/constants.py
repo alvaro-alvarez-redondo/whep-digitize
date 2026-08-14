@@ -322,10 +322,10 @@ class Postpro:
     harmonize_audit_file_name: str = "harmonize_audit.xlsx"
     standardize_audit_file_name: str = "standardize_audit.xlsx"
     last_rule_wins_overwrites_file_name: str = "postpro_last_rule_wins_overwrites.xlsx"
-    rule_match_wildcard_token: str = "__ANY__"
+    rule_match_wildcard_token: str = "#ANY#"
     # Rule-authoring directive: prefixing a target-condition value with this marker forces
     # full-string matching for that rule, opting out of `;`-token membership (and out of
-    # wildcard interpretation, so a literal "__ANY__" can be matched). Stripped before keying.
+    # wildcard interpretation, so a literal "#ANY#" can be matched). Stripped before keying.
     rule_match_exact_token: str = "#EXACT#"
     # The 6 canonical rule columns; value_source is optional.
     canonical_rule_columns: tuple[str, ...] = (

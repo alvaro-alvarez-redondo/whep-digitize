@@ -5,7 +5,7 @@
 
   "A_row_id": ["1", "2", "3", "4", "5"],
   "A_value": ["KILO", "TON", "KILO2", "XX", "COFFEE"],
-  "A_cond": [null, "t", "wheat", "__ANY__", "cafe"],
+  "A_cond": [null, "t", "wheat", "#ANY#", "cafe"],
 
   "B_row_id": ["1", "1", "2", "2", "3", "4", "4"],
   "B_value": ["A", "B", "C", "C", "D", "P", null],
@@ -18,5 +18,5 @@
 
   "D_row_id": ["1", "2"],
   "D_value": ["a", "z"],
-  "D_cond": ["__ANY__", "__ANY__"]
+  "D_cond": ["#ANY#", "#ANY#"]
 }
