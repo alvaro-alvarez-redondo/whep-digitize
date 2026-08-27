@@ -20,12 +20,6 @@ from whep_digitize.setup.helpers.time_format import format_elapsed_time
 from whep_digitize.setup.options import RuntimeOptions
 from whep_digitize.setup.runner import run_setup_pipeline
 
-# The progress bars draw their left "|" edge at column 30 (a 1-char spinner + space +
-# "running stage: " + a 12-wide label + space). The alert's "OK " prefix is 3 columns, so
-# padding "Pipeline completed in <elapsed>" to 27 lands the summary "|" directly under those
-# edges. Kept in sync by hand with helpers.progress (_STAGE_WORD length + _LABEL_WIDTH).
-_SEPARATOR_COLUMN = 27
-
 
 def _multiplication_sign() -> str:
     """Return the multiplication sign where the stdout encoding allows, else ASCII ``x``."""
@@ -41,9 +35,8 @@ def _multiplication_sign() -> str:
 def format_completion_summary(elapsed: str, harmonized_rows: int, harmonized_cols: int) -> str:
     """Build the coloured, aligned pipeline-completion summary (for ``alert_success``).
 
-    The ``|`` separator is padded to line up under the progress bars' left edge, the counts are
-    bold bright-yellow, and the multiplication sign is used where the console encoding allows it.
-    Shared by :func:`run_pipeline` and the package CLI so both match.
+    The counts are bold bright-yellow and the multiplication sign is used where the console
+    encoding allows it. Shared by :func:`run_pipeline` and the package CLI so both match.
 
     Args:
         elapsed: The formatted elapsed-time string.
@@ -53,10 +46,8 @@ def format_completion_summary(elapsed: str, harmonized_rows: int, harmonized_col
     Returns:
         Rich-markup text without the ``OK`` prefix (``alert_success`` adds it).
     """
-    prefix = f"Pipeline completed in {elapsed}"
-    pad = " " * max(1, _SEPARATOR_COLUMN - len(prefix))
     return (
-        f"Pipeline completed in [bold bright_yellow]{elapsed}[/]{pad}[dim]|[/] "
+        f"Pipeline completed in [bold bright_yellow]{elapsed}[/]  [dim]|[/]  "
         f"[bold bright_yellow]{harmonized_rows}[/] harmonized rows {_multiplication_sign()} "
         f"[bold bright_yellow]{harmonized_cols}[/] cols"
     )
@@ -84,8 +75,8 @@ def run_pipeline(
     start = time.perf_counter()
     effective_options = options if options is not None else RuntimeOptions()
 
-    # Each stage's progress bar carries its own "running stage: <label>" line, so no separate
-    # announcement is printed here.
+    # Each stage's progress bar is labelled with the stage name, so no separate announcement
+    # is printed here.
     config = run_setup_pipeline(dataset_name=dataset_name, root=root, options=effective_options)
     ingest_result = run_ingest_pipeline(config, effective_options)
     postpro_result = run_postpro_pipeline(

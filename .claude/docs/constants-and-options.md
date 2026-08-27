@@ -33,7 +33,7 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `time_units` | `seconds_per_minute`, `seconds_per_hour` |
 | `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `last_rule_wins`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
 | `output_config` | `lists_to_export`, `output_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"`, `error_highlight` style |
-| `progress` | stage labels + per-step messages (presentation left to `rich`) |
+| `progress` | per-step messages + the stage bar's geometry (`bar_width`, `label_width`, `eta_width`, item bounds), palette (`stage_styles`, `finished_style`, `track_style`) and refresh rates |
 | `fixed_export_columns` / `audit_columns` | export/audit column tuples |
 
 ### Notes

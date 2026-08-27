@@ -378,20 +378,47 @@ class OutputConfig:
 
 @dataclass(frozen=True, slots=True)
 class Progress:
-    """User-facing progress text. Presentation (colors/handlers) is left to ``rich``."""
+    """User-facing progress text plus the stage bar's layout and palette.
 
-    update_interval: float = 0.2
-    pulse_template: str = "{stage} pass {index}"
-    stage_labels: Mapping[str, str] = field(
+    Geometry is fixed-width so the four stage bars line up under one another, and the
+    current-item column is clamped between ``message_min_width`` and ``message_max_width``
+    so a long workbook name never wraps the line (a wrapped line breaks the in-place redraw).
+    """
+
+    # Redraw rate of the live display. ~10 fps animates the spinner and the elapsed timer
+    # smoothly without flooding a slow console; the legacy rate is lower because a Windows
+    # console without virtual-terminal support is repainted through the win32 API per cell.
+    refresh_per_second: float = 10.0
+    legacy_refresh_per_second: float = 4.0
+    # Seconds per spinner frame. Slightly slower than the redraw rate, so the spinner
+    # turns steadily instead of blurring.
+    spinner_interval: float = 0.12
+    bar_width: int = 22
+    bar_min_width: int = 10
+    label_width: int = 8
+    # "eta M:SS" at its widest, so the item column beside it never shifts as the estimate
+    # gains or loses a digit.
+    eta_width: int = 10
+    # Combined width of the columns that are not sized here -- spinner, percentage, elapsed
+    # clock -- plus the single space rich puts between every pair of columns.
+    fixed_column_width: int = 20
+    item_min_width: int = 12
+    item_max_width: int = 34
+    # Per-stage accent (rich style names, so they degrade to the console's palette -- an
+    # 8/16-colour cmd.exe included). Unknown labels fall back to `default_stage_style`.
+    stage_styles: Mapping[str, str] = field(
         default_factory=lambda: MappingProxyType(
             {
-                "setup": "setup",
-                "ingest": "ingest",
-                "postpro": "postpro",
-                "export": "export",
+                "setup": "bright_blue",
+                "ingest": "bright_cyan",
+                "postpro": "bright_magenta",
+                "export": "bright_yellow",
             }
         )
     )
+    default_stage_style: str = "bright_cyan"
+    finished_style: str = "bright_green"
+    track_style: str = "dim"
     messages: Mapping[str, Mapping[str, str]] = field(
         default_factory=lambda: MappingProxyType(
             {

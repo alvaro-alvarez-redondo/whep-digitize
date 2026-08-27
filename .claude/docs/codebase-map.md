@@ -33,7 +33,7 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 | `tokens.py` | `extract_yearbook(parts)`, `extract_commodity(parts, start_index=None)` |
 | `assertions.py` | `require(condition, message)`, `require_columns(...)` |
 | `console.py` | `alert_info/success/warning/error`, `get_console` (rich; ASCII-safe) |
-| `progress.py` | `stage_progress(label, total, *, enabled)` ctx mgr → `StageProgress` (`step`/`pulse`); gated `rich.progress` bars |
+| `progress.py` | `stage_progress(label, total, *, enabled)` ctx mgr → `StageProgress` (`step`/`pulse`); one gated `rich.progress` live bar per stage, with the CP437 block-glyph `_StageBarColumn` + `_EtaColumn` and cmd.exe-safe glyph gating |
 
 ---
 
