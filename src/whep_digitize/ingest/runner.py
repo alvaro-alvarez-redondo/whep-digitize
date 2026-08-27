@@ -1,4 +1,4 @@
-"""Stage 1 runner — the import stage entry point.
+"""Stage 1 runner — the ingest stage entry point.
 
 Discovers the raw workbooks, reads + transforms them (fused, per batch), drops null-value
 rows, validates every document group, consolidates the validated long tables, sorts to the
@@ -32,11 +32,11 @@ from whep_digitize.setup.helpers.progress import stage_progress
 from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 from whep_digitize.setup.options import RuntimeOptions
 
-_MESSAGES = get_pipeline_constants().progress.messages["import"]
-_CHECKPOINT_NAME = get_pipeline_constants().checkpoints.import_stage_name
+_MESSAGES = get_pipeline_constants().progress.messages["ingest"]
+_CHECKPOINT_NAME = get_pipeline_constants().checkpoints.ingest_stage_name
 
 
-def run_import_pipeline(
+def run_ingest_pipeline(
     config: Config,
     options: RuntimeOptions | None = None,
     current_year: int | None = None,
@@ -56,7 +56,7 @@ def run_import_pipeline(
         as-is and no work is done.
 
     Raises:
-        ValidationError: If the import folder contains no workbooks.
+        ValidationError: If the input folder contains no workbooks.
     """
     resolved_options = options or RuntimeOptions()
 
@@ -78,7 +78,7 @@ def run_import_pipeline(
     # post-read phases advance it the rest of the way. Total advances = 2*nfiles + 4.
     read_transform_ticks = 2 * file_list.height
     with stage_progress(
-        "import", total=read_transform_ticks + 4, enabled=resolved_options.progress_enabled
+        "ingest", total=read_transform_ticks + 4, enabled=resolved_options.progress_enabled
     ) as progress:
         fused = read_transform_pipeline_files(
             file_list, config, resolved_options, progressor=progress.step

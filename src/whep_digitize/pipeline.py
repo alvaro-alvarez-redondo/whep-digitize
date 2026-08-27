@@ -13,7 +13,7 @@ from pathlib import Path
 
 from whep_digitize.contracts import OutputResult
 from whep_digitize.export.runner import run_export_pipeline
-from whep_digitize.ingest.runner import run_import_pipeline
+from whep_digitize.ingest.runner import run_ingest_pipeline
 from whep_digitize.postpro.runner import run_postpro_pipeline
 from whep_digitize.setup.helpers.console import alert_success
 from whep_digitize.setup.helpers.time_format import format_elapsed_time
@@ -87,15 +87,15 @@ def run_pipeline(
     # Each stage's progress bar carries its own "running stage: <label>" line, so no separate
     # announcement is printed here.
     config = run_setup_pipeline(dataset_name=dataset_name, root=root, options=effective_options)
-    import_result = run_import_pipeline(config, effective_options)
+    ingest_result = run_ingest_pipeline(config, effective_options)
     postpro_result = run_postpro_pipeline(
-        import_result.data,
+        ingest_result.data,
         config,
         dataset_name=config.dataset_name,
         options=effective_options,
     )
     export_result = run_export_pipeline(
-        config, postpro_result, raw=import_result.data, options=effective_options
+        config, postpro_result, raw=ingest_result.data, options=effective_options
     )
 
     elapsed = format_elapsed_time(time.perf_counter() - start)

@@ -214,9 +214,9 @@ def test_extract_commodity_too_few_parts() -> None:
 
 def test_checkpoint_round_trip(config: Config) -> None:
     frame = pl.DataFrame({"a": [1, 2], "b": ["x", "y"]})
-    path = checkpoints.save_checkpoint("import_pipeline", frame, config, enabled=True)
+    path = checkpoints.save_checkpoint("ingest_pipeline", frame, config, enabled=True)
     assert path is not None
-    loaded = checkpoints.load_checkpoint("import_pipeline", config, enabled=True)
+    loaded = checkpoints.load_checkpoint("ingest_pipeline", config, enabled=True)
     assert isinstance(loaded, pl.DataFrame)
     assert_series_equal(loaded["a"], frame["a"])
 

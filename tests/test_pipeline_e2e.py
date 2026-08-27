@@ -51,7 +51,7 @@ def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
 
     result = run_pipeline(
         root=tmp_path,
-        options=RuntimeOptions(progress_enabled=False, import_parallel_workers=1),
+        options=RuntimeOptions(progress_enabled=False, ingest_parallel_workers=1),
     )
 
     assert isinstance(result, OutputResult)
@@ -77,7 +77,7 @@ def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
 
 def test_run_pipeline_e2e_deterministic(tmp_path: Path) -> None:
     """Same inputs -> byte-identical processed TSV (the pipeline's determinism guarantee)."""
-    options = RuntimeOptions(progress_enabled=False, import_parallel_workers=1)
+    options = RuntimeOptions(progress_enabled=False, ingest_parallel_workers=1)
 
     first_root = tmp_path / "run_a"
     first_root.mkdir()

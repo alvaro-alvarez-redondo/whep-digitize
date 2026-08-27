@@ -18,13 +18,13 @@ class RuntimeOptions(BaseSettings):
     """Runtime toggles for a pipeline run.
 
     Attributes:
-        drop_na_values: Drop rows whose ``value`` is null during import
+        drop_na_values: Drop rows whose ``value`` is null during ingest
             (default ``True``).
         progress_enabled: Show the ``rich`` progress display
             (default ``True``).
         checkpointing_enabled: Persist per-stage checkpoints for crash recovery
             (default ``False``).
-        import_parallel_workers: Worker count for parallel import; ``"auto"`` resolves
+        ingest_parallel_workers: Worker count for parallel ingest; ``"auto"`` resolves
             to ``min(auto_max, cpu_count - 1)`` and ``1`` forces sequential.
         export_parallel_workers: Worker count for the per-column unique-list workbook writes;
             ``1`` (default) forces sequential, ``"auto"`` / ``N > 1`` write across a
@@ -41,5 +41,5 @@ class RuntimeOptions(BaseSettings):
     drop_na_values: bool = True
     progress_enabled: bool = True
     checkpointing_enabled: bool = False
-    import_parallel_workers: int | Literal["auto"] = "auto"
+    ingest_parallel_workers: int | Literal["auto"] = "auto"
     export_parallel_workers: int | Literal["auto"] = 1

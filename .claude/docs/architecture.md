@@ -52,7 +52,7 @@ notes, footnotes, yearbook, document
 Data is **string-typed through import** (every column read as text). The one downstream
 exception: `postpro.audit` parses `value` to `Float64` (polars `cast(Float64, strict=False)`);
 from the clean layer onward `value` is a float while every other column stays string.
-Null-`value` rows are dropped by default (`RuntimeOptions.drop_na_values`) during import, before
+Null-`value` rows are dropped by default (`RuntimeOptions.drop_na_values`) during ingest, before
 that coercion.
 
 ## Datasets — the two that matter (do not conflate)
@@ -81,7 +81,7 @@ find data/input/raw -name '*.xlsx' | wc -l
 - `run_pipeline(*, show_view=False, dataset_name=None, root=None, options=None) -> OutputResult`
   — the top-level orchestrator (`whep_digitize/pipeline.py`).
 - `setup.runner.run_setup_pipeline(dataset_name=None, root=None) -> Config`.
-- `ingest.runner.run_import_pipeline(config, options=None) -> InputResult`.
+- `ingest.runner.run_ingest_pipeline(config, options=None) -> InputResult`.
 - `postpro.runner.run_postpro_pipeline(raw, config, dataset_name=None, options=None) -> PostproResult`.
 - `export.runner.run_export_pipeline(config, result, *, overwrite=True) -> OutputResult`.
 

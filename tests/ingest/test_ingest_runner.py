@@ -1,4 +1,4 @@
-"""Tests for the ingest stage runner (``ingest.runner.run_import_pipeline``).
+"""Tests for the ingest stage runner (``ingest.runner.run_ingest_pipeline``).
 
 Functional coverage: the wired pipeline returns an :class:`InputResult` on the real corpus
 (no more ``StageNotImplementedError``), the long frame is canonically sorted, an empty
@@ -14,7 +14,7 @@ import polars as pl
 import pytest
 
 from whep_digitize.contracts import InputDiagnostics, InputResult
-from whep_digitize.ingest.runner import run_import_pipeline
+from whep_digitize.ingest.runner import run_ingest_pipeline
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
@@ -22,11 +22,11 @@ from whep_digitize.setup.helpers.checkpoints import checkpoint_path, save_checkp
 from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 from whep_digitize.setup.options import RuntimeOptions
 
-_CHECKPOINT_NAME = get_pipeline_constants().checkpoints.import_stage_name
+_CHECKPOINT_NAME = get_pipeline_constants().checkpoints.ingest_stage_name
 
 
 def test_run_import_pipeline_corpus(corpus_config: Config) -> None:
-    result = run_import_pipeline(corpus_config, current_year=2025)
+    result = run_ingest_pipeline(corpus_config, current_year=2025)
     assert isinstance(result, InputResult)
     assert result.data.height > 0
     assert result.wide_raw.height > 0
@@ -38,7 +38,7 @@ def test_run_import_pipeline_corpus(corpus_config: Config) -> None:
 
 
 def test_run_import_pipeline_output_is_sorted(corpus_config: Config) -> None:
-    result = run_import_pipeline(corpus_config, current_year=2025)
+    result = run_ingest_pipeline(corpus_config, current_year=2025)
     # The result is already canonically sorted -> re-sorting is a no-op.
     assert sort_pipeline_stage_df(result.data).equals(result.data)
 
@@ -46,7 +46,7 @@ def test_run_import_pipeline_output_is_sorted(corpus_config: Config) -> None:
 def test_run_import_pipeline_no_files_aborts(config: Config) -> None:
     config.paths.data.input.raw.mkdir(parents=True, exist_ok=True)  # empty raw folder
     with pytest.raises(ValidationError, match="no excel files were found"):
-        run_import_pipeline(config)
+        run_ingest_pipeline(config)
 
 
 # ------------------------------------------------------------------------ checkpointing
@@ -59,15 +59,15 @@ def _import_checkpoint(config: Config) -> Path:
 
 def test_run_import_pipeline_checkpoint_round_trip(config: Config, corpus_config: Config) -> None:
     # `corpus_config` derives from `config`, so both share the temp project root (hence the same
-    # checkpoint dir) and differ only in the raw import folder.
+    # checkpoint dir) and differ only in the raw input folder.
     options = RuntimeOptions(checkpointing_enabled=True, progress_enabled=False)
-    first = run_import_pipeline(corpus_config, options, current_year=2025)
+    first = run_ingest_pipeline(corpus_config, options, current_year=2025)
     assert _import_checkpoint(corpus_config).exists()
 
     # An empty raw folder aborts, so returning `first` proves the restore short-circuited the
     # stage ahead of discovery.
     config.paths.data.input.raw.mkdir(parents=True, exist_ok=True)
-    restored = run_import_pipeline(config, options, current_year=2025)
+    restored = run_ingest_pipeline(config, options, current_year=2025)
     assert restored.data.equals(first.data)
     assert restored.wide_raw.equals(first.wide_raw)
     assert restored.diagnostics == first.diagnostics
@@ -75,7 +75,7 @@ def test_run_import_pipeline_checkpoint_round_trip(config: Config, corpus_config
 
 def test_run_import_pipeline_checkpointing_off_writes_nothing(corpus_config: Config) -> None:
     options = RuntimeOptions(checkpointing_enabled=False, progress_enabled=False)
-    run_import_pipeline(corpus_config, options, current_year=2025)
+    run_ingest_pipeline(corpus_config, options, current_year=2025)
     checkpoint = _import_checkpoint(corpus_config)
     assert not checkpoint.exists()
     assert not checkpoint.parent.exists()  # the .checkpoints dir is never created
@@ -92,4 +92,4 @@ def test_run_import_pipeline_checkpointing_off_reads_nothing(
     options = RuntimeOptions(checkpointing_enabled=False, progress_enabled=False)
     # The checkpoint is on disk but the flag is off: the stage runs and hits the empty folder.
     with pytest.raises(ValidationError, match="no excel files were found"):
-        run_import_pipeline(config, options)
+        run_ingest_pipeline(config, options)

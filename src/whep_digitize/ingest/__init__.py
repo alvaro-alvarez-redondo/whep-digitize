@@ -2,7 +2,7 @@
 
 Discovers ``.xlsx`` workbooks, reads every sheet as text, reshapes wide->long by unpivoting
 year columns, enriches with metadata, validates, consolidates, and sorts. Public entry
-point: :func:`whep_digitize.ingest.runner.run_import_pipeline` -> :class:`InputResult`.
+point: :func:`whep_digitize.ingest.runner.run_ingest_pipeline` -> :class:`InputResult`.
 
 Named ``ingest`` for the *action*; the data it reads lives under ``data/input/``.
 

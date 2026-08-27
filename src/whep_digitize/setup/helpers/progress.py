@@ -2,7 +2,7 @@ r"""Stage progress bars — a self-drawn text bar with a live timer.
 
 Each stage runner wraps its work in :func:`stage_progress`, a context manager that yields a
 :class:`StageProgress`. ``step`` advances the bar by one unit; ``pulse`` updates the trailing
-message without advancing. The long import read advances the bar once per file (``step`` is
+message without advancing. The long ingest read advances the bar once per file (``step`` is
 its per-file callback), so the bar fills smoothly across the whole run.
 
 The bar is drawn directly to ``stdout`` as text and overwritten in place with a carriage
@@ -22,7 +22,7 @@ Everything degrades by capability so it is safe on any console:
   where the stdout encoding can represent them; otherwise ASCII fallbacks (``#`` fill, ``-``
   track, ``|`` edges, ``|/-\`` spinner, ``*`` done).
 * **Colour** — a bold, per-stage-coloured label, a running bar / spinner / percentage in the
-  stage's hue (setup blue, import cyan, postpro magenta, export yellow), a green finished bar +
+  stage's hue (setup blue, ingest cyan, postpro magenta, export yellow), a green finished bar +
   ``✓``, and a dim ``running stage:`` prefix / empty track / timer, emitted only where ANSI is
   reliably interpreted: a Jupyter kernel, a non-Windows TTY, or a Windows console once
   virtual-terminal processing is enabled best-effort via ``SetConsoleMode`` (the ``colorama``
@@ -70,7 +70,7 @@ _ANSI_GREEN = "\x1b[92m"  # bright green — the finished accent
 # Per-stage running accent (bright 16-colour palette; unknown labels fall back to cyan).
 _STAGE_COLORS = {
     "setup": "\x1b[94m",  # bright blue
-    "import": "\x1b[96m",  # bright cyan
+    "ingest": "\x1b[96m",  # bright cyan
     "postpro": "\x1b[95m",  # bright magenta
     "export": "\x1b[93m",  # bright yellow
 }
@@ -367,7 +367,7 @@ class StageProgress:
 
     ``step`` advances the bar; ``pulse`` only updates the message. Both are no-ops when
     disabled, so callers need no ``if enabled`` guards. ``step`` is also passed directly as the
-    import reader's per-file callback, so each file nudges the bar forward.
+    ingest reader's per-file callback, so each file nudges the bar forward.
     """
 
     __slots__ = ("_bar",)
@@ -392,7 +392,7 @@ def stage_progress(label: str, total: int, *, enabled: bool) -> Iterator[StagePr
     """Yield a :class:`StageProgress` for a stage of ``total`` advance units.
 
     Args:
-        label: The stage label shown on the bar (e.g. ``"import"``).
+        label: The stage label shown on the bar (e.g. ``"ingest"``).
         total: The number of ``step`` advances the stage will make (100% when all are made).
         enabled: When ``False``, no bar is drawn and the handle is inert.
 

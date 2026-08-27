@@ -1,6 +1,6 @@
 """Stage-level parity: ``run_postpro_pipeline`` output must match the frozen reference.
 
-Runs the full post-processing stage over the frozen import frame (``postpro_stage_input.json``,
+Runs the full post-processing stage over the frozen ingest frame (``postpro_stage_input.json``,
 the verified ``import_stage`` output) with the committed postpro-stage rule fixtures, and asserts
 every column of the clean / normalize / harmonize frames plus the clean & harmonize multi-pass
 diagnostics (``stop_reason`` / ``passes_executed`` / ``converged`` / ``matched_count``) all equal
@@ -59,7 +59,7 @@ def _gold(name: str) -> list[str | None]:
 
 @pytest.fixture(scope="module")
 def result(tmp_path_factory: pytest.TempPathFactory) -> PostproResult:
-    """Run the postpro stage over the frozen import frame + committed stage rule fixtures."""
+    """Run the postpro stage over the frozen ingest frame + committed stage rule fixtures."""
     assert _SPEC.fixture is not None
     columns = json.loads((FIXTURES_DIR / _SPEC.fixture).read_text(encoding="utf-8"))
     raw = pl.DataFrame(

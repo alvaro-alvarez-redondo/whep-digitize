@@ -40,7 +40,7 @@ def build_empty_file_metadata() -> pl.DataFrame:
     """Return a zero-row file-metadata frame with the canonical schema.
 
     The empty-result counterpart of :func:`extract_file_metadata`, returned by
-    :func:`~whep_digitize.ingest.file_io.discovery.discover_files` when an import folder
+    :func:`~whep_digitize.ingest.file_io.discovery.discover_files` when an input folder
     holds no workbooks.
 
     Returns:

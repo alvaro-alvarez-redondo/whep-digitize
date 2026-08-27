@@ -306,7 +306,7 @@ def test_resolve_import_workbook_batch_size(config: Config) -> None:
 
 def test_resolve_effective_workers_auto(config: Config) -> None:
     workers = resolve_import_effective_workers(
-        config, RuntimeOptions(import_parallel_workers="auto")
+        config, RuntimeOptions(ingest_parallel_workers="auto")
     )
     expected = max(1, min(8, (os.cpu_count() or 1) - 1))
     assert workers == expected
@@ -315,7 +315,7 @@ def test_resolve_effective_workers_auto(config: Config) -> None:
 @pytest.mark.parametrize(("setting", "expected"), [(4, 4), (1, 1), (0, 1), (-3, 1)])
 def test_resolve_effective_workers_explicit(config: Config, setting: int, expected: int) -> None:
     workers = resolve_import_effective_workers(
-        config, RuntimeOptions(import_parallel_workers=setting)
+        config, RuntimeOptions(ingest_parallel_workers=setting)
     )
     assert workers == expected
 

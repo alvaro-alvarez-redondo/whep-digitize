@@ -1,6 +1,6 @@
 """Stage 3 runner — export orchestration.
 
-Assembles the layer objects (``whep_data_raw`` from the import output plus the postpro
+Assembles the layer objects (``whep_data_raw`` from the ingest output plus the postpro
 ``clean`` / ``normalize`` / ``harmonize`` frames), ensures the export directories exist, writes
 the processed-data TSVs and the per-column unique-list workbooks, and returns the validated
 :class:`~whep_digitize.contracts.OutputResult`.

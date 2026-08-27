@@ -31,7 +31,7 @@ from whep_digitize.setup.errors import ContractError
 
 @dataclass(frozen=True, slots=True)
 class InputDiagnostics:
-    """Non-fatal diagnostics collected during import."""
+    """Non-fatal diagnostics collected during ingest."""
 
     reading_errors: tuple[str, ...] = ()
     validation_errors: tuple[str, ...] = ()

@@ -6,7 +6,7 @@ composite objects. Checkpointing is opt-in via ``RuntimeOptions.checkpointing_en
 (default off).
 
 The import stage is the only wired caller
-(:func:`whep_digitize.ingest.runner.run_import_pipeline`); postpro and export do not
+(:func:`whep_digitize.ingest.runner.run_ingest_pipeline`); postpro and export do not
 checkpoint. Save and restore each emit a console status line.
 """
 
@@ -33,7 +33,7 @@ def checkpoint_path(name: str, config: Config, *, is_frame: bool) -> Path:
     """Return the checkpoint file path for ``name`` (``.parquet`` or ``.pkl``).
 
     Args:
-        name: Checkpoint name (e.g. ``"import_pipeline"``).
+        name: Checkpoint name (e.g. ``"ingest_pipeline"``).
         config: The pipeline configuration.
         is_frame: Whether the payload is a :class:`polars.DataFrame`.
 

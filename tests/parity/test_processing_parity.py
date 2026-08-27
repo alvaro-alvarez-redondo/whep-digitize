@@ -70,7 +70,7 @@ def file_list() -> pl.DataFrame:
 @pytest.fixture(scope="module")
 def sequential(config: Config, file_list: pl.DataFrame) -> ReadTransformResult:
     return read_transform_pipeline_files(
-        file_list, config, options=RuntimeOptions(import_parallel_workers=1)
+        file_list, config, options=RuntimeOptions(ingest_parallel_workers=1)
     )
 
 
@@ -79,10 +79,10 @@ def parallel(config: Config, file_list: pl.DataFrame) -> ReadTransformResult:
     # One batch per file (batch_size=1) + several workers -> real ProcessPoolExecutor fan-out.
     small = dataclasses.replace(
         config,
-        performance=dataclasses.replace(config.performance, import_workbook_batch_size=1),
+        performance=dataclasses.replace(config.performance, ingest_workbook_batch_size=1),
     )
     return read_transform_pipeline_files(
-        file_list, small, options=RuntimeOptions(import_parallel_workers=4)
+        file_list, small, options=RuntimeOptions(ingest_parallel_workers=4)
     )
 
 

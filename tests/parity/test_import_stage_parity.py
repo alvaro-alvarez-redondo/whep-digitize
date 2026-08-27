@@ -1,4 +1,4 @@
-"""Stage-level parity: ``run_import_pipeline`` output must match the frozen reference exactly.
+"""Stage-level parity: ``run_ingest_pipeline`` output must match the frozen reference exactly.
 
 Runs the full ingest stage over the frozen corpus and asserts the consolidated, canonically
 sorted long frame (every column) and the reading / validation / consolidation diagnostics all
@@ -21,7 +21,7 @@ from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
 
 from whep_digitize.contracts import InputResult
-from whep_digitize.ingest.runner import run_import_pipeline
+from whep_digitize.ingest.runner import run_ingest_pipeline
 from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = GOLDENS["import_stage"]
@@ -60,7 +60,7 @@ def result() -> InputResult:
     input_paths = dataclasses.replace(base.paths.data.input, raw=corpus)
     data_paths = dataclasses.replace(base.paths.data, input=input_paths)
     config = dataclasses.replace(base, paths=dataclasses.replace(base.paths, data=data_paths))
-    return run_import_pipeline(config, current_year=_PINNED_YEAR)
+    return run_ingest_pipeline(config, current_year=_PINNED_YEAR)
 
 
 @pytest.mark.parity

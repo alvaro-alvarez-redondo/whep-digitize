@@ -57,15 +57,15 @@ def split_workbook_batches(file_paths: Sequence[str] | None, batch_size: int) ->
 
 def resolve_import_workbook_batch_size(config: Config) -> int:
     """Resolve the workbook batch size from ``config``."""
-    batch_size = int(config.performance.import_workbook_batch_size)
-    require(batch_size >= 1, "import_workbook_batch_size must be >= 1")
+    batch_size = int(config.performance.ingest_workbook_batch_size)
+    require(batch_size >= 1, "ingest_workbook_batch_size must be >= 1")
     return batch_size
 
 
 def resolve_import_effective_workers(config: Config, options: RuntimeOptions | None = None) -> int:
     """Resolve the effective import worker count (>= 1).
 
-    The ``import_parallel_workers`` option (:class:`~whep_digitize.setup.options.RuntimeOptions`,
+    The ``ingest_parallel_workers`` option (:class:`~whep_digitize.setup.options.RuntimeOptions`,
     the ``WHEP_*`` env layer) wins over the constant default. The ``"auto"`` sentinel resolves to
     ``min(auto_max, cpu_count - 1)`` (workbook reading is I/O + serialization bound, so returns
     taper past ~8 workers); an explicit integer is honored, with anything below 1 forced to
@@ -78,9 +78,9 @@ def resolve_import_effective_workers(config: Config, options: RuntimeOptions | N
     Returns:
         A worker count ``>= 1``.
     """
-    resolved = (options or RuntimeOptions()).import_parallel_workers
-    if resolved == "auto":  # == config.performance.import_parallel_workers_auto_token
-        auto_max = config.performance.import_parallel_workers_auto_max
+    resolved = (options or RuntimeOptions()).ingest_parallel_workers
+    if resolved == "auto":  # == config.performance.ingest_parallel_workers_auto_token
+        auto_max = config.performance.ingest_parallel_workers_auto_max
         cores = os.cpu_count() or 1
         return max(1, min(auto_max, cores - 1))
     return resolved if resolved >= 1 else 1

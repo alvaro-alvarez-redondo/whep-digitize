@@ -49,7 +49,7 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 
 ## Stage 1 — ingest (`whep_digitize.ingest`)
 
-Public: `runner.run_import_pipeline(config, options=None, current_year=None) -> InputResult`
+Public: `runner.run_ingest_pipeline(config, options=None, current_year=None) -> InputResult`
 (discover → fused read+transform → drop-null → validate-by-document → consolidate → sort).
 
 | Module | Key API |
@@ -65,7 +65,7 @@ Public: `runner.run_import_pipeline(config, options=None, current_year=None) -> 
 | `transform/processing.py` | `read_transform_pipeline_files` (fused, `ProcessPoolExecutor`, deterministic + sequential fallback), `transform_single_file`, `ReadTransformResult` |
 | `output/validate.py` | `validate_long_df_by_document`, `ValidationResult` |
 | `output/consolidate.py` | `consolidate_audited_df`, `validate_column_order`, `ConsolidateResult` |
-| `runner.py` | `run_import_pipeline` (incl. `rich` progress + the opt-in checkpoint cache) |
+| `runner.py` | `run_ingest_pipeline` (incl. `rich` progress + the opt-in checkpoint cache) |
 
 ---
 

@@ -91,15 +91,15 @@ class HeaderNormalization:
 
 @dataclass(frozen=True, slots=True)
 class Performance:
-    """Performance thresholds. ``import_parallel_workers`` accepts ``"auto"`` or an int."""
+    """Performance thresholds. ``ingest_parallel_workers`` accepts ``"auto"`` or an int."""
 
     normalize_unique_min_n: int = 256
     normalize_unique_sample_n: int = 2048
     normalize_unique_ratio_threshold: float = 0.85
-    import_workbook_batch_size: int = 32
-    import_parallel_workers: str | int = "auto"
-    import_parallel_workers_auto_token: str = "auto"
-    import_parallel_workers_auto_max: int = 8
+    ingest_workbook_batch_size: int = 32
+    ingest_parallel_workers: str | int = "auto"
+    ingest_parallel_workers_auto_token: str = "auto"
+    ingest_parallel_workers_auto_max: int = 8
     import_future_scheduling: int = 4
 
 
@@ -198,12 +198,12 @@ class PathNames:
 class Checkpoints:
     """Crash-recovery checkpoint settings (opt-in via ``RuntimeOptions.checkpointing_enabled``).
 
-    Only the import stage checkpoints: :func:`~whep_digitize.ingest.runner.run_import_pipeline`
+    Only the ingest stage checkpoints: :func:`~whep_digitize.ingest.runner.run_ingest_pipeline`
     is the sole caller of the save/load helpers. Frames are written as Parquet and composite
     results such as :class:`~whep_digitize.contracts.InputResult` as pickle.
     """
 
-    import_stage_name: str = "import_pipeline"
+    ingest_stage_name: str = "ingest_pipeline"
     frame_suffix: str = ".parquet"
     object_suffix: str = ".pkl"
     saved_message: str = "Checkpoint saved: {path}"
@@ -386,7 +386,7 @@ class Progress:
         default_factory=lambda: MappingProxyType(
             {
                 "setup": "setup",
-                "import": "import",
+                "ingest": "ingest",
                 "postpro": "postpro",
                 "export": "export",
             }
@@ -401,7 +401,7 @@ class Progress:
                         "create_dirs": "creating required directories",
                     }
                 ),
-                "import": MappingProxyType(
+                "ingest": MappingProxyType(
                     {
                         "reading": "reading source files",
                         "read_file": "reading {name}",

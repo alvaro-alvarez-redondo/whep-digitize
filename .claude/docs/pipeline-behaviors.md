@@ -148,7 +148,7 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
   newline or quote are quoted, and empty string stays distinct from null. UTF-8.
 - **Every layer is exported to its own TSV** — `whep_data_raw`, `_clean`, `_normalize`,
   `_harmonize` (`output_config.output_layers`). A configured layer with no table is skipped
-  rather than an error, so `raw` is absent unless the import frame reached the export runner.
+  rather than an error, so `raw` is absent unless the ingest frame reached the export runner.
 - Layer detection includes names ending `_raw`/`_clean`/`_normalize`/`_harmonize` and **excludes**
   `_wide_raw` and `_post_processed`.
 - **Unique lists:** per (layer, column) unique values with nulls dropped, sorted by Unicode code

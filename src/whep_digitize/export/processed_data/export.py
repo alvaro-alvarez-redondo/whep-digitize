@@ -106,7 +106,7 @@ def export_processed_data(
     layer (``config.output_config.output_layers``, which by default is every layer: ``raw``,
     ``clean``, ``normalize``, ``harmonize``), and writes each via
     :func:`write_processed_table`. A configured layer with no corresponding table is simply not
-    written -- ``raw`` is absent unless the import frame was supplied to the export runner. The
+    written -- ``raw`` is absent unless the ingest frame was supplied to the export runner. The
     output directory must already exist (the export runner creates it).
 
     Args:

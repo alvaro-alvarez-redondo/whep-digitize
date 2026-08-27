@@ -47,7 +47,7 @@ from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
 from whep_digitize.setup.options import RuntimeOptions
 
-_MESSAGES = get_pipeline_constants().progress.messages["import"]
+_MESSAGES = get_pipeline_constants().progress.messages["ingest"]
 
 # Force the "spawn" start method for worker processes. On Linux the default is "fork", which
 # deadlocks when the parent has already initialized polars' (Rayon) thread pool: the child

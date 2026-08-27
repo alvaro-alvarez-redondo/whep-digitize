@@ -1,6 +1,6 @@
 """Workbook discovery.
 
-Recursively scans an import folder for ``.xlsx`` workbooks and returns the file-metadata
+Recursively scans an input folder for ``.xlsx`` workbooks and returns the file-metadata
 frame produced by :func:`~whep_digitize.ingest.file_io.metadata.extract_file_metadata`.
 When the folder holds no workbooks it warns and returns an empty metadata frame.
 
@@ -27,7 +27,7 @@ _XLSX_SUFFIX = ".xlsx"
 
 
 def discover_files(import_folder: Path | str) -> pl.DataFrame:
-    """Discover ``.xlsx`` workbooks under an import folder.
+    """Discover ``.xlsx`` workbooks under an input folder.
 
     Args:
         import_folder: Directory to scan recursively. Accepted as a string or
@@ -45,7 +45,7 @@ def discover_files(import_folder: Path | str) -> pl.DataFrame:
     folder = Path(import_folder)
     require(
         folder.is_dir(),
-        f"import folder does not exist or is not a directory: {raw_folder}",
+        f"input folder does not exist or is not a directory: {raw_folder}",
     )
 
     file_paths = sorted(
@@ -56,7 +56,7 @@ def discover_files(import_folder: Path | str) -> pl.DataFrame:
 
     if not file_paths:
         warnings.warn(
-            f"no xlsx files were found in the import folder (folder: {raw_folder})",
+            f"no xlsx files were found in the input folder (folder: {raw_folder})",
             stacklevel=2,
         )
         return build_empty_file_metadata()
@@ -65,10 +65,10 @@ def discover_files(import_folder: Path | str) -> pl.DataFrame:
 
 
 def discover_pipeline_files(config: Config) -> pl.DataFrame:
-    """Resolve the raw import folder from ``config`` and discover its workbooks.
+    """Resolve the raw input folder from ``config`` and discover its workbooks.
 
     Args:
-        config: The resolved pipeline configuration; the raw import folder is
+        config: The resolved pipeline configuration; the raw input folder is
             ``config.paths.data.input.raw``.
 
     Returns:
