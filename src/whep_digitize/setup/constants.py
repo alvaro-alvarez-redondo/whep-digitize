@@ -219,14 +219,6 @@ class Tokens:
 
 
 @dataclass(frozen=True, slots=True)
-class TimeUnits:
-    """Time conversion factors for elapsed-time formatting."""
-
-    seconds_per_minute: int = 60
-    seconds_per_hour: int = 3600
-
-
-@dataclass(frozen=True, slots=True)
 class RuleMatchNormalization:
     """When rule match-keys are normalized, and which columns are matched raw."""
 
@@ -396,9 +388,6 @@ class Progress:
     bar_width: int = 22
     bar_min_width: int = 10
     label_width: int = 8
-    # "eta M:SS" at its widest, so the item column beside it never shifts as the estimate
-    # gains or loses a digit.
-    eta_width: int = 10
     # Combined width of the columns that are not sized here -- spinner, percentage, elapsed
     # clock -- plus the single space rich puts between every pair of columns.
     fixed_column_width: int = 20
@@ -485,7 +474,6 @@ class Constants:
     paths: PathNames = field(default_factory=PathNames)
     checkpoints: Checkpoints = field(default_factory=Checkpoints)
     tokens: Tokens = field(default_factory=Tokens)
-    time_units: TimeUnits = field(default_factory=TimeUnits)
     postpro: Postpro = field(default_factory=Postpro)
     output_config: OutputConfig = field(default_factory=OutputConfig)
     progress: Progress = field(default_factory=Progress)

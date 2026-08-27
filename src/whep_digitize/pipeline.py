@@ -1,13 +1,12 @@
 """Top-level orchestrator.
 
-Runs the four stages (setup -> ingest -> postpro -> export) in fixed order and reports
-elapsed time plus the harmonized row/column counts. Nothing runs on import: every stage is an
-explicit call that returns a typed result, and :func:`run_pipeline` chains those calls.
+Runs the four stages (setup -> ingest -> postpro -> export) in fixed order and reports the
+elapsed time. Nothing runs on import: every stage is an explicit call that returns a typed
+result, and :func:`run_pipeline` chains those calls.
 """
 
 from __future__ import annotations
 
-import sys
 import time
 from pathlib import Path
 
@@ -21,36 +20,18 @@ from whep_digitize.setup.options import RuntimeOptions
 from whep_digitize.setup.runner import run_setup_pipeline
 
 
-def _multiplication_sign() -> str:
-    """Return the multiplication sign where the stdout encoding allows, else ASCII ``x``."""
-    sign = chr(0xD7)  # multiplication sign, kept out of the source as a literal
-    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
-    try:
-        sign.encode(encoding)
-    except (UnicodeEncodeError, LookupError):
-        return "x"
-    return sign
-
-
-def format_completion_summary(elapsed: str, harmonized_rows: int, harmonized_cols: int) -> str:
-    """Build the coloured, aligned pipeline-completion summary (for ``alert_success``).
-
-    The counts are bold bright-yellow and the multiplication sign is used where the console
-    encoding allows it. Shared by :func:`run_pipeline` and the package CLI so both match.
+def format_completion_summary(elapsed: str) -> str:
+    """Build the coloured pipeline-completion summary (for ``alert_success``).
 
     Args:
-        elapsed: The formatted elapsed-time string.
-        harmonized_rows: Row count of the harmonized frame.
-        harmonized_cols: Column count of the harmonized frame.
+        elapsed: The formatted elapsed-time string, as
+            :func:`~whep_digitize.setup.helpers.time_format.format_elapsed_time` renders it --
+            the same ``H:MM:SS`` clock the stage bars show.
 
     Returns:
         Rich-markup text without the ``OK`` prefix (``alert_success`` adds it).
     """
-    return (
-        f"Pipeline completed in [bold bright_yellow]{elapsed}[/]  [dim]|[/]  "
-        f"[bold bright_yellow]{harmonized_rows}[/] harmonized rows {_multiplication_sign()} "
-        f"[bold bright_yellow]{harmonized_cols}[/] cols"
-    )
+    return f"Pipeline completed in [bold bright_yellow]{elapsed}[/]"
 
 
 def run_pipeline(
@@ -89,7 +70,5 @@ def run_pipeline(
         config, postpro_result, raw=ingest_result.data, options=effective_options
     )
 
-    elapsed = format_elapsed_time(time.perf_counter() - start)
-    harmonized = postpro_result.harmonize
-    alert_success(format_completion_summary(elapsed, harmonized.height, harmonized.width))
+    alert_success(format_completion_summary(format_elapsed_time(time.perf_counter() - start)))
     return export_result

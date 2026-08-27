@@ -5,6 +5,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 from polars.testing import assert_series_equal
+from rich.progress import Task, TaskID, TimeElapsedColumn
 
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.helpers import (
@@ -181,10 +182,34 @@ def test_canonicalize_semicolon_string_columns_ignores_non_string_columns() -> N
 
 @pytest.mark.parametrize(
     ("seconds", "expected"),
-    [(5, "5s"), (65, "1m 5s"), (3725, "1h 2m")],
+    [
+        (0, "0:00:00"),
+        (5, "0:00:05"),
+        (65, "0:01:05"),
+        (147, "0:02:27"),
+        (3725, "1:02:05"),
+        (-3, "0:00:00"),  # a negative duration is clamped, never rendered as "-1 day, ..."
+        (5.9, "0:00:05"),  # truncated, not rounded -- the progress bar truncates too
+    ],
 )
 def test_format_elapsed_time(seconds: float, expected: str) -> None:
     assert time_format.format_elapsed_time(seconds) == expected
+
+
+def test_format_elapsed_time_matches_the_progress_bar_clock() -> None:
+    """The completion line must read the same as the stage bars' elapsed column."""
+    column = TimeElapsedColumn()
+    for seconds in (0, 5, 65, 147, 3725):
+        # A finished task renders `finished_time`, so this pins an exact elapsed value.
+        task = Task(
+            id=TaskID(0),
+            description="stage",
+            total=1,
+            completed=1,
+            _get_time=lambda: 0.0,
+            finished_time=float(seconds),
+        )
+        assert column.render(task).plain == time_format.format_elapsed_time(seconds)
 
 
 # --------------------------------------------------------------------------- tokens

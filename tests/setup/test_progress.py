@@ -13,7 +13,6 @@ from rich.progress import Task
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.helpers.progress import (
     StageProgress,
-    _EtaColumn,
     _is_modern_terminal,
     _resolve_glyphs,
     _StageBarColumn,
@@ -218,24 +217,6 @@ def test_unknown_stage_label_falls_back_to_the_default_accent() -> None:
 
 
 # --------------------------------------------------------------------------------------------
-# The eta column
-# --------------------------------------------------------------------------------------------
-
-
-def test_eta_is_blank_on_a_finished_task() -> None:
-    console = _console(_Utf8Sink())
-    column = _EtaColumn(style="dim", width=_CONSTANTS.eta_width)
-    assert column.render(_task_at(console, 100)).plain == ""
-
-
-def test_eta_is_blank_before_an_estimate_exists() -> None:
-    # No samples yet -> rich has no speed, so there is nothing honest to show.
-    console = _console(_Utf8Sink())
-    column = _EtaColumn(style="dim", width=_CONSTANTS.eta_width)
-    assert column.render(_task_at(console, 0)).plain == ""
-
-
-# --------------------------------------------------------------------------------------------
 # Layout: the line must never wrap, because a wrapped line breaks the in-place redraw
 # --------------------------------------------------------------------------------------------
 
@@ -252,12 +233,16 @@ def test_rendered_line_never_exceeds_the_console_width(width: int) -> None:
     assert len(line) <= width
 
 
-def test_narrow_console_shrinks_the_bar_rather_than_clipping_it() -> None:
-    # At 60 columns there is no room for the full-size bar; it must shrink to its floor
-    # instead of being cut off by the ellipsis overflow.
-    console = _console(_Utf8Sink(), width=60)
+@pytest.mark.parametrize(("width", "expected_bar"), [(50, 10), (55, 15), (60, 20), (80, 22)])
+def test_narrow_console_shrinks_the_bar_rather_than_clipping_it(
+    width: int, expected_bar: int
+) -> None:
+    # As the console narrows the item column squeezes to its minimum first, then the bar
+    # gives way down to its floor -- it is never cut off by the ellipsis overflow.
+    console = _console(_Utf8Sink(), width=width)
     rendered = _bar_column(console).render(_task_at(console, 100))
-    assert len(rendered.plain) == _CONSTANTS.bar_min_width
+    assert len(rendered.plain) == expected_bar
+    assert len(rendered.plain) >= _CONSTANTS.bar_min_width
     assert "…" not in rendered.plain
 
 

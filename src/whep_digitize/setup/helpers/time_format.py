@@ -1,29 +1,25 @@
 """Elapsed-time formatting.
 
-Formats a duration in seconds as ``Ns`` / ``Nm Ns`` / ``Nh Nm`` for console output.
+Formats a duration in seconds as ``H:MM:SS`` for console output -- the same rendering the
+stage progress bars use, so the completion line and the bars read as one clock.
 """
 
 from __future__ import annotations
 
-from whep_digitize.setup.constants import get_pipeline_constants
+from datetime import timedelta
 
 
 def format_elapsed_time(seconds: float) -> str:
     """Format a duration for user-facing messages.
 
+    Deliberately identical to :class:`rich.progress.TimeElapsedColumn`, down to using
+    :class:`datetime.timedelta`'s own string form: the stage bars render their elapsed clock
+    that way, and the completion line must match them exactly.
+
     Args:
-        seconds: Elapsed seconds.
+        seconds: Elapsed seconds. Negative values are clamped to zero.
 
     Returns:
-        ``"<N>s"`` below a minute, ``"<M>m <S>s"`` below an hour, else ``"<H>h <M>m"``.
+        ``"H:MM:SS"`` (e.g. ``"0:02:27"``), seconds truncated to a whole number.
     """
-    time_units = get_pipeline_constants().time_units
-    total = round(seconds)
-    if total < time_units.seconds_per_minute:
-        return f"{total}s"
-    if total < time_units.seconds_per_hour:
-        minutes, remainder = divmod(total, time_units.seconds_per_minute)
-        return f"{minutes}m {remainder}s"
-    hours, remainder = divmod(total, time_units.seconds_per_hour)
-    minutes = remainder // time_units.seconds_per_minute
-    return f"{hours}h {minutes}m"
+    return str(timedelta(seconds=max(0, int(seconds))))

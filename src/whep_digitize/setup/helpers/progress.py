@@ -7,7 +7,7 @@ its per-file callback), so the bar fills smoothly across the whole run.
 
 A stage renders as one fixed-width line, redrawn in place by ``rich``::
 
-    * ingest    <bar> 64%  0:00:12  eta 0:07  reading fao_1961_trade_23.xlsx
+    * ingest    <bar> 64%  0:00:12  reading fao_1961_trade_23.xlsx
 
 A background refresh thread repaints it ~10 times a second, so the spinner turns and the
 elapsed timer ticks even while a single step is busy on a slow workbook — the bar never looks
@@ -219,27 +219,6 @@ class _StageBarColumn(ProgressColumn):
         return text
 
 
-class _EtaColumn(ProgressColumn):
-    """A dim ``eta M:SS`` estimate, blank once the stage is finished.
-
-    :class:`rich.progress.TimeRemainingColumn` renders a zeroed clock on a finished task; a
-    finished bar has no estimate left to show, so this renders nothing at all instead.
-    """
-
-    def __init__(self, style: str, width: int) -> None:
-        """Bind the column to a style and a fixed width, so the line never reflows."""
-        super().__init__(table_column=Column(width=width, no_wrap=True))
-        self._style = style
-
-    def render(self, task: Task) -> Text:
-        """Render ``task``'s remaining time, or nothing when it is finished."""
-        remaining = task.time_remaining
-        if task.finished or remaining is None:
-            return Text("", style=self._style)
-        minutes, seconds = divmod(int(remaining), 60)
-        return Text(f"eta {minutes:d}:{seconds:02d}", style=self._style)
-
-
 def _column_widths(console: Console) -> tuple[int, int]:
     """Return ``(bar_width, item_width)`` for ``console``, so the line never wraps.
 
@@ -250,9 +229,7 @@ def _column_widths(console: Console) -> tuple[int, int]:
     workbook name still reads while a clipped bar is just wrong.
     """
     constants = get_pipeline_constants().progress
-    available = (
-        console.width - constants.fixed_column_width - constants.label_width - constants.eta_width
-    )
+    available = console.width - constants.fixed_column_width - constants.label_width
     item = max(
         constants.item_min_width, min(constants.item_max_width, available - constants.bar_width)
     )
@@ -293,7 +270,6 @@ def _build_progress(label: str, console: Console) -> RichProgress:
         ),
         TaskProgressColumn(),
         TimeElapsedColumn(),
-        _EtaColumn(style=constants.track_style, width=constants.eta_width),
         TextColumn(
             "{task.fields[item]}",
             style=constants.track_style,
