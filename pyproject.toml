@@ -11,10 +11,6 @@ keywords = ["whep", "etl", "polars", "pipeline", "digitization"]
 # Runtime dependencies. Kept deliberately lean.
 dependencies = [
     "polars>=1.0",          # the sole dataframe engine: columnar, multi-threaded, deterministic
-    "numpy>=1.26",          # coverage visualizations use numpy for scaling and density math
-    "pandas>=2.2",          # local IO/wrangling boundary for the new visualization module
-    "plotly>=5.22",         # interactive coverage charts
-    "kaleido>=0.2",         # static PNG export for plotly figures
     "pydantic>=2.7",        # schema validation for the Config model
     "pydantic-settings>=2.3", # runtime options via WHEP_* env vars
     "rich>=13.7",           # console output + progress bars
@@ -43,7 +39,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whep_digitize", "src/scope"]
+packages = ["src/whep_digitize"]
 
 # ---------------------------------------------------------------------------
 # Ruff — lint + format. Enforces the engineering standards from CLAUDE.md:
