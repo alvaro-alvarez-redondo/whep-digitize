@@ -40,9 +40,9 @@ from whep_digitize.setup.options import RuntimeOptions
 def _configure_lists(config: Config, columns: tuple[str, ...]) -> Config:
     """Return a copy of ``config`` with ``lists_to_export`` set and the lists dir created."""
     wide = dataclasses.replace(
-        config, export_config=dataclasses.replace(config.export_config, lists_to_export=columns)
+        config, output_config=dataclasses.replace(config.output_config, lists_to_export=columns)
     )
-    wide.paths.data.export.lists.mkdir(parents=True, exist_ok=True)
+    wide.paths.data.output.lists.mkdir(parents=True, exist_ok=True)
     return wide
 
 
@@ -207,7 +207,7 @@ def test_resolve_list_sheet_payloads(
 def test_resolve_lists_export_columns_config_order(config: Config) -> None:
     wide = dataclasses.replace(
         config,
-        export_config=dataclasses.replace(config.export_config, lists_to_export=("unit", "polity")),
+        output_config=dataclasses.replace(config.output_config, lists_to_export=("unit", "polity")),
     )
     assert resolve_lists_export_columns(wide, ["polity", "unit", "value"]) == ["unit", "polity"]
 
@@ -215,7 +215,7 @@ def test_resolve_lists_export_columns_config_order(config: Config) -> None:
 def test_resolve_lists_export_columns_none_present_raises(config: Config) -> None:
     wide = dataclasses.replace(
         config,
-        export_config=dataclasses.replace(config.export_config, lists_to_export=("missing",)),
+        output_config=dataclasses.replace(config.output_config, lists_to_export=("missing",)),
     )
     with pytest.raises(ValidationError, match="none of the configured columns"):
         resolve_lists_export_columns(wide, ["polity", "unit"])
@@ -223,7 +223,7 @@ def test_resolve_lists_export_columns_none_present_raises(config: Config) -> Non
 
 def test_resolve_lists_export_columns_empty_config_raises(config: Config) -> None:
     wide = dataclasses.replace(
-        config, export_config=dataclasses.replace(config.export_config, lists_to_export=())
+        config, output_config=dataclasses.replace(config.output_config, lists_to_export=())
     )
     with pytest.raises(ValidationError, match="must be defined"):
         resolve_lists_export_columns(wide, ["polity"])
@@ -232,8 +232,8 @@ def test_resolve_lists_export_columns_empty_config_raises(config: Config) -> Non
 def test_resolve_lists_export_columns_duplicate_config_raises(config: Config) -> None:
     wide = dataclasses.replace(
         config,
-        export_config=dataclasses.replace(
-            config.export_config, lists_to_export=("polity", "polity")
+        output_config=dataclasses.replace(
+            config.output_config, lists_to_export=("polity", "polity")
         ),
     )
     with pytest.raises(ValidationError, match="must be unique"):
@@ -246,7 +246,7 @@ def test_resolve_lists_export_columns_duplicate_config_raises(config: Config) ->
 def test_build_column_lists_export_path(config: Config) -> None:
     path = build_column_lists_export_path(config, "polity")
     assert path.name == "unique_polity.xlsx"
-    assert path.parent == config.paths.data.export.lists
+    assert path.parent == config.paths.data.output.lists
 
 
 def test_build_column_lists_export_path_normalizes(config: Config) -> None:
@@ -333,12 +333,12 @@ def _export_to_dir(
 ) -> dict[str, Path]:
     """Run ``export_lists`` writing into ``lists_dir`` (isolates repeated runs for comparison)."""
     lists_dir.mkdir(parents=True, exist_ok=True)
-    export = dataclasses.replace(config.paths.data.export, lists=lists_dir)
-    data = dataclasses.replace(config.paths.data, export=export)
+    export = dataclasses.replace(config.paths.data.output, lists=lists_dir)
+    data = dataclasses.replace(config.paths.data, output=export)
     cfg = dataclasses.replace(
         config,
         paths=dataclasses.replace(config.paths, data=data),
-        export_config=dataclasses.replace(config.export_config, lists_to_export=columns),
+        output_config=dataclasses.replace(config.output_config, lists_to_export=columns),
     )
     return export_lists(cfg, objects, options=options)
 

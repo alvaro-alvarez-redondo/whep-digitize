@@ -12,7 +12,7 @@ setup (0)  ->  ingest (1)  ->  postpro (2)  ->  export (3)
  directories     validate        harmonize
 ```
 
-Input is Excel workbooks under `data/import/raw/`; output lands in `data/export/`.
+Input is Excel workbooks under `data/input/raw/`; output lands in `data/output/`.
 
 ## Design
 

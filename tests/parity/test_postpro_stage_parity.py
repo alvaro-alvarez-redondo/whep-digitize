@@ -71,12 +71,12 @@ def result(tmp_path_factory: pytest.TempPathFactory) -> PostproResult:
     # reference.
     base = load_pipeline_config(root=tmp_path_factory.mktemp("postpro_stage"))
     rule_root = FIXTURES_DIR / "rule_files_postpro"
-    import_ = dataclasses.replace(
-        base.paths.data.import_,
+    input_paths = dataclasses.replace(
+        base.paths.data.input,
         cleaning=rule_root / "clean",
         harmonization=rule_root / "harmonize",
     )
-    data_paths = dataclasses.replace(base.paths.data, import_=import_)
+    data_paths = dataclasses.replace(base.paths.data, input=input_paths)
     config = dataclasses.replace(base, paths=dataclasses.replace(base.paths, data=data_paths))
     return run_postpro_pipeline(raw, config)
 

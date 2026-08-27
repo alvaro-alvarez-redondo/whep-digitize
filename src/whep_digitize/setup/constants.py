@@ -16,7 +16,7 @@ Design notes:
   strip.
 * Dependency declarations belong to ``pyproject.toml`` (``uv`` owns them) and progress
   theming is left to ``rich``, so neither has a constant here.
-* :attr:`ExportConfig.processed_suffix` is ``".tsv"`` — the extension the processed export
+* :attr:`OutputConfig.processed_suffix` is ``".tsv"`` — the extension the processed export
   actually writes. All operational defaults live in the single :class:`Defaults` group.
 """
 
@@ -125,7 +125,6 @@ class ObjectNames:
     clean: str = "whep_data_clean"
     normalize: str = "whep_data_normalize"
     harmonize: str = "whep_data_harmonize"
-    export_paths: str = "export_paths"
     collected_reading_errors: str = "collected_reading_errors"
     collected_errors: str = "collected_errors"
     collected_warnings: str = "collected_warnings"
@@ -183,15 +182,15 @@ class PathNames:
     """Relative directory names under ``data/`` (assembled into absolute paths by Config)."""
 
     data_dir: str = "data"
-    import_dir: str = "import"
-    import_raw_dir: str = "raw"
-    import_clean_dir: str = "clean"
-    import_standardize_dir: str = "standardize"
-    import_harmonize_dir: str = "harmonize"
+    input_dir: str = "input"
+    input_raw_dir: str = "raw"
+    input_clean_dir: str = "clean"
+    input_standardize_dir: str = "standardize"
+    input_harmonize_dir: str = "harmonize"
     postpro_dir: str = "postpro"
-    export_dir: str = "export"
-    export_lists_dir: str = "lists"
-    export_processed_dir: str = "processed"
+    output_dir: str = "output"
+    output_lists_dir: str = "lists"
+    output_processed_dir: str = "processed"
     checkpoints_dir: str = ".checkpoints"
 
 
@@ -201,7 +200,7 @@ class Checkpoints:
 
     Only the import stage checkpoints: :func:`~whep_digitize.ingest.runner.run_import_pipeline`
     is the sole caller of the save/load helpers. Frames are written as Parquet and composite
-    results such as :class:`~whep_digitize.contracts.ImportResult` as pickle.
+    results such as :class:`~whep_digitize.contracts.InputResult` as pickle.
     """
 
     import_stage_name: str = "import_pipeline"
@@ -363,7 +362,7 @@ class ErrorHighlightStyle:
 
 
 @dataclass(frozen=True, slots=True)
-class ExportConfig:
+class OutputConfig:
     """Export settings: which columns become unique lists, which layers are written."""
 
     list_suffix: str = "_unique.xlsx"
@@ -371,7 +370,7 @@ class ExportConfig:
     lists_workbook_name: str = "whep_unique_lists_raw"
     # Every pipeline layer is exported to its own TSV. `raw` is exported only when the import
     # frame is supplied to the export runner; the other three always come from the postpro result.
-    export_layers: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
+    output_layers: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
     # The processed export writes .tsv, not a workbook.
     processed_suffix: str = ".tsv"
     error_highlight: ErrorHighlightStyle = field(default_factory=ErrorHighlightStyle)
@@ -461,7 +460,7 @@ class Constants:
     tokens: Tokens = field(default_factory=Tokens)
     time_units: TimeUnits = field(default_factory=TimeUnits)
     postpro: Postpro = field(default_factory=Postpro)
-    export_config: ExportConfig = field(default_factory=ExportConfig)
+    output_config: OutputConfig = field(default_factory=OutputConfig)
     progress: Progress = field(default_factory=Progress)
 
 

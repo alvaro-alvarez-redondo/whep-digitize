@@ -225,7 +225,7 @@ def test_generate_postpro_rule_templates(config: Config) -> None:
 
 
 def test_load_stage_rule_payloads_discovers_orders_and_filters(config: Config) -> None:
-    cleaning = config.paths.data.import_.cleaning
+    cleaning = config.paths.data.input.cleaning
     cleaning.mkdir(parents=True, exist_ok=True)
     _write_clean_rule_csv(cleaning / "clean_b.csv")
     _write_clean_rule_csv(cleaning / "clean_a.csv")
@@ -251,7 +251,7 @@ def test_build_cache_key_no_rule_files(config: Config) -> None:
 
 
 def test_build_cache_key_reflects_file_content(config: Config) -> None:
-    cleaning = config.paths.data.import_.cleaning
+    cleaning = config.paths.data.input.cleaning
     cleaning.mkdir(parents=True, exist_ok=True)
     rule_file = cleaning / "clean_r.csv"
     _write_clean_rule_csv(rule_file, source="commodity")
@@ -271,7 +271,7 @@ def test_prune_keeps_lowest_sorted_keys() -> None:
 
 
 def test_get_cached_bundle_disabled_builds(config: Config) -> None:
-    cleaning = config.paths.data.import_.cleaning
+    cleaning = config.paths.data.input.cleaning
     cleaning.mkdir(parents=True, exist_ok=True)
     _write_clean_rule_csv(cleaning / "clean_r.csv")
 
@@ -283,7 +283,7 @@ def test_get_cached_bundle_disabled_builds(config: Config) -> None:
 
 
 def test_get_cached_bundle_enabled_uses_memory_then_disk(config: Config) -> None:
-    cleaning = config.paths.data.import_.cleaning
+    cleaning = config.paths.data.input.cleaning
     cleaning.mkdir(parents=True, exist_ok=True)
     _write_clean_rule_csv(cleaning / "clean_r.csv")
     settings = RuntimeCacheSettings(enabled=True, cache_file_name="cache.pkl", max_entries=128)

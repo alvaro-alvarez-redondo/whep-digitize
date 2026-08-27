@@ -10,9 +10,9 @@ Contract map:
 ======================  ============================
 Contract                Producer
 ======================  ============================
-:class:`ImportResult`   :mod:`whep_digitize.ingest`
+:class:`InputResult`   :mod:`whep_digitize.ingest`
 :class:`PostproResult`  :mod:`whep_digitize.postpro`
-:class:`ExportResult`   :mod:`whep_digitize.export`
+:class:`OutputResult`   :mod:`whep_digitize.export`
 ======================  ============================
 """
 
@@ -30,7 +30,7 @@ from whep_digitize.setup.errors import ContractError
 
 
 @dataclass(frozen=True, slots=True)
-class ImportDiagnostics:
+class InputDiagnostics:
     """Non-fatal diagnostics collected during import."""
 
     reading_errors: tuple[str, ...] = ()
@@ -39,7 +39,7 @@ class ImportDiagnostics:
 
 
 @dataclass(frozen=True, slots=True)
-class ImportResult:
+class InputResult:
     """Result of the ingest stage.
 
     Attributes:
@@ -50,7 +50,7 @@ class ImportResult:
 
     data: pl.DataFrame
     wide_raw: pl.DataFrame
-    diagnostics: ImportDiagnostics
+    diagnostics: InputDiagnostics
 
 
 # --------------------------------------------------------------------------- postpro
@@ -116,11 +116,11 @@ class PostproResult:
 
 
 @dataclass(frozen=True, slots=True)
-class ExportResult:
+class OutputResult:
     """Result of the export stage.
 
     Both mappings are required to be non-empty and free of blank keys; see
-    :func:`assert_export_paths_contract`.
+    :func:`assert_output_paths_contract`.
 
     Attributes:
         processed_paths: Mapping of object name -> written processed TSV path.
@@ -131,7 +131,7 @@ class ExportResult:
     lists_paths: Mapping[str, Path]
 
 
-def assert_export_paths_contract(result: ExportResult) -> None:
+def assert_output_paths_contract(result: OutputResult) -> None:
     """Validate the export result contract.
 
     Args:

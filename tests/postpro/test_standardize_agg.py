@@ -275,7 +275,7 @@ def test_read_workbook_excludes_master_unit(tmp_path: Path) -> None:
 
 
 def test_read_all_discovers_and_reads(config: Config) -> None:
-    standardization = config.paths.data.import_.standardization
+    standardization = config.paths.data.input.standardization
     _write_workbook(
         standardization / "standardize_rules.xlsx",
         {"units_standardization": [_RULE_HEADER, ["rice", "tonnes", "kg", 1000, 0]]},
@@ -287,7 +287,7 @@ def test_read_all_discovers_and_reads(config: Config) -> None:
 
 def test_run_end_to_end(config: Config) -> None:
     _write_workbook(
-        config.paths.data.import_.standardization / "standardize_rules.xlsx",
+        config.paths.data.input.standardization / "standardize_rules.xlsx",
         {"units_standardization": [_RULE_HEADER, ["wheat", "kg", "g", 1000, 0]]},
     )
     clean = pl.DataFrame(
@@ -302,7 +302,7 @@ def test_run_end_to_end(config: Config) -> None:
 
 
 def test_run_with_no_rule_files(config: Config) -> None:
-    config.paths.data.import_.standardization.mkdir(parents=True, exist_ok=True)
+    config.paths.data.input.standardization.mkdir(parents=True, exist_ok=True)
     clean = pl.DataFrame({"commodity": _s(["wheat"]), "unit": _s(["kg"]), "value": _s(["2"])})
     result = run_standardize_units_layer_batch(clean, config)
     assert result.diagnostics.applied_rules == 0

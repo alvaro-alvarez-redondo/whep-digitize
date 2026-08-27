@@ -69,9 +69,9 @@ def discover_pipeline_files(config: Config) -> pl.DataFrame:
 
     Args:
         config: The resolved pipeline configuration; the raw import folder is
-            ``config.paths.data.import_.raw``.
+            ``config.paths.data.input.raw``.
 
     Returns:
         The file-metadata frame from :func:`discover_files`.
     """
-    return discover_files(config.paths.data.import_.raw)
+    return discover_files(config.paths.data.input.raw)

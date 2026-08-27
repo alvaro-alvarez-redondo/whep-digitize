@@ -28,7 +28,7 @@ Recipes for frequent edits. Each lists where, what, tests, watch-outs. **Check h
 - **Column role** — add to `Columns` (`base`/`id_vars`/`value`/`system`); import header
   recognition uses `base ∪ id_vars`.
 - **Source aliases** — `HeaderNormalization.canonical_aliases`.
-- **Export lists** — `ExportConfig.lists_to_export` if needed.
+- **Export lists** — `OutputConfig.lists_to_export` if needed.
 - **Tests:** update `test_constants.py` order assertion; add transform/validate coverage.
 - **Watch out:** everything is string-typed until the postpro audit step.
 

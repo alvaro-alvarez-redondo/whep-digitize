@@ -1,6 +1,6 @@
 """Tests for the export-stage runner (``export.runner.run_export_pipeline``).
 
-Verifies the wired runner produces a valid :class:`ExportResult` (processed-data TSV for the
+Verifies the wired runner produces a valid :class:`OutputResult` (processed-data TSV for the
 harmonize layer + per-column unique-list workbooks), creates the export directories, honors the
 optional ``raw`` layer, and passes the export-paths contract.
 """
@@ -14,7 +14,7 @@ from whep_digitize.contracts import (
     LayerDiagnostics,
     PostproDiagnostics,
     PostproResult,
-    assert_export_paths_contract,
+    assert_output_paths_contract,
 )
 from whep_digitize.export.runner import run_export_pipeline
 from whep_digitize.setup.config import Config
@@ -42,7 +42,7 @@ def _postpro_result() -> PostproResult:
 def test_run_export_pipeline_returns_valid_result(config: Config) -> None:
     result = run_export_pipeline(config, _postpro_result())
 
-    assert_export_paths_contract(result)  # does not raise
+    assert_output_paths_contract(result)  # does not raise
     # Every layer is exported. `raw` is absent here because no import frame was supplied.
     assert sorted(result.processed_paths) == [
         "whep_data_clean",
@@ -57,10 +57,10 @@ def test_run_export_pipeline_returns_valid_result(config: Config) -> None:
 
 def test_run_export_pipeline_creates_export_directories(config: Config) -> None:
     # The runner is responsible for creating the export dirs (they do not exist yet).
-    assert not config.paths.data.export.processed.exists()
+    assert not config.paths.data.output.processed.exists()
     run_export_pipeline(config, _postpro_result())
-    assert config.paths.data.export.processed.is_dir()
-    assert config.paths.data.export.lists.is_dir()
+    assert config.paths.data.output.processed.is_dir()
+    assert config.paths.data.output.lists.is_dir()
 
 
 def test_run_export_pipeline_includes_raw_layer(config: Config) -> None:

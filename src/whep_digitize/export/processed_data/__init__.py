@@ -3,7 +3,7 @@ r"""Export / processed_data — the processed-data TSV family.
 * :mod:`~whep_digitize.export.processed_data.layers` — detect ``_raw`` / ``_clean`` /
   ``_normalize`` / ``_harmonize`` objects, excluding ``_wide_raw`` and ``_post_processed``.
 * :mod:`~whep_digitize.export.processed_data.export` — filter to
-  ``config.export_config.export_layers`` (default: every layer), build ``{stem}.tsv`` paths,
+  ``config.output_config.output_layers`` (default: every layer), build ``{stem}.tsv`` paths,
   and write them tab-separated under a fixed byte-level contract.
 """
 

@@ -63,8 +63,8 @@ def collect_postpro_preflight(
     Returns:
         The :class:`PreflightResult`.
     """
-    cleaning_dir = config.paths.data.import_.cleaning
-    harmonization_dir = config.paths.data.import_.harmonization
+    cleaning_dir = config.paths.data.input.cleaning
+    harmonization_dir = config.paths.data.input.harmonization
     audit = config.paths.data.audit
 
     checks: dict[str, bool] = {

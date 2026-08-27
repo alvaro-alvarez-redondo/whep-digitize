@@ -8,11 +8,11 @@ import polars as pl
 import pytest
 
 from whep_digitize.contracts import (
-    ExportResult,
-    ImportDiagnostics,
-    ImportResult,
+    InputDiagnostics,
+    InputResult,
+    OutputResult,
     PostproResult,
-    assert_export_paths_contract,
+    assert_output_paths_contract,
 )
 from whep_digitize.postpro.runner import run_postpro_pipeline
 from whep_digitize.setup.config import Config
@@ -21,27 +21,27 @@ from whep_digitize.setup.errors import ContractError, WhepError
 
 
 def test_import_result_construction() -> None:
-    result = ImportResult(
+    result = InputResult(
         data=pl.DataFrame({"value": [1.0]}),
         wide_raw=pl.DataFrame({"2000": ["1"]}),
-        diagnostics=ImportDiagnostics(warnings=("w",)),
+        diagnostics=InputDiagnostics(warnings=("w",)),
     )
     assert result.data.height == 1
     assert result.diagnostics.warnings == ("w",)
 
 
-def test_assert_export_paths_contract_ok() -> None:
-    result = ExportResult(
+def test_assert_output_paths_contract_ok() -> None:
+    result = OutputResult(
         processed_paths={"whep_data_harmonize": Path("out.tsv")},
         lists_paths={"commodity": Path("unique_commodity.xlsx")},
     )
-    assert_export_paths_contract(result)  # should not raise
+    assert_output_paths_contract(result)  # should not raise
 
 
-def test_assert_export_paths_contract_rejects_empty() -> None:
-    result = ExportResult(processed_paths={}, lists_paths={"c": Path("x.xlsx")})
+def test_assert_output_paths_contract_rejects_empty() -> None:
+    result = OutputResult(processed_paths={}, lists_paths={"c": Path("x.xlsx")})
     with pytest.raises(ContractError):
-        assert_export_paths_contract(result)
+        assert_output_paths_contract(result)
 
 
 def test_run_postpro_pipeline_returns_result(config: Config, sample_long_df: pl.DataFrame) -> None:

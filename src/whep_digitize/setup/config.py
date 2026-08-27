@@ -9,7 +9,7 @@ Two deliberate simplifications:
   :class:`~whep_digitize.setup.constants.Defaults` group — there is no second, narrower
   ``defaults`` set.
 * Export file naming is not derived here; see
-  :class:`~whep_digitize.setup.constants.ExportConfig` for the suffixes actually used.
+  :class:`~whep_digitize.setup.constants.OutputConfig` for the suffixes actually used.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from pathlib import Path
 from whep_digitize.setup.constants import (
     Columns,
     Defaults,
-    ExportConfig,
     Files,
+    OutputConfig,
     Performance,
     Postpro,
     Sorting,
@@ -55,7 +55,7 @@ def normalize_dataset_name(dataset_name: str) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class ImportPaths:
+class InputPaths:
     """Absolute paths of the four import-stage layer directories."""
 
     raw: Path
@@ -65,7 +65,7 @@ class ImportPaths:
 
 
 @dataclass(frozen=True, slots=True)
-class ExportStagePaths:
+class OutputStagePaths:
     """Absolute paths of the export-stage output directories."""
 
     lists: Path
@@ -91,10 +91,10 @@ class AuditPaths:
 
 @dataclass(frozen=True, slots=True)
 class DataPaths:
-    """The three path families under ``data/``. ``import_`` avoids the reserved word."""
+    """The three path families under ``data/``. ``input`` / ``output`` name the pipeline data."""
 
-    import_: ImportPaths
-    export: ExportStagePaths
+    input: InputPaths
+    output: OutputStagePaths
     audit: AuditPaths
 
 
@@ -121,7 +121,7 @@ class Config:
     column_required: tuple[str, ...]
     column_id: tuple[str, ...]
     column_order: tuple[str, ...]
-    export_config: ExportConfig
+    output_config: OutputConfig
     audit_columns: tuple[str, ...]
     performance: Performance
     postpro: Postpro
@@ -152,18 +152,18 @@ def load_pipeline_config(
     postpro = constants.postpro
     data_dir = resolved_root / path_names.data_dir
 
-    import_base = data_dir / path_names.import_dir
-    import_paths = ImportPaths(
-        raw=import_base / path_names.import_raw_dir,
-        cleaning=import_base / path_names.import_clean_dir,
-        standardization=import_base / path_names.import_standardize_dir,
-        harmonization=import_base / path_names.import_harmonize_dir,
+    input_base = data_dir / path_names.input_dir
+    input_paths = InputPaths(
+        raw=input_base / path_names.input_raw_dir,
+        cleaning=input_base / path_names.input_clean_dir,
+        standardization=input_base / path_names.input_standardize_dir,
+        harmonization=input_base / path_names.input_harmonize_dir,
     )
 
-    export_base = data_dir / path_names.export_dir
-    export_paths = ExportStagePaths(
-        lists=export_base / path_names.export_lists_dir,
-        processed=export_base / path_names.export_processed_dir,
+    output_base = data_dir / path_names.output_dir
+    output_paths = OutputStagePaths(
+        lists=output_base / path_names.output_lists_dir,
+        processed=output_base / path_names.output_processed_dir,
     )
 
     audit_root = data_dir / path_names.postpro_dir
@@ -185,8 +185,8 @@ def load_pipeline_config(
         dataset_name=name,
         paths=Paths(
             data=DataPaths(
-                import_=import_paths,
-                export=export_paths,
+                input=input_paths,
+                output=output_paths,
                 audit=audit_paths,
             )
         ),
@@ -195,7 +195,7 @@ def load_pipeline_config(
         column_required=constants.columns.base,
         column_id=constants.columns.id_vars,
         column_order=constants.sorting.stage_row_order,
-        export_config=constants.export_config,
+        output_config=constants.output_config,
         audit_columns=constants.audit_columns,
         performance=constants.performance,
         postpro=postpro,

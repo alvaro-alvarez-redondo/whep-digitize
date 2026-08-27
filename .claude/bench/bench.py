@@ -8,10 +8,10 @@ benchmark is a pure, side-effect-free timing of the pipeline.
 Dataset resolution (first match wins) — a real, sizeable dataset locally, a reproducible fallback
 everywhere:
 
-1. ``WHEP_BENCH_IMPORT_DIR`` — a ``data/import``-shaped tree (``raw`` / ``clean`` /
+1. ``WHEP_BENCH_INPUT_DIR`` — a ``data/input``-shaped tree (``raw`` / ``clean`` /
    ``standardize`` / ``harmonize`` subdirectories, any subset). Freeze a snapshot here for
    rigorous A/Bs, since the production dataset grows.
-2. this project's own ``data/import`` when it holds raw workbooks — the real local optimization
+2. this project's own ``data/input`` when it holds raw workbooks — the real local optimization
    target.
 3. the committed ``tests/fixtures/corpus`` (raw) + ``tests/fixtures/rule_files_postpro`` (clean /
    harmonize rules) — small but self-contained, and it exercises the multi-pass rule engine.
@@ -42,12 +42,12 @@ _RULES = _REPO_ROOT / "tests" / "fixtures" / "rule_files_postpro"
 _LAYERS = ("raw", "clean", "standardize", "harmonize")
 
 
-def _populate_import_tree(dst_import: Path) -> str:
-    """Populate ``<dst_import>`` (a ``data/import`` dir) with the benchmark dataset.
+def _populate_input_tree(dst_input: Path) -> str:
+    """Populate ``<dst_input>`` (a ``data/input`` dir) with the benchmark dataset.
 
     Returns a short label naming the resolved source, for the summary line.
     """
-    env_dir = os.environ.get("WHEP_BENCH_IMPORT_DIR")
+    env_dir = os.environ.get("WHEP_BENCH_INPUT_DIR")
     if env_dir:
         source: Path | None = Path(env_dir)
     elif any(_LOCAL_IMPORT.glob("raw/**/*.xlsx")):
@@ -57,13 +57,13 @@ def _populate_import_tree(dst_import: Path) -> str:
     if source is not None:
         for layer in _LAYERS:
             if (source / layer).is_dir():
-                shutil.copytree(source / layer, dst_import / layer)
+                shutil.copytree(source / layer, dst_input / layer)
         return f"import-dir:{source}"
     # Committed fallback: corpus raw + the postpro-stage rule fixtures (milk/date), so the
     # clean/harmonize multi-pass rule engine is actually exercised by the benchmark.
-    shutil.copytree(_CORPUS, dst_import / "raw")
-    shutil.copytree(_RULES / "clean", dst_import / "clean")
-    shutil.copytree(_RULES / "harmonize", dst_import / "harmonize")
+    shutil.copytree(_CORPUS, dst_input / "raw")
+    shutil.copytree(_RULES / "clean", dst_input / "clean")
+    shutil.copytree(_RULES / "harmonize", dst_input / "harmonize")
     return "fixtures-corpus"
 
 
@@ -74,9 +74,9 @@ def main() -> None:
 
     tmp_root = Path(tempfile.mkdtemp(prefix="whep_bench_"))
     try:
-        import_dir = tmp_root / "data" / "import"
-        import_dir.parent.mkdir(parents=True, exist_ok=True)
-        label = _populate_import_tree(import_dir)
+        input_dir = tmp_root / "data" / "import"
+        input_dir.parent.mkdir(parents=True, exist_ok=True)
+        label = _populate_input_tree(input_dir)
 
         timings: list[float] = []
         for _ in range(iterations):

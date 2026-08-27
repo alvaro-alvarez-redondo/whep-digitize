@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from whep_digitize.contracts import ExportResult
+from whep_digitize.contracts import OutputResult
 from whep_digitize.export.runner import run_export_pipeline
 from whep_digitize.ingest.runner import run_import_pipeline
 from whep_digitize.postpro.runner import run_postpro_pipeline
@@ -68,7 +68,7 @@ def run_pipeline(
     dataset_name: str | None = None,
     root: Path | str | None = None,
     options: RuntimeOptions | None = None,
-) -> ExportResult:
+) -> OutputResult:
     """Run the setup -> ingest -> postpro -> export pipeline in order.
 
     Args:
@@ -78,7 +78,7 @@ def run_pipeline(
         options: Runtime options; defaults are used when ``None``.
 
     Returns:
-        The :class:`~whep_digitize.contracts.ExportResult` of the run.
+        The :class:`~whep_digitize.contracts.OutputResult` of the run.
     """
     _ = show_view  # accepted to keep the signature stable; no interactive view is implemented
     start = time.perf_counter()

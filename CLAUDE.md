@@ -4,8 +4,8 @@ whep-digitize — the WHEP digitization pipeline. A deterministic four-stage Pyt
 pipeline that turns WHEP source workbooks into published datasets:
 setup (0) → ingest (1) → postpro (2) → export (3).
 
-Input is Excel workbooks under `data/import/raw/`; output is processed TSVs plus unique-value
-list workbooks under `data/export/`. All four stages are implemented and covered by tests.
+Input is Excel workbooks under `data/input/raw/`; output is processed TSVs plus unique-value
+list workbooks under `data/output/`. All four stages are implemented and covered by tests.
 
 ## How to work
 

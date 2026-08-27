@@ -211,13 +211,13 @@ def test_apply_rule_payload_trigger_columns_skips_nonlisted_group() -> None:
 
 
 def _clean_config(config: Config) -> Config:
-    config.paths.data.import_.cleaning.mkdir(parents=True, exist_ok=True)
+    config.paths.data.input.cleaning.mkdir(parents=True, exist_ok=True)
     return config
 
 
 def test_run_cleaning_converges_in_two_passes(config: Config) -> None:
     _write_rule_file(
-        config.paths.data.import_.cleaning / "clean_rules.xlsx",
+        config.paths.data.input.cleaning / "clean_rules.xlsx",
         "clean",
         [("commodity", "wheat", "unit", "t", "tonne")],
     )
@@ -259,7 +259,7 @@ def test_run_drops_all_null_footnotes_after_loop(config: Config) -> None:
 def test_run_detects_cycle_and_warns(config: Config) -> None:
     # Oscillating rules: unit a->b then b->a; pass 2 reproduces the pass-0 state -> cycle.
     _write_rule_file(
-        config.paths.data.import_.cleaning / "clean_rules.xlsx",
+        config.paths.data.input.cleaning / "clean_rules.xlsx",
         "clean",
         [("commodity", "x", "unit", "a", "b"), ("commodity", "x", "unit", "b", "a")],
     )
@@ -275,7 +275,7 @@ def test_run_detects_cycle_and_warns(config: Config) -> None:
 
 def test_run_harmonize_uses_harmonize_rules(config: Config) -> None:
     _write_rule_file(
-        config.paths.data.import_.harmonization / "harmonize_rules.xlsx",
+        config.paths.data.input.harmonization / "harmonize_rules.xlsx",
         "harmonize",
         [("commodity", "rice", "unit", "kg", "kilogram")],
     )

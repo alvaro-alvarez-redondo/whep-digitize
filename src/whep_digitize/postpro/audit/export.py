@@ -149,7 +149,7 @@ def _apply_highlights(
         for position, source_row_index in enumerate(export.get_column(_SOURCE_ROW_INDEX).to_list())
     }
     excel_col_by_name = {name: index + 1 for index, name in enumerate(cols_to_show)}
-    fill, font, border = _build_highlight(config.export_config.error_highlight)
+    fill, font, border = _build_highlight(config.output_config.error_highlight)
 
     for row_index, audit_column in findings.select(
         pl.col(_ROW_INDEX_COLUMN).cast(pl.Int64), pl.col(_AUDIT_COLUMN).cast(pl.String)

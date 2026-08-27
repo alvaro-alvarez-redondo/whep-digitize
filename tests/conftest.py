@@ -32,8 +32,8 @@ def config(project_dir: Path) -> Config:
 @pytest.fixture
 def corpus_config(config: Config) -> Config:
     """A config whose raw import folder points at the committed fixture corpus."""
-    import_ = dataclasses.replace(config.paths.data.import_, raw=_CORPUS)
-    data = dataclasses.replace(config.paths.data, import_=import_)
+    input_paths = dataclasses.replace(config.paths.data.input, raw=_CORPUS)
+    data = dataclasses.replace(config.paths.data, input=input_paths)
     return dataclasses.replace(config, paths=dataclasses.replace(config.paths, data=data))
 
 

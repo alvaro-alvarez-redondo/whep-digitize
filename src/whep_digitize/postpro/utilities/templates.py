@@ -235,14 +235,14 @@ def discover_stage_rule_files(config: Config, stage_name: str) -> list[Path]:
         The ordered ``clean_*`` / ``harmonize_*`` rule file paths (``.xlsx`` / ``.xls`` / ``.csv``).
     """
     stage = validate_postpro_stage_name(stage_name)
-    import_dir = getattr(config.paths.data.import_, _STAGE_IMPORT_DIR_ATTR[stage])
-    ensure_directories_exist([import_dir])
+    input_dir = getattr(config.paths.data.input, _STAGE_IMPORT_DIR_ATTR[stage])
+    ensure_directories_exist([input_dir])
 
     stage_prefix = f"{stage}_"
     return sorted(
         (
             entry
-            for entry in import_dir.iterdir()
+            for entry in input_dir.iterdir()
             if entry.is_file()
             and _RULE_EXTENSION_RE.search(entry.name)
             and entry.name.startswith(stage_prefix)

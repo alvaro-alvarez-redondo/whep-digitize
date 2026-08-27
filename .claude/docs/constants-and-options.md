@@ -32,13 +32,13 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `tokens.commodity_start_index` | `7` (1-based) |
 | `time_units` | `seconds_per_minute`, `seconds_per_hour` |
 | `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `last_rule_wins`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
-| `export_config` | `lists_to_export`, `export_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"`, `error_highlight` style |
+| `output_config` | `lists_to_export`, `output_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"`, `error_highlight` style |
 | `progress` | stage labels + per-step messages (presentation left to `rich`) |
 | `fixed_export_columns` / `audit_columns` | export/audit column tuples |
 
 ### Notes
 
-- **`export_config.processed_suffix = ".tsv"`** — processed export always writes `.tsv`.
+- **`output_config.processed_suffix = ".tsv"`** — processed export always writes `.tsv`.
 - **One `defaults` group.** All operational defaults live in `Defaults`; `notes_value=None`.
 - `runtime_cache.cache_file_name` ends `.parquet`.
 
@@ -51,7 +51,7 @@ instance to `run_pipeline(options=...)` or let stages construct the default.
 |--------|---------|---------|----------|
 | `drop_na_values` | `WHEP_DROP_NA_VALUES` | `True` | drop null-`value` rows during import |
 | `progress_enabled` | `WHEP_PROGRESS_ENABLED` | `True` | show the `rich` progress display |
-| `checkpointing_enabled` | `WHEP_CHECKPOINTING_ENABLED` | `False` | cache the import stage: restore a prior `ImportResult` instead of re-running, save one on completion |
+| `checkpointing_enabled` | `WHEP_CHECKPOINTING_ENABLED` | `False` | cache the import stage: restore a prior `InputResult` instead of re-running, save one on completion |
 | `import_parallel_workers` | `WHEP_IMPORT_PARALLEL_WORKERS` | `"auto"` | import worker count (`"auto"`→`min(8, cpu-1)`; `1`=sequential) |
 | `export_parallel_workers` | `WHEP_EXPORT_PARALLEL_WORKERS` | `1` | unique-list workbook-write worker count (`1`=sequential; `"auto"`/`N`=deterministic `ProcessPoolExecutor`) |
 

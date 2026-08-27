@@ -64,7 +64,7 @@ def validate_audit_config(config: Config) -> None:
     require(len(config.column_order) >= 1, "config.column_order must be a non-empty vector")
     require(len(config.audit_columns) >= 1, "config.audit_columns must be a non-empty vector")
     require(
-        len(str(config.paths.data.import_.raw)) >= 1,
+        len(str(config.paths.data.input.raw)) >= 1,
         "config.paths.data.import.raw must be a non-empty path",
     )
     require(

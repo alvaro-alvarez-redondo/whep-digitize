@@ -120,7 +120,7 @@ def test_discover_files_blank_path_raises() -> None:
 
 def test_discover_pipeline_files(tmp_path: Path) -> None:
     config = load_pipeline_config(root=tmp_path)
-    raw = config.paths.data.import_.raw
+    raw = config.paths.data.input.raw
     raw.mkdir(parents=True)
     (raw / "fao_1949_crops_92_92_date.xlsx").touch()
     (raw / "fao_1950_trade_106_106_palm_kernel_oil.xlsx").touch()

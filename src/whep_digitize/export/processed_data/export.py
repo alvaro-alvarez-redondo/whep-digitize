@@ -41,7 +41,7 @@ from whep_digitize.setup.helpers.strings import normalize_filename
 # Record separator: the platform newline — "\r\n" on Windows, "\n" elsewhere.
 _FWRITE_EOL: str = "\r\n" if os.name == "nt" else "\n"
 # Fallback for an explicitly-emptied config: the configured default is every layer.
-_DEFAULT_EXPORT_LAYERS = get_pipeline_constants().export_config.export_layers
+_DEFAULT_OUTPUT_LAYERS = get_pipeline_constants().output_config.output_layers
 
 
 def build_processed_export_path(config: Config, object_name: str) -> Path:
@@ -56,16 +56,16 @@ def build_processed_export_path(config: Config, object_name: str) -> Path:
             :func:`~whep_digitize.setup.helpers.strings.normalize_filename`.
 
     Returns:
-        ``<config.paths.data.export.processed>/<normalized_name>.tsv``.
+        ``<config.paths.data.output.processed>/<normalized_name>.tsv``.
 
     Raises:
         ValidationError: If ``object_name`` is empty.
     """
     if not object_name:
         raise ValidationError("object_name must be a non-empty string")
-    suffix = config.export_config.processed_suffix
+    suffix = config.output_config.processed_suffix
     stem = normalize_filename(object_name)
-    return config.paths.data.export.processed / f"{stem}{suffix}"
+    return config.paths.data.output.processed / f"{stem}{suffix}"
 
 
 def write_processed_table(
@@ -103,7 +103,7 @@ def export_processed_data(
     """Export the configured layer tables to processed-data TSVs.
 
     Detects all layer tables for traceability, keeps those whose name ends in a configured export
-    layer (``config.export_config.export_layers``, which by default is every layer: ``raw``,
+    layer (``config.output_config.output_layers``, which by default is every layer: ``raw``,
     ``clean``, ``normalize``, ``harmonize``), and writes each via
     :func:`write_processed_table`. A configured layer with no corresponding table is simply not
     written -- ``raw`` is absent unless the import frame was supplied to the export runner. The
@@ -121,9 +121,9 @@ def export_processed_data(
         ValidationError: If no layer tables are detected, or none match the export layers.
     """
     layer_tables = collect_layer_tables_for_export(data_objects)
-    export_layers = config.export_config.export_layers or _DEFAULT_EXPORT_LAYERS
+    output_layers = config.output_config.output_layers or _DEFAULT_OUTPUT_LAYERS
     export_pattern = re.compile(
-        r"_(" + "|".join(re.escape(layer) for layer in export_layers) + r")$"
+        r"_(" + "|".join(re.escape(layer) for layer in output_layers) + r")$"
     )
     export_tables = {
         name: frame for name, frame in layer_tables.items() if export_pattern.search(name)
@@ -132,7 +132,7 @@ def export_processed_data(
     if not export_tables:
         raise ValidationError(
             "no exportable layer tables found: detected layers "
-            f"{tuple(layer_tables)}, but export_layers is {tuple(export_layers)}"
+            f"{tuple(layer_tables)}, but output_layers is {tuple(output_layers)}"
         )
 
     return {

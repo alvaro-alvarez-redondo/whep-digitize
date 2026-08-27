@@ -13,9 +13,9 @@ from whep_digitize.setup.directories import (
 
 def test_creates_import_and_export_dirs(config: Config) -> None:
     create_required_directories(config)
-    assert config.paths.data.import_.raw.is_dir()
-    assert config.paths.data.export.processed.is_dir()
-    assert config.paths.data.export.lists.is_dir()
+    assert config.paths.data.input.raw.is_dir()
+    assert config.paths.data.output.processed.is_dir()
+    assert config.paths.data.output.lists.is_dir()
 
 
 def test_creates_audit_subtree(config: Config) -> None:

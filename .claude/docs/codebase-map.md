@@ -41,15 +41,15 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 
 | Module | Key API |
 |--------|---------|
-| `contracts.py` | `ImportResult`, `ImportDiagnostics`, `PostproResult`, `PostproDiagnostics`, `LayerDiagnostics`, `MultiPassDiagnostics`, `ExportResult`, `assert_export_paths_contract` |
-| `pipeline.py` | `run_pipeline(*, show_view, dataset_name, root, options) -> ExportResult` |
+| `contracts.py` | `InputResult`, `InputDiagnostics`, `PostproResult`, `PostproDiagnostics`, `LayerDiagnostics`, `MultiPassDiagnostics`, `OutputResult`, `assert_output_paths_contract` |
+| `pipeline.py` | `run_pipeline(*, show_view, dataset_name, root, options) -> OutputResult` |
 | `cli.py` | `app` (typer): `run`, `bootstrap` |
 
 ---
 
 ## Stage 1 — ingest (`whep_digitize.ingest`)
 
-Public: `runner.run_import_pipeline(config, options=None, current_year=None) -> ImportResult`
+Public: `runner.run_import_pipeline(config, options=None, current_year=None) -> InputResult`
 (discover → fused read+transform → drop-null → validate-by-document → consolidate → sort).
 
 | Module | Key API |
@@ -109,14 +109,14 @@ algorithmic core.
 
 ## Stage 3 — export (`whep_digitize.export`)
 
-Public: `runner.run_export_pipeline(config, result, *, raw=None, overwrite=True) -> ExportResult`
+Public: `runner.run_export_pipeline(config, result, *, raw=None, overwrite=True) -> OutputResult`
 (builds the `whep_data_{raw,clean,normalize,harmonize}` mapping, ensures the export dirs, writes
 processed-data TSVs + unique-list workbooks, asserts the paths contract).
 
 | Module | Key API |
 |--------|---------|
 | `processed_data/layers.py` | `collect_layer_tables_for_export` (name-based detect from an explicit mapping; excludes `_wide_raw`/`_post_processed`; sorted) |
-| `processed_data/export.py` | `export_processed_data` (every layer by default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
+| `processed_data/output.py` | `export_processed_data` (every layer by default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
 | `lists/unique_values.py` | `LISTS_SHEET_ORDER`, `infer_layer_sheet_name`, `compute_unique_column_values` (drop-null, code-point sort, `(blank)` prepend), `build_column_lists_export_path`, `build_layer_tables_by_sheet`, `collect_union_columns` |
 | `lists/merge.py` | `resolve_lists_export_columns`, `resolve_list_sheet_payloads` (identical-layer merge, fixed sheet order) |
 | `lists/write.py` | `build_column_unique_cache`, `write_column_lists_workbook` (no-header multi-sheet `xlsxwriter`), `export_lists` (filename-collision guard) |

@@ -3,14 +3,14 @@
 Assembles the layer objects (``whep_data_raw`` from the import output plus the postpro
 ``clean`` / ``normalize`` / ``harmonize`` frames), ensures the export directories exist, writes
 the processed-data TSVs and the per-column unique-list workbooks, and returns the validated
-:class:`~whep_digitize.contracts.ExportResult`.
+:class:`~whep_digitize.contracts.OutputResult`.
 """
 
 from __future__ import annotations
 
 import polars as pl
 
-from whep_digitize.contracts import ExportResult, PostproResult, assert_export_paths_contract
+from whep_digitize.contracts import OutputResult, PostproResult, assert_output_paths_contract
 from whep_digitize.export.lists.write import export_lists
 from whep_digitize.export.processed_data.export import export_processed_data
 from whep_digitize.setup.config import Config
@@ -30,7 +30,7 @@ def run_export_pipeline(
     raw: pl.DataFrame | None = None,
     overwrite: bool = True,
     options: RuntimeOptions | None = None,
-) -> ExportResult:
+) -> OutputResult:
     """Export processed-data TSVs and per-column unique-list workbooks.
 
     Builds the canonically-named layer mapping (``whep_data_raw`` when ``raw`` is supplied, plus
@@ -47,7 +47,7 @@ def run_export_pipeline(
             resolves the list-export worker count).
 
     Returns:
-        An :class:`~whep_digitize.contracts.ExportResult` of object/column names to written paths.
+        An :class:`~whep_digitize.contracts.OutputResult` of object/column names to written paths.
     """
     resolved_options = options or RuntimeOptions()
     object_names = get_pipeline_constants().object_names
@@ -58,7 +58,7 @@ def run_export_pipeline(
     data_objects[object_names.normalize] = canonicalize_semicolon_string_columns(result.normalize)
     data_objects[object_names.harmonize] = canonicalize_semicolon_string_columns(result.harmonize)
 
-    ensure_directories_exist([config.paths.data.export.processed, config.paths.data.export.lists])
+    ensure_directories_exist([config.paths.data.output.processed, config.paths.data.output.lists])
 
     with stage_progress("export", total=2, enabled=resolved_options.progress_enabled) as progress:
         progress.step(_MESSAGES["processed"])
@@ -68,6 +68,6 @@ def run_export_pipeline(
             config, data_objects, overwrite=overwrite, options=resolved_options
         )
 
-    export_result = ExportResult(processed_paths=processed_paths, lists_paths=lists_paths)
-    assert_export_paths_contract(export_result)
+    export_result = OutputResult(processed_paths=processed_paths, lists_paths=lists_paths)
+    assert_output_paths_contract(export_result)
     return export_result

@@ -54,12 +54,12 @@ def dataset() -> pl.DataFrame:
 
 
 def _config_with_rule_dirs(config: Config) -> Config:
-    import_ = dataclasses.replace(
-        config.paths.data.import_,
+    input_paths = dataclasses.replace(
+        config.paths.data.input,
         cleaning=FIXTURES_DIR / "rule_files" / "clean",
         harmonization=FIXTURES_DIR / "rule_files" / "harmonize",
     )
-    data = dataclasses.replace(config.paths.data, import_=import_)
+    data = dataclasses.replace(config.paths.data, input=input_paths)
     return dataclasses.replace(config, paths=dataclasses.replace(config.paths, data=data))
 
 

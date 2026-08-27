@@ -2,7 +2,7 @@
 
 Writes processed-data TSVs (only the ``harmonize`` layer by default) and per-column
 unique-value list workbooks. Public entry point:
-:func:`whep_digitize.export.runner.run_export_pipeline` -> :class:`ExportResult`.
+:func:`whep_digitize.export.runner.run_export_pipeline` -> :class:`OutputResult`.
 
 Sub-packages:
 

@@ -2,7 +2,7 @@
 
 Discovers the raw workbooks, reads + transforms them (fused, per batch), drops null-value
 rows, validates every document group, consolidates the validated long tables, sorts to the
-canonical row order, and returns a typed :class:`~whep_digitize.contracts.ImportResult`.
+canonical row order, and returns a typed :class:`~whep_digitize.contracts.InputResult`.
 
 The stage is checkpointed (opt-in, default off): a restored checkpoint short-circuits the whole
 stage before discovery, and a completed run is saved on the way out. The checkpoint is a cache of
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from whep_digitize.contracts import ImportDiagnostics, ImportResult
+from whep_digitize.contracts import InputDiagnostics, InputResult
 from whep_digitize.ingest.assemble.consolidate import consolidate_audited_df
 from whep_digitize.ingest.assemble.validate import validate_long_df_by_document
 from whep_digitize.ingest.file_io.discovery import discover_pipeline_files
@@ -40,7 +40,7 @@ def run_import_pipeline(
     config: Config,
     options: RuntimeOptions | None = None,
     current_year: int | None = None,
-) -> ImportResult:
+) -> InputResult:
     """Discover, read, transform, validate, and consolidate the raw import workbooks.
 
     Args:
@@ -50,7 +50,7 @@ def run_import_pipeline(
             to the system year.
 
     Returns:
-        An :class:`ImportResult` with the validated + consolidated long frame (canonically
+        An :class:`InputResult` with the validated + consolidated long frame (canonically
         sorted), the combined wide frame, and reading / validation / consolidation diagnostics.
         With ``options.checkpointing_enabled`` set, a checkpoint from a previous run is returned
         as-is and no work is done.
@@ -66,7 +66,7 @@ def run_import_pipeline(
     cached = load_checkpoint(
         _CHECKPOINT_NAME, config, enabled=resolved_options.checkpointing_enabled
     )
-    if isinstance(cached, ImportResult):
+    if isinstance(cached, InputResult):
         return replace(cached, data=canonicalize_semicolon_string_columns(cached.data))
 
     file_list = discover_pipeline_files(config)
@@ -96,10 +96,10 @@ def run_import_pipeline(
         progress.step(_MESSAGES["sorting"])
         data = sort_pipeline_stage_df(canonicalize_semicolon_string_columns(consolidated.data))
 
-    result = ImportResult(
+    result = InputResult(
         data=data,
         wide_raw=fused.transformed.wide_raw,
-        diagnostics=ImportDiagnostics(
+        diagnostics=InputDiagnostics(
             reading_errors=fused.errors,
             validation_errors=validation.errors,
             warnings=consolidated.warnings,

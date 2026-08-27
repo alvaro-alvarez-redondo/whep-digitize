@@ -26,12 +26,12 @@ def test_normalize_dataset_name(raw: str, expected: str) -> None:
     assert normalize_dataset_name(raw) == expected
 
 
-def test_import_paths(config: Config, project_dir: Path) -> None:
+def test_input_paths(config: Config, project_dir: Path) -> None:
     data = project_dir / "data"
-    assert config.paths.data.import_.raw == data / "import" / "raw"
-    assert config.paths.data.import_.cleaning == data / "import" / "clean"
-    assert config.paths.data.import_.standardization == data / "import" / "standardize"
-    assert config.paths.data.import_.harmonization == data / "import" / "harmonize"
+    assert config.paths.data.input.raw == data / "input" / "raw"
+    assert config.paths.data.input.cleaning == data / "input" / "clean"
+    assert config.paths.data.input.standardization == data / "input" / "standardize"
+    assert config.paths.data.input.harmonization == data / "input" / "harmonize"
 
 
 def test_audit_subtree_paths(config: Config, project_dir: Path) -> None:

@@ -17,7 +17,7 @@ Subpackage                    Responsibility
 :mod:`whep_digitize.export`   processed TSV + unique lists
 ============================  ============================
 
-``import`` is a Python keyword, so stage 1 is named ``ingest``.
+``ingest`` / ``export`` name the stage *actions*; ``input`` / ``output`` name the data.
 """
 
 from __future__ import annotations

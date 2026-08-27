@@ -51,7 +51,7 @@ def build_column_lists_export_path(config: Config, column_name: str) -> Path:
     """Resolve the ``unique_<column>.xlsx`` path for a column's list workbook.
 
     The stem is the ``unique_`` prefix plus the normalized column name (the misformatted
-    ``export_config.list_suffix`` constant is dead code and deliberately unused). The directory
+    ``output_config.list_suffix`` constant is dead code and deliberately unused). The directory
     is not created here (the runner ensures it).
 
     Args:
@@ -59,14 +59,14 @@ def build_column_lists_export_path(config: Config, column_name: str) -> Path:
         column_name: The column whose workbook path is built.
 
     Returns:
-        ``<config.paths.data.export.lists>/unique_<normalized_name>.xlsx``.
+        ``<config.paths.data.output.lists>/unique_<normalized_name>.xlsx``.
 
     Raises:
         ValidationError: If ``column_name`` is empty.
     """
     if not column_name:
         raise ValidationError("column_name must be a non-empty string")
-    return config.paths.data.export.lists / f"unique_{normalize_filename(column_name)}.xlsx"
+    return config.paths.data.output.lists / f"unique_{normalize_filename(column_name)}.xlsx"
 
 
 def compute_unique_column_values(

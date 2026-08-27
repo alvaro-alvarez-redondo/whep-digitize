@@ -50,8 +50,8 @@ def _f(values: list[float | None]) -> pl.Series:
 
 def _make_preflight_dirs(config: Config) -> None:
     for directory in (
-        config.paths.data.import_.cleaning,
-        config.paths.data.import_.harmonization,
+        config.paths.data.input.cleaning,
+        config.paths.data.input.harmonization,
         config.paths.data.audit.templates_dir,
         config.paths.data.audit.diagnostics_dir,
     ):
@@ -63,8 +63,8 @@ def _make_preflight_dirs(config: Config) -> None:
 
 def test_preflight_flags_invalid_naming(config: Config) -> None:
     _make_preflight_dirs(config)
-    (config.paths.data.import_.cleaning / "bad_clean_name.xlsx").touch()
-    (config.paths.data.import_.harmonization / "bad_harmonize_name.xlsx").touch()
+    (config.paths.data.input.cleaning / "bad_clean_name.xlsx").touch()
+    (config.paths.data.input.harmonization / "bad_harmonize_name.xlsx").touch()
     result = collect_postpro_preflight(config, ["unit", "value", "commodity"])
     assert result.checks["cleaning_pattern_ok"] is False
     assert result.checks["harmonize_pattern_ok"] is False
@@ -74,8 +74,8 @@ def test_preflight_flags_invalid_naming(config: Config) -> None:
 
 def test_preflight_detects_missing_columns(config: Config) -> None:
     _make_preflight_dirs(config)
-    (config.paths.data.import_.cleaning / "clean_rules.xlsx").touch()
-    (config.paths.data.import_.harmonization / "harmonize_rules.xlsx").touch()
+    (config.paths.data.input.cleaning / "clean_rules.xlsx").touch()
+    (config.paths.data.input.harmonization / "harmonize_rules.xlsx").touch()
     result = collect_postpro_preflight(config, ["unit", "value", "item"])
     assert result.passed is False
     assert any("missing expected columns" in issue for issue in result.issues)
@@ -83,8 +83,8 @@ def test_preflight_detects_missing_columns(config: Config) -> None:
 
 def test_preflight_passes_when_clean(config: Config) -> None:
     _make_preflight_dirs(config)
-    (config.paths.data.import_.cleaning / "clean_rules.xlsx").touch()
-    (config.paths.data.import_.harmonization / "harmonize_rules.xlsx").touch()
+    (config.paths.data.input.cleaning / "clean_rules.xlsx").touch()
+    (config.paths.data.input.harmonization / "harmonize_rules.xlsx").touch()
     result = collect_postpro_preflight(config, ["unit", "value", "commodity"])
     assert result.passed is True
     assert result.issues == ()

@@ -20,7 +20,7 @@ import pytest
 from goldens import FIXTURES_DIR, GOLDENS
 from polars.testing import assert_series_equal
 
-from whep_digitize.contracts import ImportResult
+from whep_digitize.contracts import InputResult
 from whep_digitize.ingest.runner import run_import_pipeline
 from whep_digitize.setup.config import load_pipeline_config
 
@@ -54,24 +54,24 @@ def _gold(name: str) -> list[str | None]:
 
 
 @pytest.fixture(scope="module")
-def result() -> ImportResult:
+def result() -> InputResult:
     corpus = FIXTURES_DIR / "corpus"
     base = load_pipeline_config(root=FIXTURES_DIR.parents[1])
-    import_ = dataclasses.replace(base.paths.data.import_, raw=corpus)
-    data_paths = dataclasses.replace(base.paths.data, import_=import_)
+    input_paths = dataclasses.replace(base.paths.data.input, raw=corpus)
+    data_paths = dataclasses.replace(base.paths.data, input=input_paths)
     config = dataclasses.replace(base, paths=dataclasses.replace(base.paths, data=data_paths))
     return run_import_pipeline(config, current_year=_PINNED_YEAR)
 
 
 @pytest.mark.parity
-def test_data_columns_and_row_count(result: ImportResult) -> None:
+def test_data_columns_and_row_count(result: InputResult) -> None:
     assert result.data.columns == _gold("data_columns")
     assert str(result.data.height) == _gold("data_nrow")[0]
 
 
 @pytest.mark.parity
 @pytest.mark.parametrize("column", _DATA_COLUMNS)
-def test_data_column_matches_golden(column: str, result: ImportResult) -> None:
+def test_data_column_matches_golden(column: str, result: InputResult) -> None:
     expected = pl.Series(column, _gold(column), dtype=pl.String)
     assert_series_equal(
         result.data.get_column(column), expected, check_dtypes=True, check_names=True
@@ -79,7 +79,7 @@ def test_data_column_matches_golden(column: str, result: ImportResult) -> None:
 
 
 @pytest.mark.parity
-def test_diagnostics_match_golden(result: ImportResult) -> None:
+def test_diagnostics_match_golden(result: InputResult) -> None:
     assert list(result.diagnostics.reading_errors) == _gold("reading_errors")
     assert list(result.diagnostics.validation_errors) == _gold("validation_errors")
     assert list(result.diagnostics.warnings) == _gold("warnings")

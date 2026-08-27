@@ -114,15 +114,15 @@ def build_stage_payload_cache_key(config: Config, stage_name: str) -> str:
         The cache key.
     """
     stage = validate_postpro_stage_name(stage_name)
-    import_dir = getattr(
-        config.paths.data.import_, {"clean": "cleaning", "harmonize": "harmonization"}[stage]
+    input_dir = getattr(
+        config.paths.data.input, {"clean": "cleaning", "harmonize": "harmonization"}[stage]
     )
     ordered_files = discover_stage_rule_files(config, stage)
     if not ordered_files:
         return f"{stage}::<no_rule_files>"
 
     fingerprints = [f"{path.name}::{_md5_file(path)}" for path in ordered_files]
-    return f"{stage}::{'||'.join(fingerprints)}@@{import_dir}"
+    return f"{stage}::{'||'.join(fingerprints)}@@{input_dir}"
 
 
 def prune_runtime_cache_entries(

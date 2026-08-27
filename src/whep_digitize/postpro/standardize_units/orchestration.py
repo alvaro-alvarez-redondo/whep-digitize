@@ -174,7 +174,7 @@ def read_standardize_rule_workbook(
 
 def read_all_standardize_rule_files(config: Config) -> RuleFilesPayload:
     """Discover and read every standardization rule workbook (deterministically ordered)."""
-    standardization_dir = config.paths.data.import_.standardization
+    standardization_dir = config.paths.data.input.standardization
     ensure_directories_exist([standardization_dir])
     rule_paths = sorted(
         (

@@ -2,7 +2,7 @@
 
 Exercises the full ``setup -> ingest -> postpro -> export`` wiring over the committed fixture
 corpus + postpro rule fixtures (so the multi-pass rule engine fires), asserting a valid
-:class:`ExportResult` with the processed-data TSV and the per-column unique-list workbooks
+:class:`OutputResult` with the processed-data TSV and the per-column unique-list workbooks
 written to disk. Stage- and module-level *parity* (vs the frozen reference) is covered by
 ``tests/parity/`` — this guards the orchestration glue itself (which those stage tests bypass),
 and full-pipeline byte-parity over the frozen dataset is verified out-of-band (see
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import polars as pl
 
-from whep_digitize.contracts import ExportResult
+from whep_digitize.contracts import OutputResult
 from whep_digitize.pipeline import run_pipeline
 from whep_digitize.setup.options import RuntimeOptions
 
@@ -37,24 +37,24 @@ _LONG_COLUMNS = [
 ]
 
 
-def _assemble_import_tree(root: Path) -> None:
-    """Lay out ``<root>/data/import`` = fixture corpus (raw) + postpro rule fixtures."""
-    import_dir = root / "data" / "import"
-    import_dir.mkdir(parents=True)
-    shutil.copytree(_FIXTURES / "corpus", import_dir / "raw")
-    shutil.copytree(_FIXTURES / "rule_files_postpro" / "clean", import_dir / "clean")
-    shutil.copytree(_FIXTURES / "rule_files_postpro" / "harmonize", import_dir / "harmonize")
+def _assemble_input_tree(root: Path) -> None:
+    """Lay out ``<root>/data/input`` = fixture corpus (raw) + postpro rule fixtures."""
+    input_dir = root / "data" / "input"
+    input_dir.mkdir(parents=True)
+    shutil.copytree(_FIXTURES / "corpus", input_dir / "raw")
+    shutil.copytree(_FIXTURES / "rule_files_postpro" / "clean", input_dir / "clean")
+    shutil.copytree(_FIXTURES / "rule_files_postpro" / "harmonize", input_dir / "harmonize")
 
 
 def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
-    _assemble_import_tree(tmp_path)
+    _assemble_input_tree(tmp_path)
 
     result = run_pipeline(
         root=tmp_path,
         options=RuntimeOptions(progress_enabled=False, import_parallel_workers=1),
     )
 
-    assert isinstance(result, ExportResult)
+    assert isinstance(result, OutputResult)
 
     # Processed data: one TSV per layer, each written + non-empty with the canonical header.
     assert sorted(result.processed_paths) == [
@@ -81,13 +81,13 @@ def test_run_pipeline_e2e_deterministic(tmp_path: Path) -> None:
 
     first_root = tmp_path / "run_a"
     first_root.mkdir()
-    _assemble_import_tree(first_root)
+    _assemble_input_tree(first_root)
     first = run_pipeline(root=first_root, options=options)
     first_tsv = first.processed_paths["whep_data_harmonize"].read_bytes()
 
     second_root = tmp_path / "run_b"
     second_root.mkdir()
-    _assemble_import_tree(second_root)
+    _assemble_input_tree(second_root)
     second = run_pipeline(root=second_root, options=options)
     second_tsv = second.processed_paths["whep_data_harmonize"].read_bytes()
 

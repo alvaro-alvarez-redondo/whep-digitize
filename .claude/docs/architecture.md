@@ -23,22 +23,23 @@ global namespace.
 | 2 — postpro | `whep_digitize.postpro` | audit, clean, standardize units, harmonize |
 | 3 — export | `whep_digitize.export` | processed TSVs + unique-list workbooks |
 
-`ingest` is the stage-1 name because `import` is a Python keyword. See
+`ingest` / `export` name the *stage actions*; `input` / `output` name the **data** and its
+locations (`data/input/`, `data/output/`, `paths.data.input`, `paths.data.output`). See
 [codebase-map.md](codebase-map.md) for the module index.
 
 ## Data flow
 
 ```
-Excel workbooks (data/import/raw/**.xlsx)
+Excel workbooks (data/input/raw/**.xlsx)
    │  discover → read (all-text) → wide→long unpivot → validate (by document)
    ▼
-ImportResult(data=long df, wide_raw=wide df, diagnostics)
+InputResult(data=long df, wide_raw=wide df, diagnostics)
    │  run_postpro_pipeline: audit → clean → standardize units → harmonize
    ▼
 PostproResult(harmonize, clean, normalize, diagnostics)
    │  run_export_pipeline: processed TSV + unique-list xlsx
    ▼
-ExportResult(processed_paths, lists_paths)
+OutputResult(processed_paths, lists_paths)
 ```
 
 ### Canonical column order
@@ -58,7 +59,7 @@ that coercion.
 
 | | **Fixture corpus** | **Full production dataset** |
 |---|---|---|
-| Location | `tests/fixtures/corpus/` (committed) | `data/import/raw/` |
+| Location | `tests/fixtures/corpus/` (committed) | `data/input/raw/` |
 | Size | **6 workbooks** (~37 KB) | **1,339 workbooks** (measured 2026-07-31) |
 | Contents | one smallest-per-category workbook: crops / livestock / population / inputs / land / trade | every WHEP source workbook |
 | Versioned? | yes — committed, immutable | no — lives in Nextcloud and **grows over time** |
@@ -72,17 +73,17 @@ Because the production dataset grows, any count quoted here is a measurement wit
 constant. Re-measure with:
 
 ```bash
-find data/import/raw -name '*.xlsx' | wc -l
+find data/input/raw -name '*.xlsx' | wc -l
 ```
 
 ## Entry points
 
-- `run_pipeline(*, show_view=False, dataset_name=None, root=None, options=None) -> ExportResult`
+- `run_pipeline(*, show_view=False, dataset_name=None, root=None, options=None) -> OutputResult`
   — the top-level orchestrator (`whep_digitize/pipeline.py`).
 - `setup.runner.run_setup_pipeline(dataset_name=None, root=None) -> Config`.
-- `ingest.runner.run_import_pipeline(config, options=None) -> ImportResult`.
+- `ingest.runner.run_import_pipeline(config, options=None) -> InputResult`.
 - `postpro.runner.run_postpro_pipeline(raw, config, dataset_name=None, options=None) -> PostproResult`.
-- `export.runner.run_export_pipeline(config, result, *, overwrite=True) -> ExportResult`.
+- `export.runner.run_export_pipeline(config, result, *, overwrite=True) -> OutputResult`.
 
 CLI: `whep-digitize run` (full pipeline) and `whep-digitize bootstrap` (Stage 0 only).
 
@@ -93,9 +94,9 @@ built and tested in isolation as long as it honors its result type.
 
 | Contract | Invariant |
 |----------|-----------|
-| `ImportResult` | `data`/`wide_raw` are `pl.DataFrame`; diagnostics typed |
+| `InputResult` | `data`/`wide_raw` are `pl.DataFrame`; diagnostics typed |
 | `PostproResult` | three layer frames (`clean`, `normalize`, `harmonize`) + typed diagnostics |
-| `ExportResult` | both path maps non-empty `Mapping[str, Path]` (`assert_export_paths_contract`) |
+| `OutputResult` | both path maps non-empty `Mapping[str, Path]` (`assert_output_paths_contract`) |
 
 ## Design decisions
 
@@ -111,7 +112,7 @@ built and tested in isolation as long as it honors its result type.
 
 ## Data layout (gitignored, under `data/`)
 
-- `data/import/` — `raw` (input `.xlsx`), then `clean` / `standardize` / `harmonize`.
+- `data/input/` — `raw` (input `.xlsx`), then `clean` / `standardize` / `harmonize`.
 - `data/postpro/` — `audit`, `diagnostics`, `templates`, `runtime_cache` (the audit
   subtree; the `2-postpro` root is created lazily as their parent).
-- `data/export/` — `processed` (**TSV**), `lists` (**xlsx** `unique_*.xlsx`).
+- `data/output/` — `processed` (**TSV**), `lists` (**xlsx** `unique_*.xlsx`).

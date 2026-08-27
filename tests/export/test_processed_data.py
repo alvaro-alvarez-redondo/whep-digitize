@@ -105,7 +105,7 @@ def test_collect_ignores_blank_name() -> None:
 def test_build_path_naming(config: Config) -> None:
     path = build_processed_export_path(config, "dataset_harmonize")
     assert path.name == "dataset_harmonize.tsv"
-    assert path.parent == config.paths.data.export.processed
+    assert path.parent == config.paths.data.output.processed
 
 
 def test_build_path_normalizes_name(config: Config) -> None:
@@ -196,7 +196,7 @@ def _export_objects() -> dict[str, pl.DataFrame]:
 
 
 def test_export_writes_every_layer_by_default(config: Config) -> None:
-    config.paths.data.export.processed.mkdir(parents=True, exist_ok=True)
+    config.paths.data.output.processed.mkdir(parents=True, exist_ok=True)
     paths = export_processed_data(config, _export_objects())
     # `normalize` is configured but absent from the mapping, so it is skipped, not an error.
     assert set(paths) == {"test_raw", "test_clean", "test_harmonize"}
@@ -204,7 +204,7 @@ def test_export_writes_every_layer_by_default(config: Config) -> None:
 
 
 def test_export_writes_all_four_layers_when_present(config: Config) -> None:
-    config.paths.data.export.processed.mkdir(parents=True, exist_ok=True)
+    config.paths.data.output.processed.mkdir(parents=True, exist_ok=True)
     frame = pl.DataFrame({"polity": ["a"], "value": ["1"]})
     objects = {f"test_{layer}": frame for layer in ("raw", "clean", "normalize", "harmonize")}
     paths = export_processed_data(config, objects)
@@ -212,22 +212,22 @@ def test_export_writes_all_four_layers_when_present(config: Config) -> None:
     assert all(path.is_file() for path in paths.values())
 
 
-def test_export_honors_config_export_layers(config: Config) -> None:
-    config.paths.data.export.processed.mkdir(parents=True, exist_ok=True)
-    export_config = dataclasses.replace(
-        config.export_config, export_layers=("raw", "clean", "harmonize")
+def test_export_honors_config_output_layers(config: Config) -> None:
+    config.paths.data.output.processed.mkdir(parents=True, exist_ok=True)
+    output_config = dataclasses.replace(
+        config.output_config, output_layers=("raw", "clean", "harmonize")
     )
-    wide_config = dataclasses.replace(config, export_config=export_config)
+    wide_config = dataclasses.replace(config, output_config=output_config)
     paths = export_processed_data(wide_config, _export_objects())
     assert set(paths) == {"test_raw", "test_clean", "test_harmonize"}
     assert all(path.is_file() for path in paths.values())
 
 
 def test_export_no_matching_layer_raises(config: Config) -> None:
-    config.paths.data.export.processed.mkdir(parents=True, exist_ok=True)
+    config.paths.data.output.processed.mkdir(parents=True, exist_ok=True)
     # Every layer is exported by default, so reaching "nothing matched" needs a narrowed config.
-    export_config = dataclasses.replace(config.export_config, export_layers=("harmonize",))
-    narrow = dataclasses.replace(config, export_config=export_config)
+    output_config = dataclasses.replace(config.output_config, output_layers=("harmonize",))
+    narrow = dataclasses.replace(config, output_config=output_config)
     objects = {"test_raw": _frame(), "test_clean": _frame()}
     with pytest.raises(ValidationError, match="harmonize"):
         export_processed_data(narrow, objects)

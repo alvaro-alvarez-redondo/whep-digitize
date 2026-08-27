@@ -98,7 +98,7 @@ def test_union_columns_parity(data_objects: dict[str, pl.DataFrame]) -> None:
 def test_export_columns_parity(config: Config, data_objects: dict[str, pl.DataFrame]) -> None:
     wide = dataclasses.replace(
         config,
-        export_config=dataclasses.replace(config.export_config, lists_to_export=_LISTS_TO_EXPORT),
+        output_config=dataclasses.replace(config.output_config, lists_to_export=_LISTS_TO_EXPORT),
     )
     layer_by_sheet = build_layer_tables_by_sheet(collect_layer_tables_for_export(data_objects))
     union = collect_union_columns(layer_by_sheet)
@@ -111,9 +111,9 @@ def test_export_lists_workbook_layout_parity(
 ) -> None:
     wide = dataclasses.replace(
         config,
-        export_config=dataclasses.replace(config.export_config, lists_to_export=_LISTS_TO_EXPORT),
+        output_config=dataclasses.replace(config.output_config, lists_to_export=_LISTS_TO_EXPORT),
     )
-    wide.paths.data.export.lists.mkdir(parents=True, exist_ok=True)
+    wide.paths.data.output.lists.mkdir(parents=True, exist_ok=True)
 
     paths = export_lists(wide, data_objects)
     assert sorted(paths) == sorted(_COLUMNS)

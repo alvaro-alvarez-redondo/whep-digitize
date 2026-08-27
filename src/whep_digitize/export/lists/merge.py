@@ -20,7 +20,7 @@ from whep_digitize.setup.errors import ValidationError
 def resolve_lists_export_columns(config: Config, union_columns: Sequence[str]) -> list[str]:
     """Return the configured list columns present across the detected layers, in config order.
 
-    Intersects ``config.export_config.lists_to_export`` with ``union_columns``, preserving the
+    Intersects ``config.output_config.lists_to_export`` with ``union_columns``, preserving the
     configured order.
 
     Args:
@@ -34,13 +34,13 @@ def resolve_lists_export_columns(config: Config, union_columns: Sequence[str]) -
         ValidationError: If ``lists_to_export`` is empty/duplicated, or none of the configured
             columns are present in the detected layers.
     """
-    configured = config.export_config.lists_to_export
+    configured = config.output_config.lists_to_export
     if not configured:
         raise ValidationError(
-            "config.export_config.lists_to_export must be defined for list export"
+            "config.output_config.lists_to_export must be defined for list export"
         )
     if len(set(configured)) != len(configured):
-        raise ValidationError("config.export_config.lists_to_export must be unique")
+        raise ValidationError("config.output_config.lists_to_export must be unique")
 
     present = set(union_columns)
     export_columns = [column for column in configured if column in present]

@@ -60,9 +60,9 @@ def bootstrap(*, dataset: DatasetOption = None) -> None:
     console = get_console()
     alert_success(f"bootstrapped dataset '{config.dataset_name}'")
     console.print(f"  project root : {config.project_root}")
-    console.print(f"  import (raw) : {config.paths.data.import_.raw}")
+    console.print(f"  import (raw) : {config.paths.data.input.raw}")
     console.print(f"  audit        : {config.paths.data.audit.audit_dir}")
-    console.print(f"  export       : {config.paths.data.export.processed}")
+    console.print(f"  export       : {config.paths.data.output.processed}")
 
 
 if __name__ == "__main__":
