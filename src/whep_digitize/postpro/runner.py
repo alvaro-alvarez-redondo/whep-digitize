@@ -41,6 +41,7 @@ from whep_digitize.postpro.utilities.output_roots import (
 from whep_digitize.postpro.utilities.templates import generate_postpro_rule_templates
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
+from whep_digitize.setup.helpers.frames import canonicalize_semicolon_string_columns
 from whep_digitize.setup.helpers.progress import stage_progress
 from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 from whep_digitize.setup.options import RuntimeOptions
@@ -83,7 +84,8 @@ def run_postpro_pipeline(
     with stage_progress("postpro", total=9, enabled=resolved_options.progress_enabled) as progress:
         # 1. audit — coerce ``value`` to Float64, export invalid-cell highlights (rows kept).
         progress.step(_MESSAGES["audit"])
-        audited = audit_data_output(raw, config).audited
+        raw_df = _canonicalize_stage_frame(raw)
+        audited = audit_data_output(raw_df, config).audited
 
         # 2. resolve the audit output roots (the directory tree itself is created by step 3).
         progress.step(_MESSAGES["init_dirs"])
@@ -102,19 +104,19 @@ def run_postpro_pipeline(
         # 6. clean layer (multi-pass), then canonical sort.
         progress.step(_MESSAGES["clean"])
         clean_layer = run_cleaning_layer_batch(audited, config, dataset_name=resolved_dataset_name)
-        clean_df = sort_pipeline_stage_df(clean_layer.data)
+        clean_df = _canonicalize_stage_frame(clean_layer.data)
 
         # 7. standardize-units layer, then canonical sort.
         progress.step(_MESSAGES["standardize"])
         standardize_layer = run_standardize_units_layer_batch(clean_df, config)
-        normalize_df = sort_pipeline_stage_df(standardize_layer.data)
+        normalize_df = _canonicalize_stage_frame(standardize_layer.data)
 
         # 8. harmonize layer (multi-pass) on the normalized frame, then canonical sort.
         progress.step(_MESSAGES["harmonize"])
         harmonize_layer = run_harmonize_layer_batch(
             normalize_df, config, dataset_name=resolved_dataset_name
         )
-        harmonize_df = sort_pipeline_stage_df(harmonize_layer.data)
+        harmonize_df = _canonicalize_stage_frame(harmonize_layer.data)
 
         # 9. persist per-stage audit workbooks + the last-rule-wins overwrite subset.
         progress.step(_MESSAGES["persist"])
@@ -141,6 +143,11 @@ def run_postpro_pipeline(
         normalize=normalize_df,
         diagnostics=diagnostics,
     )
+
+
+def _canonicalize_stage_frame(frame: pl.DataFrame) -> pl.DataFrame:
+    """Canonicalize semicolon-token cells, then sort by the canonical row order."""
+    return sort_pipeline_stage_df(canonicalize_semicolon_string_columns(frame))
 
 
 def _as_layer_diagnostics(standardize: StandardizeDiagnostics) -> LayerDiagnostics:

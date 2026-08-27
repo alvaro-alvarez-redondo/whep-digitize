@@ -44,7 +44,7 @@ from whep_digitize.setup.helpers.numeric import format_double_fixed
 from whep_digitize.setup.options import RuntimeOptions
 
 _CORPUS = Path(__file__).resolve().parents[1] / "fixtures" / "corpus"
-_DATE_WB = _CORPUS / "fao_1949" / "fao_1949_crops" / "r_fao_1949_crops_92_92_date.xlsx"
+_DATE_WB = _CORPUS / "fao_1949" / "fao_1949_crops" / "fao_1949_crops_92_92_date.xlsx"
 
 
 def _write_xlsx(path: Path, sheets: dict[str, pl.DataFrame]) -> Path:

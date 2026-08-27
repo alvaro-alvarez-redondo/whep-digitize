@@ -2,7 +2,7 @@
   "commodity": ["egg", "milk", "wheat", "temp", "cow"],
   "unit": ["1000 egg", "hectoliter", "kg", "celsius", "1,000 head"],
   "value": ["2", "10", "5", "100", "3"],
-  "rule_commodity": ["egg", "all commodity", "temp", "all commodity"],
+  "rule_commodity": ["egg", "#ALL#", "temp", "#ALL#"],
   "rule_source": ["1000 egg", "kg", "celsius", "head"],
   "rule_target": ["tonne", "g", "fahrenheit", "tonne"],
   "rule_factor": ["0.0539", "1000", "1.8", "0.001"],

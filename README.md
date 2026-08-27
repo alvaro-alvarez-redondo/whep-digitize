@@ -34,31 +34,35 @@ Statically typed (`mypy --strict`), linted and formatted (`ruff`), packaged with
 
 ## Setup
 
-### With uv (recommended)
+### With the terminal's Python
 
 ```bash
-uv sync --extra dev      # creates .venv and installs everything from uv.lock
-uv run whep-digitize --help
+py -3.14 -m pip install -e ".[dev]"   # Windows launcher on this machine
+py -3.14 -m whep_digitize             # run the full pipeline
 ```
 
-### With pip
+On systems where `python` points at the interpreter you want:
 
 ```bash
-python -m venv .venv
-.venv/Scripts/activate          # Windows;  source .venv/bin/activate on POSIX
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
+python -m whep_digitize
 ```
 
-> On this Windows host, Python is invoked via the launcher: `py -3.14`. See
-> [.claude/docs/conventions.md](.claude/docs/conventions.md) for environment notes.
+### With uv
+
+```bash
+uv sync --extra dev      # installs everything from uv.lock
+uv run python -m whep_digitize
+```
 
 ## Usage
 
 ```bash
 # CLI
-whep-digitize run                       # run the full pipeline
-whep-digitize run --no-view             # headless
-whep-digitize bootstrap                 # Stage 0 only (build the directory tree)
+python -m whep_digitize                         # run the full pipeline
+python -m whep_digitize --dataset "FAO 1955"    # run with a custom dataset name
+python -m whep_digitize run                     # same as above, explicit subcommand
+python -m whep_digitize bootstrap               # Stage 0 only (build the directory tree)
 
 # Python API
 python -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_view=False)"

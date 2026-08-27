@@ -17,7 +17,7 @@ intend to change output is a regression, not a refresh.
 
 After any intentional edit, verify:
 
-    .venv/Scripts/python.exe -m pytest -m parity
+    py -3.14 -m pytest -m parity
 
 ## Why a presence guard exists
 

@@ -24,7 +24,7 @@ from whep_digitize.ingest.reading.sheet_read import read_excel_sheet
 from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = GOLDENS["sheet_read"]
-_CORPUS_REL = "corpus/fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx"
+_CORPUS_REL = "corpus/fao_1949/fao_1949_crops/fao_1949_crops_92_92_date.xlsx"
 
 # Golden export key -> the frame column it captured (year columns get filesystem-safe keys).
 _COLUMN_EXPORTS = {

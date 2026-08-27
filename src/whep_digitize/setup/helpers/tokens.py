@@ -19,21 +19,21 @@ _EXTENSION_RE = re.compile(r"\.[^.]+$")
 def extract_yearbook(parts: Sequence[str]) -> str | None:
     """Build the yearbook token from split filename parts.
 
-    Yearbook = the second token joined to the first 4-digit (``YYYY``) token with an
+    Yearbook = the first token joined to the first 4-digit (``YYYY``) token with an
     underscore. Requires at least two parts and a 4-digit token.
 
     Args:
         parts: Filename split on ``"_"``.
 
     Returns:
-        The ``"<part2>_<year>"`` yearbook, or ``None`` if it cannot be formed.
+        The ``"<part1>_<year>"`` yearbook, or ``None`` if it cannot be formed.
     """
     if len(parts) < 2:
         return None
     year_token = next((part for part in parts if _YEAR_TOKEN_RE.match(part)), None)
     if year_token is None:
         return None
-    return f"{parts[1]}_{year_token}"
+    return f"{parts[0]}_{year_token}"
 
 
 def extract_commodity(parts: Sequence[str], start_index: int | None = None) -> str | None:

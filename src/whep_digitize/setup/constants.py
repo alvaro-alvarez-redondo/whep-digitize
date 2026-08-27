@@ -216,7 +216,7 @@ class Tokens:
     """Filename token-parsing constants. ``commodity_start_index`` is 1-based."""
 
     # 1-based, so Python slicing subtracts 1: parts[commodity_start_index - 1 :].
-    commodity_start_index: int = 7
+    commodity_start_index: int = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,7 +297,8 @@ class Standardization:
 
     excluded_sheet_names: tuple[str, ...] = ("master_unit",)
     # Generic fallback commodity key tried when no specific-commodity rule matches.
-    all_commodity_key: str = "all commodity"
+    # Normalized form of ``#ALL#`` (the hash markers are stripped by normalize_string).
+    all_commodity_key: str = "all"
     required_rule_columns: tuple[str, ...] = (
         "commodity_key",
         "unit_source",

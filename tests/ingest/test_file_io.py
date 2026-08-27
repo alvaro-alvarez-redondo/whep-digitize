@@ -25,12 +25,12 @@ _METADATA_COLUMNS = ["file_path", "file_name", "commodity", "yearbook", "is_asci
 # Ground truth for the committed corpus, verified against the committed fixtures
 # (sorted by full path string). See tests/parity for the byte-for-byte golden comparison.
 _CORPUS_FILE_NAMES = [
-    "r_fao_1949_crops_92_92_date.xlsx",
-    "r_fao_1949_livestock_162_162_milk.xlsx",
-    "r_fao_1949_population_24_24_population_agriculture.xlsx",
-    "r_fao_1950_trade_106_106_palm_kernel_oil.xlsx",
-    "r_fao_1952_land_3_9_irrigation_permanent_meadows_pastures.xlsx",
-    "r_fao_1955_inputs_228_229_pesticide_fluoride.xlsx",
+    "fao_1949_crops_92_92_date.xlsx",
+    "fao_1949_livestock_162_162_milk.xlsx",
+    "fao_1949_population_24_24_population_agriculture.xlsx",
+    "fao_1950_trade_106_106_palm_kernel_oil.xlsx",
+    "fao_1952_land_3_9_irrigation_permanent_meadows_pastures.xlsx",
+    "fao_1955_inputs_228_229_pesticide_fluoride.xlsx",
 ]
 _CORPUS_YEARBOOKS = ["fao_1949", "fao_1949", "fao_1949", "fao_1950", "fao_1952", "fao_1955"]
 _CORPUS_COMMODITIES = [
@@ -72,11 +72,11 @@ def test_discover_files_relative_path_stays_relative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "sub").mkdir()
-    (tmp_path / "sub" / "r_fao_1961_x_y_z_z_wheat.xlsx").touch()
+    (tmp_path / "sub" / "fao_1961_x_y_z_z_wheat.xlsx").touch()
     # A relative import folder must yield relative forward-slash paths (fs behaviour).
     monkeypatch.chdir(tmp_path)
     result = discover_files("sub")
-    assert result["file_path"].to_list() == ["sub/r_fao_1961_x_y_z_z_wheat.xlsx"]
+    assert result["file_path"].to_list() == ["sub/fao_1961_x_y_z_z_wheat.xlsx"]
 
 
 def test_discover_files_recurses_and_filters(tmp_path: Path) -> None:
@@ -122,12 +122,12 @@ def test_discover_pipeline_files(tmp_path: Path) -> None:
     config = load_pipeline_config(root=tmp_path)
     raw = config.paths.data.import_.raw
     raw.mkdir(parents=True)
-    (raw / "r_fao_1949_crops_92_92_date.xlsx").touch()
-    (raw / "r_fao_1950_trade_106_106_palm_kernel_oil.xlsx").touch()
+    (raw / "fao_1949_crops_92_92_date.xlsx").touch()
+    (raw / "fao_1950_trade_106_106_palm_kernel_oil.xlsx").touch()
     result = discover_pipeline_files(config)
     assert result["file_name"].to_list() == [
-        "r_fao_1949_crops_92_92_date.xlsx",
-        "r_fao_1950_trade_106_106_palm_kernel_oil.xlsx",
+        "fao_1949_crops_92_92_date.xlsx",
+        "fao_1950_trade_106_106_palm_kernel_oil.xlsx",
     ]
     assert result["yearbook"].to_list() == ["fao_1949", "fao_1950"]
     assert result["commodity"].to_list() == ["date", "palm_kernel_oil"]
@@ -137,7 +137,7 @@ def test_discover_pipeline_files(tmp_path: Path) -> None:
 
 
 def test_extract_file_metadata_schema_and_dtypes() -> None:
-    result = extract_file_metadata(["r_fao_1949_crops_92_92_date.xlsx"])
+    result = extract_file_metadata(["fao_1949_crops_92_92_date.xlsx"])
     assert result.columns == _METADATA_COLUMNS
     assert result.schema["file_path"] == pl.String
     assert result.schema["commodity"] == pl.String
@@ -147,16 +147,16 @@ def test_extract_file_metadata_schema_and_dtypes() -> None:
 
 
 def test_extract_file_metadata_basename_and_verbatim_path() -> None:
-    path = "some/nested/dir/r_fao_1949_crops_92_92_date.xlsx"
+    path = "some/nested/dir/fao_1949_crops_92_92_date.xlsx"
     result = extract_file_metadata([path])
     assert result["file_path"].to_list() == [path]  # retained verbatim
-    assert result["file_name"].to_list() == ["r_fao_1949_crops_92_92_date.xlsx"]
+    assert result["file_name"].to_list() == ["fao_1949_crops_92_92_date.xlsx"]
     assert result["yearbook"].to_list() == ["fao_1949"]
     assert result["commodity"].to_list() == ["date"]
 
 
 def test_extract_file_metadata_first_year_token_wins() -> None:
-    result = extract_file_metadata(["r_fao_1961_a_b_c_2000_wheat.xlsx"])
+    result = extract_file_metadata(["fao_1961_a_b_c_2000_wheat.xlsx"])
     assert result["yearbook"].to_list() == ["fao_1961"]
     assert result["commodity"].to_list() == ["2000_wheat"]
 
@@ -164,8 +164,8 @@ def test_extract_file_metadata_first_year_token_wins() -> None:
 @pytest.mark.parametrize(
     ("name", "yearbook", "commodity"),
     [
-        ("r_fao_1961_crops_1_1.xlsx", "fao_1961", None),  # <=6 tokens -> no commodity
-        ("r_fao_crops_wheat.xlsx", None, None),  # no 4-digit token -> no yearbook
+        ("fao_1961_crops_1_1.xlsx", "fao_1961", None),  # <=5 tokens -> no commodity
+        ("fao_crops_wheat.xlsx", None, None),  # no 4-digit token -> no yearbook
         ("2020.xlsx", None, None),  # <2 tokens -> no yearbook
     ],
 )
@@ -178,7 +178,7 @@ def test_extract_file_metadata_none_branches(
 
 
 def test_extract_file_metadata_non_ascii() -> None:
-    name = "r_fao_1949_a_b_c_wheat_café.xlsx"
+    name = "fao_1949_a_b_c_wheat_café.xlsx"
     result = extract_file_metadata([name])
     assert result["is_ascii"].to_list() == [False]
     assert result["error_message"].to_list() == [f"non-ascii file name detected: {name}"]

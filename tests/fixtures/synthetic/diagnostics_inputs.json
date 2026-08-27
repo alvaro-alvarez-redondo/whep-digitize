@@ -18,7 +18,7 @@
   "cc_vt": ["kg", "kg", "eu"],
 
   "sa_rf": ["standardize_units_rules.xlsx"],
-  "sa_commodity": ["all commodity"],
+  "sa_commodity": ["#ALL#"],
   "sa_source": ["kg"],
   "sa_target": ["t"],
   "sa_factor": ["0.001"],
@@ -26,12 +26,12 @@
   "sa_aff": ["3"],
 
   "sc_rf": ["standardize_units_rules.xlsx", "standardize_units_rules.xlsx"],
-  "sc_commodity": ["all commodity", "wheat"],
+  "sc_commodity": ["#ALL#", "wheat"],
   "sc_source": ["kg", "tonne"],
   "sc_target": ["g", "kg"],
   "sc_factor": ["1000", "1000"],
   "sc_offset": ["0", "0"],
 
-  "sm_rule": ["all commodity"],
+  "sm_rule": ["all"],
   "sm_unitkey": ["kg"]
 }

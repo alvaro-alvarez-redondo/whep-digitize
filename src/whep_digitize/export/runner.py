@@ -16,6 +16,7 @@ from whep_digitize.export.processed_data.export import export_processed_data
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.directories import ensure_directories_exist
+from whep_digitize.setup.helpers.frames import canonicalize_semicolon_string_columns
 from whep_digitize.setup.helpers.progress import stage_progress
 from whep_digitize.setup.options import RuntimeOptions
 
@@ -52,10 +53,10 @@ def run_export_pipeline(
     object_names = get_pipeline_constants().object_names
     data_objects: dict[str, pl.DataFrame] = {}
     if raw is not None:
-        data_objects[object_names.raw] = raw
-    data_objects[object_names.clean] = result.clean
-    data_objects[object_names.normalize] = result.normalize
-    data_objects[object_names.harmonize] = result.harmonize
+        data_objects[object_names.raw] = canonicalize_semicolon_string_columns(raw)
+    data_objects[object_names.clean] = canonicalize_semicolon_string_columns(result.clean)
+    data_objects[object_names.normalize] = canonicalize_semicolon_string_columns(result.normalize)
+    data_objects[object_names.harmonize] = canonicalize_semicolon_string_columns(result.harmonize)
 
     ensure_directories_exist([config.paths.data.export.processed, config.paths.data.export.lists])
 

@@ -24,7 +24,7 @@ from whep_digitize.ingest.transform.reshape import TransformResult, transform_fi
 from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = GOLDENS["transform"]
-_CORPUS_REL = "corpus/fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx"
+_CORPUS_REL = "corpus/fao_1949/fao_1949_crops/fao_1949_crops_92_92_date.xlsx"
 
 _VALUE_COLUMNS = (
     "commodity",
@@ -57,7 +57,7 @@ def _gold(name: str) -> list[str | None]:
 def result() -> TransformResult:
     config = load_pipeline_config(root=FIXTURES_DIR.parents[1])
     wide = read_excel_sheet(FIXTURES_DIR / _CORPUS_REL, "production", config).data
-    return transform_file_df(wide, "r_fao_1949_crops_92_92_date.xlsx", "fao_1949", "date", config)
+    return transform_file_df(wide, "fao_1949_crops_92_92_date.xlsx", "fao_1949", "date", config)
 
 
 @pytest.mark.parity

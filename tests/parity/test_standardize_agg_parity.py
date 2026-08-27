@@ -3,7 +3,7 @@
 Exercises ``aggregate_standardized_rows`` and the
 audit merge ``build_standardize_layer_audit``. Asserts
 the aggregated measure (all-NA group → null; unique rows kept) and the audit's
-commodity/affected/effective/target — the ``all commodity`` rule attributed to each applied
+commodity/affected/effective/target — the ``#ALL#`` rule attributed to each applied
 commodity. If a golden is absent, the test skips.
 """
 

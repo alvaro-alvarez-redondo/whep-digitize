@@ -7,7 +7,7 @@ r"""Postpro / diagnostics — standardize rule summaries.
 * :func:`build_unmatched_standardize_rule_summary` — the catalog rules that never matched, with a
   **normalized-key counts branch**: when matched-rule counts keyed by
   ``(rule_commodity_match_key, unit_source_key)`` are supplied, a catalog rule counts as matched
-  when its normalized ``(commodity_key, unit_source)`` appears there (so an ``all commodity`` rule
+  when its normalized ``(commodity_key, unit_source)`` appears there (so a ``#ALL#`` rule
   applied to any commodity is matched); otherwise the matched-rule summary keys are used.
 
 Null keys are folded to a sentinel before the anti-join so null matches null.

@@ -153,6 +153,29 @@ def test_drop_na_value_rows_disabled(sample_long_df: pl.DataFrame) -> None:
     assert result.height == sample_long_df.height
 
 
+def test_canonicalize_semicolon_string_columns_is_cell_local() -> None:
+    frame = pl.DataFrame(
+        {
+            "left": pl.Series(["c; a; b; a", "z; y"], dtype=pl.String),
+            "right": pl.Series(["b; a", "d; c; d"], dtype=pl.String),
+            "value": pl.Series([1.0, 2.0], dtype=pl.Float64),
+        }
+    )
+
+    result = frames.canonicalize_semicolon_string_columns(frame)
+
+    assert result.to_dict(as_series=False) == {
+        "left": ["a; b; c", "y; z"],
+        "right": ["a; b", "c; d"],
+        "value": [1.0, 2.0],
+    }
+
+
+def test_canonicalize_semicolon_string_columns_ignores_non_string_columns() -> None:
+    frame = pl.DataFrame({"value": pl.Series([1, 2], dtype=pl.Int64)})
+    assert frames.canonicalize_semicolon_string_columns(frame).equals(frame)
+
+
 # --------------------------------------------------------------------------- time
 
 
@@ -168,8 +191,8 @@ def test_format_elapsed_time(seconds: float, expected: str) -> None:
 
 
 def test_extract_yearbook() -> None:
-    parts = ["fao", "trade", "x", "1961"]
-    assert tokens.extract_yearbook(parts) == "trade_1961"
+    parts = ["fao", "x", "1961"]
+    assert tokens.extract_yearbook(parts) == "fao_1961"
 
 
 def test_extract_yearbook_requires_year() -> None:
@@ -178,7 +201,7 @@ def test_extract_yearbook_requires_year() -> None:
 
 
 def test_extract_commodity() -> None:
-    parts = ["a", "b", "c", "d", "e", "f", "wheat", "flour.xlsx"]
+    parts = ["a", "b", "c", "d", "e", "wheat", "flour.xlsx"]
     assert tokens.extract_commodity(parts) == "wheat_flour"
 
 

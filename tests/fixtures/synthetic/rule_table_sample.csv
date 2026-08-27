@@ -1,4 +1,4 @@
 column_source,value_source_raw,value_target_raw
 commodity,007,kg
 commodity,,NA
-commodity,"a,b",all commodity
+commodity,"a,b",#ALL#

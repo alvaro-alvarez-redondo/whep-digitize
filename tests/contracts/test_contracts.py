@@ -62,6 +62,23 @@ def test_run_postpro_pipeline_returns_result(config: Config, sample_long_df: pl.
     assert "clean_audit" in result.diagnostics.outputs
 
 
+def test_run_postpro_pipeline_canonicalizes_all_string_layer_cells(
+    config: Config, sample_long_df: pl.DataFrame
+) -> None:
+    create_required_directories(config)
+    raw = sample_long_df.with_columns(
+        pl.Series("polity", ["c; a; b; a", "z; y", "m"], dtype=pl.String),
+        pl.Series("unit", ["tonnes", "kg; g; kg", "litre"], dtype=pl.String),
+    )
+
+    result = run_postpro_pipeline(raw, config)
+
+    for layer in (result.clean, result.normalize, result.harmonize):
+        keyed = layer.sort("document")
+        assert keyed.get_column("polity").to_list() == ["a; b; c", "y; z", "m"]
+        assert keyed.get_column("unit").to_list() == ["tonnes", "g; kg", "litre"]
+
+
 def test_run_postpro_pipeline_aborts_on_missing_columns(config: Config) -> None:
     create_required_directories(config)
     with pytest.raises(WhepError):

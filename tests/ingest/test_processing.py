@@ -88,7 +88,7 @@ def test_read_transform_missing_file_path_column(config: Config) -> None:
 
 
 def test_read_transform_single_file(config: Config) -> None:
-    wb = _CORPUS / "fao_1949" / "fao_1949_crops" / "r_fao_1949_crops_92_92_date.xlsx"
+    wb = _CORPUS / "fao_1949" / "fao_1949_crops" / "fao_1949_crops_92_92_date.xlsx"
     file_list = pl.DataFrame(
         {
             "file_path": [wb.as_posix()],

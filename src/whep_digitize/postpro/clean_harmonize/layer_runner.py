@@ -56,6 +56,7 @@ from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import WhepError
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.frames import canonicalize_semicolon_string_columns
 
 _CONSTANTS = get_pipeline_constants()
 _DEFAULT_DATASET_NAME = _CONSTANTS.dataset_default_name
@@ -253,6 +254,7 @@ def run_rule_stage_layer_batch(
             break
 
     working = canonicalize_post_loop_annotation_columns(working)
+    working = canonicalize_semicolon_string_columns(working)
     if footnotes_all_na:
         working = drop_empty_footnotes_column(working)
 

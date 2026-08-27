@@ -36,6 +36,7 @@ from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.directories import ensure_directories_exist
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.frames import canonicalize_semicolon_string_columns
 from whep_digitize.setup.helpers.strings import normalize_string
 
 _CONSTANTS = get_pipeline_constants()
@@ -319,9 +320,9 @@ def run_standardize_units_layer_batch(
         clean_df, loaded.layer_rules, unit_column, value_column, commodity_column
     )
 
-    rows_before = applied.data.height
-    aggregated_source_rows = applied.data.clear()
-    data = applied.data
+    data = canonicalize_semicolon_string_columns(applied.data)
+    rows_before = data.height
+    aggregated_source_rows = data.clear()
     if aggregate_after_standardize and rows_before > 0:
         aggregated_source_rows = extract_aggregated_rows(data, value_column)
         data = aggregate_standardized_rows(data, value_column)

@@ -168,7 +168,7 @@ def test_summarize_standardize_rules() -> None:
     audit = pl.DataFrame(
         {
             "rule_file_identifier": _s(["standardize_units_rules.xlsx"]),
-            "commodity_key": _s(["all commodity"]),
+            "commodity_key": _s(["#ALL#"]),
             "unit_source": _s(["kg"]),
             "unit_target": _s(["t"]),
             "unit_factor": _f([0.001]),
@@ -178,7 +178,7 @@ def test_summarize_standardize_rules() -> None:
     )
     summary = summarize_standardize_rules(audit)
     assert summary.columns[:2] == ["affected_rows", "rule_file_identifier"]
-    assert summary.get_column("commodity_key").to_list() == ["all commodity"]
+    assert summary.get_column("commodity_key").to_list() == ["#ALL#"]
 
 
 def test_build_unmatched_standardize_counts_branch() -> None:
@@ -186,7 +186,7 @@ def test_build_unmatched_standardize_counts_branch() -> None:
         pl.DataFrame(
             {
                 "source_rule_file": _s(["rules.xlsx", "rules.xlsx"]),
-                "commodity_key": _s(["all commodity", "wheat"]),
+                "commodity_key": _s(["#ALL#", "wheat"]),
                 "unit_source": _s(["kg", "tonne"]),
                 "unit_target": _s(["g", "kg"]),
                 "unit_factor": _f([1000.0, 1000.0]),
@@ -210,7 +210,7 @@ def test_build_unmatched_standardize_counts_branch() -> None:
     )
     counts = pl.DataFrame(
         {
-            "rule_commodity_match_key": _s(["all commodity"]),
+            "rule_commodity_match_key": _s(["all"]),
             "applied_commodity_match_key": _s(["corn"]),
             "unit_source_key": _s(["kg"]),
             "affected_rows": _i([2]),

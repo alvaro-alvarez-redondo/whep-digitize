@@ -158,12 +158,12 @@ def test_read_rule_table_csv_maps_empty_and_literal_na_to_null(tmp_path: Path) -
         "column_source,value_source_raw,value_target_raw\n"
         "commodity,007,kg\n"
         "commodity,,NA\n"
-        'commodity,"a,b",all commodity\n',
+        'commodity,"a,b",#ALL#\n',
         encoding="utf-8",
     )
     rules = read_rule_table(csv_path)
     assert rules.get_column("value_source_raw").to_list() == ["007", None, "a,b"]
-    assert rules.get_column("value_target_raw").to_list() == ["kg", None, "all commodity"]
+    assert rules.get_column("value_target_raw").to_list() == ["kg", None, "#ALL#"]
 
 
 def test_read_rule_table_unsupported_extension_raises(tmp_path: Path) -> None:

@@ -64,6 +64,9 @@ _RULE_IS_EXACT = "__whep_rule_is_exact__"
 _FULL_CELL_INDEX = -1
 _AUDIT_KEY = ("source_key", "target_key", "value_source_result", "value_target_result_encoded")
 _AUDIT_ORDER = ("column_source", "column_target", "value_source_raw", "value_target_raw")
+# Sentinel for null-safe joins: polars does not match null to null, so null audit keys are
+# folded to this token before joining matched counts with normalize rules.
+_AUDIT_NA_SENTINEL = get_pipeline_constants().na_match_key
 
 
 @dataclass(frozen=True, slots=True)
@@ -480,8 +483,20 @@ def _build_audit(
     matched_counts = audited.group_by(list(_AUDIT_KEY), maintain_order=True).agg(
         pl.len().alias("affected_rows")
     )
+    # Null-safe join: polars does not match null to null, so fold null keys to a sentinel.
+    audit_key = list(_AUDIT_KEY)
+    fold_names = [f"__audit_key_{index}__" for index in range(len(audit_key))]
+    folded_counts = matched_counts.with_columns(
+        pl.col(key).cast(pl.String).fill_null(_AUDIT_NA_SENTINEL).alias(fold)
+        for key, fold in zip(audit_key, fold_names, strict=True)
+    )
+    folded_rules = normalize_rules.with_columns(
+        pl.col(key).cast(pl.String).fill_null(_AUDIT_NA_SENTINEL).alias(fold)
+        for key, fold in zip(audit_key, fold_names, strict=True)
+    )
     return (
-        matched_counts.join(normalize_rules, on=list(_AUDIT_KEY), how="left")
+        folded_counts.join(folded_rules, on=fold_names, how="left")
+        .drop(fold_names)
         .select(
             pl.lit(dataset_name).alias("dataset_name"),
             "column_source",

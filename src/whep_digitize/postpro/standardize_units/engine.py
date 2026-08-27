@@ -6,10 +6,10 @@ r"""Postpro / standardize_units — the affine unit-conversion engine.
 2. **folds a leading numeric multiplier** in the unit string (``"1000 head"``, value 5 → 5000,
    unit ``"head"``; comma thousands stripped), applied only for a finite prefix ≠ 1;
 3. **revert-probes**: a folded row reverts to its original prefixed unit only when a rule actually
-   matches that original form (specific commodity, else ``"all commodity"``) — otherwise its
+   matches that original form (specific commodity, else ``"#ALL#"``) — otherwise its
    decomposed base unit is kept so a base/fallback rule can apply;
-4. **two-stage matches** the (commodity, unit) keys: specific commodity first, then the
-   ``"all commodity"`` fallback;
+3. **two-stage matches** the (commodity, unit) keys: specific commodity first, then the
+   ``"#ALL#"`` fallback;
 5. **affine converts** matched rows (``value * factor + offset``) and rewrites the unit to the
    target.
 

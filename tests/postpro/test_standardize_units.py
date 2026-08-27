@@ -134,8 +134,8 @@ def test_validate_conversion_rules_allows_chained_via_all_commodity() -> None:
     validate_conversion_rules(
         _raw_rules(
             [
-                ("all commodity", "kg", "g", 1000.0, 0.0),
-                ("all commodity", "g", "mg", 1000.0, 0.0),
+                ("#ALL#", "kg", "g", 1000.0, 0.0),
+                ("#ALL#", "g", "mg", 1000.0, 0.0),
                 ("wheat", "kg", "g", 1000.0, 0.0),
             ]
         )
@@ -196,7 +196,7 @@ def test_apply_errors_on_non_numeric_value() -> None:
 def test_apply_uses_all_commodity_fallback() -> None:
     result = _apply(
         _dataset(["Wheat", "Corn", "Rice"], ["kg", "kg", "kg"], ["2", "3", "5"]),
-        _prepared([("wheat", "kg", "g", 1000.0, 0.0), ("all commodity", "kg", "g", 1000.0, 0.0)]),
+        _prepared([("wheat", "kg", "g", 1000.0, 0.0), ("#ALL#", "kg", "g", 1000.0, 0.0)]),
     )
     assert result.matched_count == 3
     assert result.unmatched_count == 0
@@ -206,14 +206,14 @@ def test_apply_uses_all_commodity_fallback() -> None:
 def test_apply_fallback_attribution() -> None:
     result = _apply(
         _dataset(["Wheat", "Corn", "Rice"], ["kg", "kg", "kg"], ["2", "3", "5"]),
-        _prepared([("wheat", "kg", "g", 1000.0, 0.0), ("all commodity", "kg", "g", 1000.0, 0.0)]),
+        _prepared([("wheat", "kg", "g", 1000.0, 0.0), ("#ALL#", "kg", "g", 1000.0, 0.0)]),
     )
     keyed = result.matched_rule_counts.sort(
         ["rule_commodity_match_key", "applied_commodity_match_key"]
     )
     assert keyed.get_column("rule_commodity_match_key").to_list() == [
-        "all commodity",
-        "all commodity",
+        "all",
+        "all",
         "wheat",
     ]
     assert keyed.get_column("applied_commodity_match_key").to_list() == ["corn", "rice", "wheat"]
@@ -226,8 +226,8 @@ def test_apply_prefers_specific_over_all_commodity_with_prefix() -> None:
         _prepared(
             [
                 ("egg", "1000 egg", "tonne", 0.0539, 0.0),
-                ("all commodity", "1000 egg", "tonne", 0.001, 0.0),
-                ("all commodity", "kg", "g", 1000.0, 0.0),
+                ("#ALL#", "1000 egg", "tonne", 0.001, 0.0),
+                ("#ALL#", "kg", "g", 1000.0, 0.0),
             ]
         ),
     )
@@ -242,7 +242,7 @@ def test_apply_does_not_strand_prefixed_unit_owned_by_another_commodity() -> Non
         _prepared(
             [
                 ("chicken", "1000 egg", "tonne", 0.0539, 0.0),
-                ("all commodity", "egg", "tonne", 0.00005, 0.0),
+                ("#ALL#", "egg", "tonne", 0.00005, 0.0),
             ]
         ),
     )
@@ -256,7 +256,7 @@ def test_apply_does_not_strand_prefixed_unit_owned_by_another_commodity() -> Non
 def test_apply_reverts_prefixed_unit_matched_only_by_all_commodity() -> None:
     result = _apply(
         _dataset(["duck"], ["1000 egg"], ["3"]),
-        _prepared([("all commodity", "1000 egg", "tonne", 0.0539, 0.0)]),
+        _prepared([("#ALL#", "1000 egg", "tonne", 0.0539, 0.0)]),
     )
     assert result.matched_count == 1
     assert result.data.get_column("value").to_list() == pytest.approx([3 * 0.0539])

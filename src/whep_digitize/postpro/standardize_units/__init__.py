@@ -2,7 +2,7 @@
 
 Affine unit conversion (``value * factor + offset``) by commodity/unit, with a leading
 numeric multiplier folded into the value (e.g. ``"1000 head"``, value 5 -> value 5000,
-unit ``"head"``), a two-stage (specific -> ``"all commodity"`` fallback) match, and
+unit ``"head"``), a two-stage (specific -> ``"#ALL#"`` fallback) match, and
 optional duplicate-group aggregation.
 
 Status (risk):

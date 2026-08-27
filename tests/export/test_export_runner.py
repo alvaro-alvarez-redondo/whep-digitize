@@ -80,3 +80,37 @@ def test_run_export_pipeline_includes_raw_layer(config: Config) -> None:
     workbook.close()
     assert "raw" in sheet_names[0]
     assert sheet_names == ["raw", "clean_normalize_harmonize"]
+
+
+def test_run_export_pipeline_canonicalizes_all_named_layers(config: Config) -> None:
+    layer = pl.DataFrame(
+        {
+            "continent": pl.Series(["z; a; z"], dtype=pl.String),
+            "polity": pl.Series(["c; b; c"], dtype=pl.String),
+            "year": pl.Series(["2000"], dtype=pl.String),
+            "value": pl.Series([1.0], dtype=pl.Float64),
+        }
+    )
+    diag = LayerDiagnostics(matched_count=0, unmatched_count=0, status="ok")
+    postpro = PostproResult(
+        harmonize=layer,
+        clean=layer,
+        normalize=layer,
+        diagnostics=PostproDiagnostics(clean=diag, standardize_units=diag, harmonize=diag),
+    )
+    raw = layer.with_columns(pl.Series("continent", ["d; a; d"], dtype=pl.String))
+
+    result = run_export_pipeline(config, postpro, raw=raw)
+
+    expected = {
+        "whep_data_raw": ("a; d", "b; c"),
+        "whep_data_clean": ("a; z", "b; c"),
+        "whep_data_normalize": ("a; z", "b; c"),
+        "whep_data_harmonize": ("a; z", "b; c"),
+    }
+    for object_name, (continent, polity) in expected.items():
+        exported = pl.read_csv(
+            result.processed_paths[object_name], separator="\t", infer_schema_length=0
+        )
+        assert exported.get_column("continent").to_list() == [continent]
+        assert exported.get_column("polity").to_list() == [polity]

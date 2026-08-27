@@ -13,6 +13,8 @@ Parallelism is handled inside ``read_transform_pipeline_files``.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from whep_digitize.contracts import ImportDiagnostics, ImportResult
 from whep_digitize.ingest.file_io.discovery import discover_pipeline_files
 from whep_digitize.ingest.output.consolidate import consolidate_audited_df
@@ -22,7 +24,10 @@ from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.checkpoints import load_checkpoint, save_checkpoint
-from whep_digitize.setup.helpers.frames import drop_na_value_rows
+from whep_digitize.setup.helpers.frames import (
+    canonicalize_semicolon_string_columns,
+    drop_na_value_rows,
+)
 from whep_digitize.setup.helpers.progress import stage_progress
 from whep_digitize.setup.helpers.sorting import sort_pipeline_stage_df
 from whep_digitize.setup.options import RuntimeOptions
@@ -62,7 +67,7 @@ def run_import_pipeline(
         _CHECKPOINT_NAME, config, enabled=resolved_options.checkpointing_enabled
     )
     if isinstance(cached, ImportResult):
-        return cached
+        return replace(cached, data=canonicalize_semicolon_string_columns(cached.data))
 
     file_list = discover_pipeline_files(config)
     if file_list.height == 0:
@@ -89,7 +94,7 @@ def run_import_pipeline(
         audited = [validation.data] if validation.data.height > 0 else []
         consolidated = consolidate_audited_df(audited, config)
         progress.step(_MESSAGES["sorting"])
-        data = sort_pipeline_stage_df(consolidated.data)
+        data = sort_pipeline_stage_df(canonicalize_semicolon_string_columns(consolidated.data))
 
     result = ImportResult(
         data=data,

@@ -134,7 +134,7 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
   comma thousands are stripped. Applied only for a finite prefix ≠ 1.
 - **Revert-probe:** a folded row reverts to its original prefixed unit only when a rule matches
   that original form, so a base/fallback rule can still apply otherwise.
-- **Two-stage match:** the specific commodity first, then the `all commodity` fallback.
+- **Two-stage match:** the specific commodity first, then the `#ALL#` fallback.
 - **Affine convert:** `value * factor + offset`, rewriting the unit to the target.
 - Aggregation sums the measure over duplicate groups; an **all-null group yields null**. It is
   order- and schema-preserving, and idempotent.

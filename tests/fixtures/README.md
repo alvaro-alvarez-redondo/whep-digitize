@@ -14,12 +14,12 @@ chosen to span the ingest surface while keeping the committed binary footprint t
 
 | Category   | File |
 |------------|------|
-| crops      | `fao_1949/fao_1949_crops/r_fao_1949_crops_92_92_date.xlsx` |
-| livestock  | `fao_1949/fao_1949_livestock/r_fao_1949_livestock_162_162_milk.xlsx` |
-| population | `fao_1949/fao_1949_population/r_fao_1949_population_24_24_population_agriculture.xlsx` |
-| inputs     | `fao_1955/fao_1955_inputs/r_fao_1955_inputs_228_229_pesticide_fluoride.xlsx` |
-| land       | `fao_1952/fao_1952_land/r_fao_1952_land_3_9_irrigation_permanent_meadows_pastures.xlsx` |
-| trade      | `fao_1950/fao_1950_trade/r_fao_1950_trade_106_106_palm_kernel_oil.xlsx` |
+| crops      | `fao_1949/fao_1949_crops/fao_1949_crops_92_92_date.xlsx` |
+| livestock  | `fao_1949/fao_1949_livestock/fao_1949_livestock_162_162_milk.xlsx` |
+| population | `fao_1949/fao_1949_population/fao_1949_population_24_24_population_agriculture.xlsx` |
+| inputs     | `fao_1955/fao_1955_inputs/fao_1955_inputs_228_229_pesticide_fluoride.xlsx` |
+| land       | `fao_1952/fao_1952_land/fao_1952_land_3_9_irrigation_permanent_meadows_pastures.xlsx` |
+| trade      | `fao_1950/fao_1950_trade/fao_1950_trade_106_106_palm_kernel_oil.xlsx` |
 
 ## `synthetic/` — edge-case fixtures
 
@@ -34,11 +34,11 @@ A JSON array of file-path strings fed to `extract_file_metadata`
 | Edge case                         | Element |
 |-----------------------------------|---------|
 | real corpus paths (basename via `path_file`) | the six `tests/fixtures/corpus/.../*.xlsx` |
-| `<=6` tokens → no commodity       | `r_fao_1961_crops_1_1.xlsx` |
-| no 4-digit token → no yearbook    | `r_fao_crops_wheat.xlsx` |
+| `<=5` tokens → no commodity       | `fao_1961_crops_1_1.xlsx` |
+| no 4-digit token → no yearbook    | `fao_crops_wheat.xlsx` |
 | `<2` tokens → no yearbook         | `2020.xlsx` |
-| first 4-digit token wins          | `r_fao_1961_a_b_c_2000_wheat.xlsx` → yearbook `fao_1961`, commodity `2000_wheat` |
-| non-ASCII name (`is_ascii` false + error message) | `r_fao_1949_a_b_c_wheat_café.xlsx` |
+| first 4-digit token wins          | `fao_1961_a_b_c_2000_wheat.xlsx` → yearbook `fao_1961`, commodity `2000_wheat` |
+| non-ASCII name (`is_ascii` false + error message) | `fao_1949_a_b_c_wheat_café.xlsx` |
 
 ### `header_names_inputs.json`
 
@@ -59,4 +59,4 @@ ASCII base (`groß`, `½`, `œuvre`, `æ`, `ø`) are covered by the policy tests
 
 ## Verifying
 
-    .venv/Scripts/python.exe -m pytest -m parity
+    py -3.14 -m pytest -m parity

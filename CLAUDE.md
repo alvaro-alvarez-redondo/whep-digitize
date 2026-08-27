@@ -69,19 +69,20 @@ list workbooks under `data/export/`. All four stages are implemented and covered
 
 ```bash
 # CLI
-whep-digitize run          # full pipeline    whep-digitize bootstrap   # Stage 0 only
+py -3.14 -m whep_digitize            # full pipeline
+py -3.14 -m whep_digitize bootstrap  # Stage 0 only
 
 # Python API
-python -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_view=False)"
+py -3.14 -c "from whep_digitize.pipeline import run_pipeline; run_pipeline(show_view=False)"
 
-# Gates (venv Python; this host has no uv and python != py -3.14)
-.venv/Scripts/python.exe -m pytest -q
-.venv/Scripts/python.exe -m ruff check .
-.venv/Scripts/python.exe -m mypy
+# Gates (this host has no uv and python != py -3.14)
+py -3.14 -m pytest -q
+py -3.14 -m ruff check .
+py -3.14 -m mypy
 ```
 
 See [conventions.md](.claude/docs/conventions.md) for the environment specifics
-(`py -3.14`, `.venv/`, uv-vs-pip).
+(`py -3.14`, uv-vs-pip).
 
 ## Commands
 

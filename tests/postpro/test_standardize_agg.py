@@ -164,7 +164,7 @@ def _audit_rules() -> pl.DataFrame:
     return prepare_standardize_rules(
         pl.DataFrame(
             {
-                "commodity_key": _s(["wheat", "all commodity"]),
+                "commodity_key": _s(["wheat", "#ALL#"]),
                 "unit_source": _s(["kg", "kg"]),
                 "unit_target": _s(["g", "g"]),
                 "unit_factor": _f([1000, 1000]),
@@ -179,7 +179,7 @@ def _audit_rules() -> pl.DataFrame:
 def _matched_counts() -> pl.DataFrame:
     return pl.DataFrame(
         {
-            "rule_commodity_match_key": _s(["wheat", "all commodity", "all commodity"]),
+            "rule_commodity_match_key": _s(["wheat", "all", "all"]),
             "applied_commodity_match_key": _s(["wheat", "corn", "rice"]),
             "unit_source_key": _s(["kg", "kg", "kg"]),
             "affected_rows": pl.Series([1, 1, 1], dtype=pl.Int64),
