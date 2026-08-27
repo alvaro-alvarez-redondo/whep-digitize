@@ -11,7 +11,7 @@ Sub-packages:
 * :mod:`~whep_digitize.ingest.file_io` — discovery + filename metadata
 * :mod:`~whep_digitize.ingest.reading` — Excel reading, batching, header normalization
 * :mod:`~whep_digitize.ingest.transform` — wide->long reshape (the algorithmic core)
-* :mod:`~whep_digitize.ingest.output` — validation + consolidation
+* :mod:`~whep_digitize.ingest.assemble` — validation + consolidation
 """
 
 from __future__ import annotations

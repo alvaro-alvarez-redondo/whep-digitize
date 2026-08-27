@@ -1,7 +1,7 @@
 """Stage 2 runner.
 
 Runs the deterministic 9-step post-processing orchestration: audit the raw import frame, resolve
-the audit output roots, generate the rule templates, collect + assert the preflight checks, then
+the audit roots, generate the rule templates, collect + assert the preflight checks, then
 run the clean → standardize-units → harmonize layers (each sorted to the canonical row order),
 and finally persist the per-stage audit workbooks. Returns a typed
 :class:`~whep_digitize.contracts.PostproResult` carrying the clean / normalize / harmonize
@@ -20,12 +20,12 @@ from pathlib import Path
 import polars as pl
 
 from whep_digitize.contracts import LayerDiagnostics, PostproDiagnostics, PostproResult
-from whep_digitize.postpro.audit.audit import audit_data_output
+from whep_digitize.postpro.audit.audit import audit_dataset
 from whep_digitize.postpro.clean_harmonize.layer_runner import (
     run_cleaning_layer_batch,
     run_harmonize_layer_batch,
 )
-from whep_digitize.postpro.diagnostics.output import persist_postpro_audit
+from whep_digitize.postpro.diagnostics.persist import persist_postpro_audit
 from whep_digitize.postpro.diagnostics.preflight import (
     assert_postpro_preflight,
     collect_postpro_preflight,
@@ -34,9 +34,9 @@ from whep_digitize.postpro.standardize_units.orchestration import (
     StandardizeDiagnostics,
     run_standardize_units_layer_batch,
 )
-from whep_digitize.postpro.utilities.output_roots import (
-    PostproOutputPaths,
-    get_postpro_output_paths,
+from whep_digitize.postpro.utilities.audit_roots import (
+    PostproAuditPaths,
+    get_postpro_audit_paths,
 )
 from whep_digitize.postpro.utilities.templates import generate_postpro_rule_templates
 from whep_digitize.setup.config import Config
@@ -58,7 +58,7 @@ def run_postpro_pipeline(
 ) -> PostproResult:
     """Audit, clean, standardize units, and harmonize the raw import frame.
 
-    The nine deterministic steps: audit → resolve output roots → templates → collect preflight →
+    The nine deterministic steps: audit → resolve audit roots → templates → collect preflight →
     assert preflight → clean → standardize → harmonize → persist. Each layer frame is sorted to
     the canonical row order by :func:`sort_pipeline_stage_df` before feeding the next stage.
 
@@ -85,13 +85,13 @@ def run_postpro_pipeline(
         # 1. audit — coerce ``value`` to Float64, export invalid-cell highlights (rows kept).
         progress.step(_MESSAGES["audit"])
         raw_df = _canonicalize_stage_frame(raw)
-        audited = audit_data_output(raw_df, config).audited
+        audited = audit_dataset(raw_df, config).audited
 
-        # 2. resolve the audit output roots (the directory tree itself is created by step 3).
+        # 2. resolve the audit roots (the directory tree itself is created by step 3).
         progress.step(_MESSAGES["init_dirs"])
-        audit_paths = get_postpro_output_paths(config)
+        audit_paths = get_postpro_audit_paths(config)
 
-        # 3. templates — create the output subtree and write the clean/harmonize rule template.
+        # 3. templates — create the audit subtree and write the clean/harmonize rule template.
         progress.step(_MESSAGES["templates"])
         template_path = generate_postpro_rule_templates(config, overwrite=True)
 
@@ -120,7 +120,7 @@ def run_postpro_pipeline(
 
         # 9. persist per-stage audit workbooks + the last-rule-wins overwrite subset.
         progress.step(_MESSAGES["persist"])
-        output_paths = persist_postpro_audit(
+        audit_report_paths = persist_postpro_audit(
             clean_audit_df=clean_layer.audit,
             harmonize_audit_df=harmonize_layer.audit,
             standardize_audit_df=standardize_layer.audit,
@@ -135,7 +135,7 @@ def run_postpro_pipeline(
         clean=clean_layer.diagnostics,
         standardize_units=_as_layer_diagnostics(standardize_layer.diagnostics),
         harmonize=harmonize_layer.diagnostics,
-        outputs=_build_output_paths(audit_paths, template_path, output_paths, config),
+        report_paths=_build_report_paths(audit_paths, template_path, audit_report_paths, config),
     )
     return PostproResult(
         harmonize=harmonize_df,
@@ -161,13 +161,13 @@ def _as_layer_diagnostics(standardize: StandardizeDiagnostics) -> LayerDiagnosti
     )
 
 
-def _build_output_paths(
-    audit_paths: PostproOutputPaths,
+def _build_report_paths(
+    audit_paths: PostproAuditPaths,
     template_path: Path,
     persisted_paths: dict[str, Path],
     config: Config,
 ) -> dict[str, Path]:
-    """Assemble the flat diagnostics ``outputs`` path mapping."""
+    """Assemble the flat diagnostics ``report_paths`` mapping."""
     return {
         **persisted_paths,
         "audit_root_dir": audit_paths.audit_root_dir,
@@ -176,5 +176,5 @@ def _build_output_paths(
         "templates_dir": audit_paths.templates_dir,
         "runtime_cache_dir": audit_paths.runtime_cache_dir,
         "clean_harmonize_template_path": template_path,
-        "data_audit_output_path": config.paths.data.audit.audit_file_path,
+        "data_audit_report_path": config.paths.data.audit.audit_file_path,
     }

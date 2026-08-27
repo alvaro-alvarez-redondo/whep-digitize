@@ -1,4 +1,4 @@
-"""Tests for ingest output consolidation (``ingest.output.consolidate``)."""
+"""Tests for ingest output consolidation (``ingest.assemble.consolidate``)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import dataclasses
 import polars as pl
 import pytest
 
-from whep_digitize.ingest.output.consolidate import (
+from whep_digitize.ingest.assemble.consolidate import (
     consolidate_audited_df,
-    validate_output_column_order,
+    validate_column_order,
 )
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
@@ -18,19 +18,19 @@ from whep_digitize.setup.errors import ValidationError
 
 
 def test_validate_output_column_order_ok(config: Config) -> None:
-    assert validate_output_column_order(config) == list(config.column_order)
+    assert validate_column_order(config) == list(config.column_order)
 
 
 def test_validate_output_column_order_duplicate(config: Config) -> None:
     bad = dataclasses.replace(config, column_order=(*config.column_order, "year"))
     with pytest.raises(ValidationError, match="unique"):
-        validate_output_column_order(bad)
+        validate_column_order(bad)
 
 
 def test_validate_output_column_order_missing_schema(config: Config) -> None:
     bad = dataclasses.replace(config, column_order=("year", "value", "document"))
     with pytest.raises(ValidationError, match="target schema"):
-        validate_output_column_order(bad)
+        validate_column_order(bad)
 
 
 # --------------------------------------------------------------------------- consolidate

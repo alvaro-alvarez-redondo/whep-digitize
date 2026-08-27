@@ -11,7 +11,7 @@ import polars as pl
 import pytest
 from openpyxl import load_workbook
 
-from whep_digitize.postpro.diagnostics.output import (
+from whep_digitize.postpro.diagnostics.persist import (
     build_last_rule_wins_overwrite_subset,
     build_postpro_diagnostics,
     persist_postpro_audit,

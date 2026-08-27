@@ -24,7 +24,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import ErrorHighlightStyle
-from whep_digitize.setup.directories import ensure_output_directories
+from whep_digitize.setup.directories import ensure_audit_directories
 
 _SHEET_NAME = "audit_report"
 _SOURCE_ROW_INDEX = "source_row_index"
@@ -43,7 +43,7 @@ def export_validation_audit_report(
     audit_df: pl.DataFrame,
     config: Config,
     findings_df: pl.DataFrame | None,
-    output_path: Path,
+    workbook_path: Path,
 ) -> Path | None:
     """Write the styled audit workbook, or skip when there is nothing to report.
 
@@ -53,7 +53,7 @@ def export_validation_audit_report(
         findings_df: Findings whose ``row_index`` (matching ``audit_df``'s ``source_row_index``)
             and ``audit_column`` drive cell highlighting; may be ``None`` (then derived from
             ``audit_df`` if it carries those columns).
-        output_path: Destination workbook path.
+        workbook_path: Destination workbook path.
 
     Returns:
         The written path, or ``None`` when both the subset and findings are empty (no file
@@ -81,9 +81,9 @@ def export_validation_audit_report(
         _write_table(worksheet, export.select(cols_to_show))
         _apply_highlights(worksheet, export, cols_to_show, findings_df, config)
 
-    ensure_output_directories([output_path])
-    workbook.save(output_path)
-    return output_path
+    ensure_audit_directories([workbook_path])
+    workbook.save(workbook_path)
+    return workbook_path
 
 
 def _add_source_row_index(audit_df: pl.DataFrame) -> pl.DataFrame:

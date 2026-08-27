@@ -13,7 +13,7 @@ Modules:
   registry, audit-column resolution.
 * ``export.py`` — styled per-cell Excel highlight via openpyxl (``PatternFill`` + bold font +
   thick border; 1-based row/col + header offset).
-* ``audit.py`` — ``audit_data_output``: run validations, export invalid rows, then parse
+* ``audit.py`` — ``audit_dataset``: run validations, export invalid rows, then parse
   ``value`` to Float64 (``cast(Float64, strict=False)``).
 """
 

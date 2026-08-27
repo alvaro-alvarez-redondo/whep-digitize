@@ -89,7 +89,7 @@ class PostproDiagnostics:
     clean: LayerDiagnostics
     standardize_units: LayerDiagnostics
     harmonize: LayerDiagnostics
-    outputs: Mapping[str, Path] = field(default_factory=dict)
+    report_paths: Mapping[str, Path] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

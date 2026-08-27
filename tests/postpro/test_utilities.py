@@ -14,12 +14,12 @@ import polars as pl
 import pytest
 from openpyxl import Workbook, load_workbook
 
-from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
-from whep_digitize.postpro.utilities.output_roots import (
-    PostproOutputPaths,
-    get_postpro_output_paths,
-    initialize_postpro_output_root,
+from whep_digitize.postpro.utilities.audit_roots import (
+    PostproAuditPaths,
+    get_postpro_audit_paths,
+    initialize_postpro_audit_root,
 )
+from whep_digitize.postpro.utilities.diagnostics import build_layer_diagnostics
 from whep_digitize.postpro.utilities.payload_cache import (
     RuntimeCacheSettings,
     StagePayloadBundle,
@@ -60,8 +60,8 @@ def _write_clean_rule_csv(path: Path, source: str = "commodity") -> None:
 
 
 def test_get_postpro_output_paths_from_config(config: Config) -> None:
-    paths = get_postpro_output_paths(config)
-    assert isinstance(paths, PostproOutputPaths)
+    paths = get_postpro_audit_paths(config)
+    assert isinstance(paths, PostproAuditPaths)
     audit = config.paths.data.audit
     assert paths.audit_dir == audit.audit_dir
     assert paths.diagnostics_dir == audit.diagnostics_dir
@@ -70,7 +70,7 @@ def test_get_postpro_output_paths_from_config(config: Config) -> None:
 
 
 def test_initialize_creates_all_output_dirs(config: Config) -> None:
-    paths = initialize_postpro_output_root(config)
+    paths = initialize_postpro_audit_root(config)
     for directory in (
         paths.audit_root_dir,
         paths.audit_dir,

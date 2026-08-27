@@ -64,7 +64,7 @@ Public: `runner.run_import_pipeline(config, options=None, current_year=None) -> 
 | `transform/reshape.py` | `reshape_to_long` (unpivot), `add_metadata`, `transform_file_df`, `resolve_commodity_name`, `build_empty_transform_result`, `TransformResult` |
 | `transform/processing.py` | `read_transform_pipeline_files` (fused, `ProcessPoolExecutor`, deterministic + sequential fallback), `transform_single_file`, `ReadTransformResult` |
 | `output/validate.py` | `validate_long_df_by_document`, `ValidationResult` |
-| `output/consolidate.py` | `consolidate_audited_df`, `validate_output_column_order`, `ConsolidateResult` |
+| `output/consolidate.py` | `consolidate_audited_df`, `validate_column_order`, `ConsolidateResult` |
 | `runner.py` | `run_import_pipeline` (incl. `rich` progress + the opt-in checkpoint cache) |
 
 ---
@@ -78,12 +78,12 @@ algorithmic core.
 
 | Module | Key API |
 |--------|---------|
-| `audit/audit.py` | `audit_data_output` (value→Float64; rows failing validation retained), `AuditResult` |
+| `audit/audit.py` | `audit_dataset` (value→Float64; rows failing validation retained), `AuditResult` |
 | `audit/validation.py` | non-empty + numeric-string validators, master validation |
 | `audit/config.py` | audit config + findings schema |
 | `audit/export.py` | styled invalid-cell highlight (openpyxl) |
 | `utilities/stage_definitions.py` | canonical rule columns, stage names + value columns |
-| `utilities/output_roots.py` | resolve/create audit subtree, `PostproOutputPaths` |
+| `utilities/output_roots.py` | resolve/create audit subtree, `PostproAuditPaths` |
 | `utilities/diagnostics.py` | `build_layer_diagnostics` → `LayerDiagnostics` |
 | `utilities/templates.py` | rule templates; `read_rule_table` (all-text; sheet match), payload discovery |
 | `utilities/payload_cache.py` | 2-level payload cache (off by default; pickle disk) |

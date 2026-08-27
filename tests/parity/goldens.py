@@ -57,7 +57,7 @@ class GoldenSet:
 GOLDENS: dict[str, GoldenSet] = {
     "conditional_group": GoldenSet(
         module="conditional_group",
-        fixture="synthetic/conditional_group_inputs.json",
+        fixture="synthetic/conditional_group_cases.json",
         exports=(
             "M_audit_affected_rows",
             "M_audit_column_source",
@@ -94,7 +94,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "data_audit": GoldenSet(
         module="data_audit",
-        fixture="synthetic/data_audit_inputs.json",
+        fixture="synthetic/data_audit_cases.json",
         exports=(
             "findings_audit_column",
             "findings_audit_message",
@@ -106,7 +106,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "diagnostics": GoldenSet(
         module="diagnostics",
-        fixture="synthetic/diagnostics_inputs.json",
+        fixture="synthetic/diagnostics_cases.json",
         exports=(
             "cs_affected",
             "cs_column_target",
@@ -128,7 +128,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "export_lists": GoldenSet(
         module="export_lists",
-        fixture="synthetic/export_lists_inputs.json",
+        fixture="synthetic/export_lists_cases.json",
         exports=(
             "export_columns",
             "sheets_commodity",
@@ -156,12 +156,12 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "export_processed_data": GoldenSet(
         module="export_processed_data",
-        fixture="synthetic/export_processed_inputs.json",
+        fixture="synthetic/export_processed_cases.json",
         exports=("tsv_hex",),
     ),
     "file_metadata": GoldenSet(
         module="file_metadata",
-        fixture="synthetic/file_metadata_inputs.json",
+        fixture="synthetic/file_metadata_cases.json",
         exports=(
             "commodity",
             "error_message",
@@ -173,7 +173,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "header_normalization": GoldenSet(
         module="header_normalization",
-        fixture="synthetic/header_names_inputs.json",
+        fixture="synthetic/header_names_cases.json",
         exports=(
             "normalize",
             "renames_dedup_new",
@@ -210,7 +210,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "layer_batch": GoldenSet(
         module="layer_batch",
-        fixture="synthetic/layer_batch_inputs.json",
+        fixture="synthetic/layer_batch_cases.json",
         exports=(
             "clean_columns",
             "clean_commodity",
@@ -232,7 +232,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "matching": GoldenSet(
         module="matching",
-        fixture="synthetic/matching_values_inputs.json",
+        fixture="synthetic/matching_values_cases.json",
         exports=(
             "change_count",
             "concat_merge",
@@ -333,7 +333,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "schema_validation": GoldenSet(
         module="schema_validation",
-        fixture="synthetic/schema_validation_inputs.json",
+        fixture="synthetic/schema_validation_cases.json",
         exports=(
             "cA_column_source",
             "cA_columns",
@@ -372,7 +372,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "standardize": GoldenSet(
         module="standardize",
-        fixture="synthetic/standardize_inputs.json",
+        fixture="synthetic/standardize_cases.json",
         exports=(
             "commodity",
             "matched",
@@ -387,7 +387,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "standardize_agg": GoldenSet(
         module="standardize_agg",
-        fixture="synthetic/standardize_agg_inputs.json",
+        fixture="synthetic/standardize_agg_cases.json",
         exports=(
             "agg_commodity",
             "agg_nrow",
@@ -401,7 +401,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "target_apply": GoldenSet(
         module="target_apply",
-        fixture="synthetic/target_apply_inputs.json",
+        fixture="synthetic/target_apply_cases.json",
         exports=(
             "A_applied",
             "A_changed",
@@ -475,7 +475,7 @@ GOLDENS: dict[str, GoldenSet] = {
     ),
     "validate": GoldenSet(
         module="validate",
-        fixture="synthetic/validate_long_inputs.json",
+        fixture="synthetic/validate_long_cases.json",
         exports=(
             "data_document",
             "data_value",

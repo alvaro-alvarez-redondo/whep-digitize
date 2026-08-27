@@ -25,7 +25,7 @@ chosen to span the ingest surface while keeping the committed binary footprint t
 
 Tiny hand-authored fixtures that force the edge cases real workbooks may not contain.
 
-### `file_metadata_inputs.json`
+### `file_metadata_cases.json`
 
 A JSON array of file-path strings fed to `extract_file_metadata`
 (`ingest/file_io/metadata.py`). The first six are the real `corpus/` workbook paths
@@ -40,7 +40,7 @@ A JSON array of file-path strings fed to `extract_file_metadata`
 | first 4-digit token wins          | `fao_1961_a_b_c_2000_wheat.xlsx` → yearbook `fao_1961`, commodity `2000_wheat` |
 | non-ASCII name (`is_ascii` false + error message) | `fao_1949_a_b_c_wheat_café.xlsx` |
 
-### `header_names_inputs.json`
+### `header_names_cases.json`
 
 A JSON array of raw header names fed to `normalize_header_names`
 (`ingest/reading/header_normalization.py`). Exercises the ordered regex chain and the NFD

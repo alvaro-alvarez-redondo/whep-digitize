@@ -1,7 +1,7 @@
 """Postpro / audit configuration.
 
 Audit-config validation, the standardized empty audit-findings schema (with the audit-type
-identifiers and messages the validators emit), audit-root preparation, and audit output-path
+identifiers and messages the validators emit), audit-root preparation, and audit report-path
 resolution. Invariants are enforced through the guard helper
 (:func:`~whep_digitize.setup.helpers.assertions.require`) and the shared directory helpers.
 """
@@ -76,12 +76,12 @@ def validate_audit_config(config: Config) -> None:
 def prepare_audit_root(audit_root_dir: Path) -> bool:
     """Remove the previous audit folder if present, tolerating locked/permission-protected files.
 
-    Deletes the audit output folder so each run writes into a clean directory, but continues
+    Deletes the audit folder so each run writes into a clean directory, but continues
     (returning ``False``) when the folder cannot be removed instead of aborting — a workbook left
     open in Excel must not fail the whole run.
 
     Args:
-        audit_root_dir: The audit output directory.
+        audit_root_dir: The audit directory.
 
     Returns:
         ``True`` if the folder existed and was deleted, ``False`` if it did not exist or a
@@ -91,14 +91,14 @@ def prepare_audit_root(audit_root_dir: Path) -> bool:
     return delete_directory_if_exists(audit_root_dir, tolerate_permission_errors=True)
 
 
-def resolve_audit_output_paths(audit_root_dir: Path, audit_file_name: str) -> Path:
+def resolve_audit_paths(audit_root_dir: Path, audit_file_name: str) -> Path:
     """Compute the audit workbook path without creating any directories.
 
     A pure path computation: only the workbook path is needed downstream, and the directory is
     created later by the export step.
 
     Args:
-        audit_root_dir: The audit output directory.
+        audit_root_dir: The audit directory.
         audit_file_name: The workbook file name.
 
     Returns:

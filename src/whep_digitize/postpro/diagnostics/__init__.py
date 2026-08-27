@@ -11,7 +11,7 @@ Status (risk):
   summary + rule catalog + unmatched summary (null-safe anti-join).
 * ``standardize_summaries.py`` — standardize catalog +
   matched/unmatched summaries (normalized-key counts branch).
-* ``output.py`` — ``build_postpro_diagnostics``,
+* ``persist.py`` — ``build_postpro_diagnostics``,
   last-rule-wins overwrite subset (group-by row + join), ``persist_postpro_audit`` (multi-sheet
   xlsx).
 """

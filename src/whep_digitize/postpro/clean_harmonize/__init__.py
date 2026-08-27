@@ -12,7 +12,7 @@ Modules:
 * ``controls_cache.py`` — multi-pass control resolution and cycle detection. State fingerprinting
   uses a deterministic content hash (``df.hash_rows()`` folded), screened by a cheap
   metadata-only fingerprint so most passes never compute the full hash.
-* ``stage_inputs.py`` — semicolon-token canonicalization of ``notes``/``footnotes`` (dedupe +
+* ``stage_frames.py`` — semicolon-token canonicalization of ``notes``/``footnotes`` (dedupe +
   code-point sort), and dropping an all-missing footnotes column.
 """
 

@@ -1,6 +1,6 @@
 """Parity test: data-audit findings + parsed value must match the frozen reference.
 
-Exercises ``audit_data_output`` over a frozen fixture and
+Exercises ``audit_dataset`` over a frozen fixture and
 asserts:
 
 * ``run_master_validation`` findings — 1-based ``row_index`` in plan order (``character_non_empty``
@@ -22,7 +22,7 @@ import polars as pl
 import pytest
 from goldens import FIXTURES_DIR, GOLDENS
 
-from whep_digitize.postpro.audit.audit import audit_data_output
+from whep_digitize.postpro.audit.audit import audit_dataset
 from whep_digitize.postpro.audit.validation import run_master_validation
 from whep_digitize.setup.config import Config
 
@@ -80,7 +80,7 @@ def test_audited_value_parses_with_divergence(
     fixture_data: dict[str, list[str | None]], config: Config
 ) -> None:
     dataset = _dataset(fixture_data)
-    result = audit_data_output(dataset, config, audit_columns_by_type=_AUDIT_MAP)
+    result = audit_dataset(dataset, config, audit_columns_by_type=_AUDIT_MAP)
     # Invalid rows are retained: the audited frame keeps every input row.
     assert result.audited.height == dataset.height
     parsed = result.audited.get_column("value").to_list()

@@ -4,8 +4,8 @@ Modules:
 
 * ``stage_definitions.py`` — canonical rule columns + stage names (centralized in
   :mod:`whep_digitize.setup.constants`).
-* ``output_roots.py`` — resolve/create the audit subtree
-  (:class:`~whep_digitize.postpro.utilities.output_roots.PostproOutputPaths`).
+* ``audit_roots.py`` — resolve/create the audit subtree
+  (:class:`~whep_digitize.postpro.utilities.audit_roots.PostproAuditPaths`).
 * ``diagnostics.py`` — ``build_layer_diagnostics`` ->
   :class:`~whep_digitize.contracts.LayerDiagnostics`.
 * ``templates.py`` — rule-template workbooks; ``read_rule_table`` reads clean/harmonize rule

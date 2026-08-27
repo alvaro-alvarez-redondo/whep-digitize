@@ -16,9 +16,9 @@ from __future__ import annotations
 from dataclasses import replace
 
 from whep_digitize.contracts import ImportDiagnostics, ImportResult
+from whep_digitize.ingest.assemble.consolidate import consolidate_audited_df
+from whep_digitize.ingest.assemble.validate import validate_long_df_by_document
 from whep_digitize.ingest.file_io.discovery import discover_pipeline_files
-from whep_digitize.ingest.output.consolidate import consolidate_audited_df
-from whep_digitize.ingest.output.validate import validate_long_df_by_document
 from whep_digitize.ingest.transform.processing import read_transform_pipeline_files
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants

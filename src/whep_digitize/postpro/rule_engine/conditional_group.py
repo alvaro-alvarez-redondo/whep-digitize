@@ -277,14 +277,14 @@ def apply_conditional_rule_group(
 
     source_pre = dataset.get_column(source_column)
     target_pre = dataset.get_column(target_column)
-    join_input, per_row_tokens = _explode_source_candidates(
+    join_candidates, per_row_tokens = _explode_source_candidates(
         source_pre, apply_normalization=apply_source_norm
     )
 
     # Left join keeps every candidate and fans out on a multi-rule match. The
     # (row_id, token-index, rule-order) sort makes that order deterministic, which the
     # source/target last-rule-wins reductions rely on.
-    joined = join_input.join(normalize_rules, on="source_key", how="left").sort(
+    joined = join_candidates.join(normalize_rules, on="source_key", how="left").sort(
         ["row_id", _TOKEN_INDEX, _RULE_ORDER], nulls_last=True, maintain_order=True
     )
     current_target = target_pre.gather(
@@ -385,7 +385,7 @@ def _explode_source_candidates(
     row_ids: list[int] = []
     token_indexes: list[int] = []
     is_full_cell: list[bool] = []
-    key_inputs: list[str | None] = []
+    key_values: list[str | None] = []
     per_row_tokens: list[list[str]] = []
 
     for row_id, cell in enumerate(source.cast(pl.String).to_list(), start=1):
@@ -396,11 +396,11 @@ def _explode_source_candidates(
             row_ids.append(row_id)
             token_indexes.append(index)
             is_full_cell.append(False)
-            key_inputs.append(token)
+            key_values.append(token)
         row_ids.append(row_id)
         token_indexes.append(_FULL_CELL_INDEX)
         is_full_cell.append(True)
-        key_inputs.append(cell)
+        key_values.append(cell)
 
     candidates = pl.DataFrame(
         {
@@ -408,7 +408,7 @@ def _explode_source_candidates(
             _TOKEN_INDEX: pl.Series(_TOKEN_INDEX, token_indexes, dtype=pl.Int64),
             _IS_FULL_CELL: pl.Series(_IS_FULL_CELL, is_full_cell, dtype=pl.Boolean),
             "source_key": encode_rule_match_key(
-                pl.Series(key_inputs, dtype=pl.String), apply_normalization=apply_normalization
+                pl.Series(key_values, dtype=pl.String), apply_normalization=apply_normalization
             ),
         }
     )

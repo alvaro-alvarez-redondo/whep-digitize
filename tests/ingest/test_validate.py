@@ -1,4 +1,4 @@
-"""Tests for ingest output validation (``ingest.output.validate``).
+"""Tests for ingest output validation (``ingest.assemble.validate``).
 
 Functional coverage: each check (mandatory-field, year-value, duplicate),
 the document-major reorder + per-document row ids, verbatim message formats, the plausible-year
@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 import polars as pl
 import pytest
 
-from whep_digitize.ingest.output.validate import ValidationResult, validate_long_df_by_document
+from whep_digitize.ingest.assemble.validate import ValidationResult, validate_long_df_by_document
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
 

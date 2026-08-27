@@ -59,7 +59,7 @@ def test_run_postpro_pipeline_returns_result(config: Config, sample_long_df: pl.
     assert result.diagnostics.clean.multi_pass is not None
     assert result.diagnostics.harmonize.multi_pass is not None
     # The persisted audit workbook paths are recorded in the diagnostics outputs mapping.
-    assert "clean_audit" in result.diagnostics.outputs
+    assert "clean_audit" in result.diagnostics.report_paths
 
 
 def test_run_postpro_pipeline_canonicalizes_all_string_layer_cells(

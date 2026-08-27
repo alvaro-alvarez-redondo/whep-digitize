@@ -1,6 +1,6 @@
-r"""Postpro / audit orchestration (``audit_data_output``).
+r"""Postpro / audit orchestration (``audit_dataset``).
 
-:func:`audit_data_output` runs master validation over the dataset, exports the highlighted
+:func:`audit_dataset` runs master validation over the dataset, exports the highlighted
 invalid-row workbook when findings exist, and coerces ``value`` to ``Float64`` via
 ``cast(Float64, strict=False)`` (unparseable values become null rather than raising).
 
@@ -26,7 +26,7 @@ import polars as pl
 
 from whep_digitize.postpro.audit.config import (
     prepare_audit_root,
-    resolve_audit_output_paths,
+    resolve_audit_paths,
     validate_audit_config,
 )
 from whep_digitize.postpro.audit.export import export_validation_audit_report
@@ -45,7 +45,7 @@ _ROW_INDEX_INTERNAL = "__whep_audit_row_index__"
 
 @dataclass(frozen=True, slots=True)
 class AuditResult:
-    """Result of :func:`audit_data_output`.
+    """Result of :func:`audit_dataset`.
 
     Attributes:
         audited: The full dataset with ``value`` coerced to ``Float64`` (all rows retained;
@@ -64,7 +64,7 @@ class AuditResult:
     report_path: Path | None
 
 
-def audit_data_output(
+def audit_dataset(
     dataset: pl.DataFrame,
     config: Config,
     *,
@@ -86,8 +86,8 @@ def audit_data_output(
         An :class:`AuditResult` with the parsed frame, findings, invalid indices, and report path.
     """
     validate_audit_config(config)
-    audit_output_dir = config.paths.data.audit.audit_dir
-    prepare_audit_root(audit_output_dir)
+    audit_dir = config.paths.data.audit.audit_dir
+    prepare_audit_root(audit_dir)
 
     columns_by_type = resolve_audit_columns_by_type(config, audit_columns_by_type)
     master = run_master_validation(dataset, columns_by_type)
@@ -98,8 +98,8 @@ def audit_data_output(
     if findings.height > 0:
         audit_df = _subset_invalid_rows(dataset, invalid_index)
         findings_for_export = _remap_findings_row_index(findings, invalid_index)
-        audit_file_path = resolve_audit_output_paths(
-            audit_output_dir, config.paths.data.audit.audit_file_path.name
+        audit_file_path = resolve_audit_paths(
+            audit_dir, config.paths.data.audit.audit_file_path.name
         )
         report_path = export_validation_audit_report(
             audit_df, config, findings_for_export, audit_file_path

@@ -27,7 +27,7 @@ from whep_digitize.postpro.diagnostics.standardize_summaries import (
     build_unmatched_standardize_rule_summary,
     summarize_standardize_rules,
 )
-from whep_digitize.postpro.utilities.output_roots import initialize_postpro_output_root
+from whep_digitize.postpro.utilities.audit_roots import initialize_postpro_audit_root
 from whep_digitize.postpro.utilities.templates import load_stage_rule_payloads
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
@@ -176,7 +176,7 @@ def persist_postpro_audit(
     diagnostics = build_postpro_diagnostics(
         clean_audit_df, harmonize_audit_df, standardize_audit_df
     )
-    paths = initialize_postpro_output_root(config)
+    paths = initialize_postpro_audit_root(config)
     ensure_directories_exist([paths.audit_dir, paths.diagnostics_dir])
 
     output_paths = {

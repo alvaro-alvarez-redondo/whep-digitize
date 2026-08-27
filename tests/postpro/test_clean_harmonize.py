@@ -24,7 +24,7 @@ from whep_digitize.postpro.clean_harmonize.layer_runner import (
     run_cleaning_layer_batch,
     run_harmonize_layer_batch,
 )
-from whep_digitize.postpro.clean_harmonize.stage_inputs import (
+from whep_digitize.postpro.clean_harmonize.stage_frames import (
     canonicalize_post_loop_annotation_columns,
     drop_empty_footnotes_column,
 )
@@ -104,7 +104,7 @@ def _write_rule_file(
     workbook.save(path)
 
 
-# --------------------------------------------------------------------------- stage_inputs
+# --------------------------------------------------------------------------- stage_frames
 
 
 def test_canonicalize_dedupes_sorts_and_blanks() -> None:

@@ -14,13 +14,13 @@ import polars as pl
 import pytest
 from openpyxl import load_workbook
 
-from whep_digitize.postpro.audit.audit import AuditResult, audit_data_output
+from whep_digitize.postpro.audit.audit import AuditResult, audit_dataset
 from whep_digitize.postpro.audit.config import (
     AUDIT_FINDINGS_COLUMNS,
     NUMERIC_STRING_MESSAGE,
     empty_audit_findings,
     prepare_audit_root,
-    resolve_audit_output_paths,
+    resolve_audit_paths,
     validate_audit_config,
 )
 from whep_digitize.postpro.audit.export import export_validation_audit_report
@@ -60,13 +60,13 @@ def test_validate_audit_config_accepts_default(config: Config) -> None:
 
 
 def test_resolve_audit_output_paths_joins_name() -> None:
-    path = resolve_audit_output_paths(Path("data") / "audit", "whep_audit.xlsx")
+    path = resolve_audit_paths(Path("data") / "audit", "whep_audit.xlsx")
     assert path == Path("data") / "audit" / "whep_audit.xlsx"
 
 
 def test_resolve_audit_output_paths_rejects_blank_name() -> None:
     with pytest.raises(ValidationError):
-        resolve_audit_output_paths(Path("data"), "")
+        resolve_audit_paths(Path("data"), "")
 
 
 def test_prepare_audit_root_deletes_existing(tmp_path: Path) -> None:
@@ -287,7 +287,7 @@ def _full_dataset() -> pl.DataFrame:
 
 
 def test_audit_data_output_keeps_invalid_rows_and_parses_value(config: Config) -> None:
-    result = audit_data_output(_full_dataset(), config)
+    result = audit_dataset(_full_dataset(), config)
     assert isinstance(result, AuditResult)
     # All rows retained (invalid rows are NOT dropped).
     assert result.audited.height == 3
@@ -297,7 +297,7 @@ def test_audit_data_output_keeps_invalid_rows_and_parses_value(config: Config) -
 
 
 def test_audit_data_output_findings_capture_divergence(config: Config) -> None:
-    result = audit_data_output(_full_dataset(), config)
+    result = audit_dataset(_full_dataset(), config)
     flagged = result.findings.filter(
         (pl.col("audit_column") == "value") & (pl.col("audit_type") == "numeric_string")
     )
@@ -307,7 +307,7 @@ def test_audit_data_output_findings_capture_divergence(config: Config) -> None:
 
 
 def test_audit_data_output_writes_report_when_findings(config: Config) -> None:
-    result = audit_data_output(_full_dataset(), config)
+    result = audit_dataset(_full_dataset(), config)
     assert result.report_path is not None
     assert result.report_path.exists()
     assert result.report_path == config.paths.data.audit.audit_file_path
@@ -326,7 +326,7 @@ def test_audit_data_output_skips_report_when_clean(config: Config) -> None:
             "value": _series(["10"]),
         }
     )
-    result = audit_data_output(clean, config)
+    result = audit_dataset(clean, config)
     assert result.report_path is None
     assert not config.paths.data.audit.audit_file_path.exists()
     assert result.findings.height == 0
@@ -336,7 +336,7 @@ def test_audit_data_output_skips_report_when_clean(config: Config) -> None:
 def test_audit_data_output_without_value_column_leaves_frame(config: Config) -> None:
     dataset = pl.DataFrame({"document": _series(["a.xlsx", "b.xlsx"])})
     override = {"character_non_empty": ["document"]}
-    result = audit_data_output(dataset, config, audit_columns_by_type=override)
+    result = audit_dataset(dataset, config, audit_columns_by_type=override)
     assert "value" not in result.audited.columns
     assert result.audited.get_column("document").to_list() == ["a.xlsx", "b.xlsx"]
     assert result.findings.height == 0

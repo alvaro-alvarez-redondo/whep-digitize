@@ -24,7 +24,7 @@ import fastexcel
 import polars as pl
 from openpyxl import Workbook
 
-from whep_digitize.postpro.utilities.output_roots import initialize_postpro_output_root
+from whep_digitize.postpro.utilities.audit_roots import initialize_postpro_audit_root
 from whep_digitize.postpro.utilities.stage_definitions import (
     get_canonical_rule_columns,
     validate_postpro_stage_name,
@@ -217,7 +217,7 @@ def generate_postpro_rule_templates(config: Config, overwrite: bool = True) -> P
     Returns:
         The written template path.
     """
-    paths = initialize_postpro_output_root(config)
+    paths = initialize_postpro_audit_root(config)
     return write_stage_rule_template(paths.templates_dir, overwrite=overwrite)
 
 

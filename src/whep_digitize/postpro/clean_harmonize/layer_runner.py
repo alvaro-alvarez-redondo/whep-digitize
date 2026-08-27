@@ -36,7 +36,7 @@ from whep_digitize.postpro.clean_harmonize.controls_cache import (
     find_repeated_stage_state_pass,
     resolve_stage_multi_pass_controls,
 )
-from whep_digitize.postpro.clean_harmonize.stage_inputs import (
+from whep_digitize.postpro.clean_harmonize.stage_frames import (
     canonicalize_post_loop_annotation_columns,
     drop_empty_footnotes_column,
 )

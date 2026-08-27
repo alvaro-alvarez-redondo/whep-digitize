@@ -18,7 +18,7 @@ import polars as pl
 import pytest
 from goldens import FIXTURES_DIR, GOLDENS
 
-from whep_digitize.ingest.output.validate import ValidationResult, validate_long_df_by_document
+from whep_digitize.ingest.assemble.validate import ValidationResult, validate_long_df_by_document
 from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = GOLDENS["validate"]
