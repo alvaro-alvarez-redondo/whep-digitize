@@ -38,6 +38,44 @@ Recipes for frequent edits. Each lists where, what, tests, watch-outs. **Check h
 - **Tests:** add to a config/options test.
 - **Docs:** [constants-and-options.md](constants-and-options.md).
 
+## Add a cleaning rule with target tokenization
+
+Source and target are symmetric: both use token-by-token substitution by value.
+
+1. **Identify the rule type** you need:
+
+   | Goal | Rule type | How to write it |
+   |------|-----------|-----------------|
+   | Replace one token | Normal | `value_target_raw = "x"` → `value_target = "X"` |
+   | Replace entire cell | `#EXACT#` | `value_target_raw = "#EXACT# x; y"` → `value_target = "Z"` |
+   | Add a token regardless of current value | `#ANY#` | `value_target_raw = "#ANY#"` → `value_target = "new"` |
+   | Fill empty cells only | `None` | leave `value_target_raw` empty → `value_target = "default"` |
+
+   **Note:** `#EXACT#` is independent on source and target sides. Placing `#EXACT#` in
+   `value_source_raw` only affects the source column (full-cell match + full-cell override).
+   It does NOT cause a full-cell override on the target column. To override the entire target
+   cell, place `#EXACT#` in `value_target_raw` as well.
+
+2. **Add the rule row** to the appropriate rules file (clean or harmonize).
+   Rule cells are canonicalized on load: split on `;`, trimmed, deduplicated, sorted.
+   So `"c; a; b"` becomes `"a; b; c"` automatically.
+
+3. **Remember the semantics:**
+
+   - Normal rules replace only the matching token; siblings are preserved.
+   - Multiple rules matching the same token: last rule in rule order wins (D7).
+   - `#ANY#` adds a token without replacing; the cell is rebuilt sorted and deduplicated.
+   - `#EXACT#` bypasses tokenization entirely.
+   - Multi-token values (`"a; b; c"`) in `value_target` are expanded into individual
+     tokens during reconstruction.
+
+4. **Tests:** add a test case in `tests/postpro/` covering the specific rule behavior.
+   Check [pipeline-behaviors.md](pipeline-behaviors.md) → *Target tokenization* for
+   concrete examples.
+
+5. **Run the gates** (ruff, mypy, pytest). If output changes, update the affected golden
+   in `tests/golden/` deliberately.
+
 ## Add a helper function
 
 - Drop it in the right `setup/helpers/<name>.py` (or add a module). Fully typed +

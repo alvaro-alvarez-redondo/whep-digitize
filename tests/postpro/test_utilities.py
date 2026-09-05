@@ -74,11 +74,12 @@ def test_initialize_creates_all_output_dirs(config: Config) -> None:
     for directory in (
         paths.audit_root_dir,
         paths.audit_dir,
-        paths.diagnostics_dir,
         paths.templates_dir,
-        paths.runtime_cache_dir,
     ):
         assert directory.is_dir()
+    # diagnostics_dir and runtime_cache_dir are intentionally NOT created automatically
+    assert not paths.diagnostics_dir.exists()
+    assert not paths.runtime_cache_dir.exists()
 
 
 # --------------------------------------------------------------------------- diagnostics
@@ -287,6 +288,10 @@ def test_get_cached_bundle_enabled_uses_memory_then_disk(config: Config) -> None
     cleaning.mkdir(parents=True, exist_ok=True)
     _write_clean_rule_csv(cleaning / "clean_r.csv")
     settings = RuntimeCacheSettings(enabled=True, cache_file_name="cache.pkl", max_entries=128)
+
+    # The runtime_cache directory is not created at root init; persisting must create it
+    # itself. Deliberately not pre-created here, so this test covers that.
+    assert not config.paths.data.audit.runtime_cache_dir.exists()
 
     first = get_cached_stage_payload_bundle(config, "clean", settings=settings)
     cache_file = config.paths.data.audit.runtime_cache_dir / "cache.pkl"

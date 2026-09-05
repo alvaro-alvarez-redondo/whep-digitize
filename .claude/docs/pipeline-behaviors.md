@@ -103,9 +103,65 @@ Two deliberate behaviors — **do not "fix" either**:
 - An **empty-string current value never matches** under tokenized matching — the token lookup
   cannot key it. Under `#EXACT#`, which is pure full-string equality, an empty condition *does*
   match an empty current value. Both are intentional.
-- `last_rule_wins` = stable sort by the order columns, then take the **last** per group.
-  Overwrite events are emitted **only** when a row received more than one *distinct* candidate.
-  A null candidate renders as the literal string `"NA"` in `candidate_values`.
+- **Symmetric tokenized substitution.** Both source and target use the same
+  token-by-token substitution model: the cell is split on `;`, each token is matched
+  independently against rules, and the cell is rebuilt deduplicated and sorted.
+  Substitution is by **token value** (not by index), so the result is independent of
+  token order. The default strategy is `token_substitute`; the old cell-level
+  `last_rule_wins` strategy has been removed.
+- **D1 — Substitution by value.** Token substitutions are keyed by the matched token's
+  value, not its position. This is equivalent to index-based substitution (tokens are
+  unique after deduplication) but more robust against reordering.
+- **D2 — `#EXACT#` rewrites the entire cell on its own side.** A rule with `#EXACT#` in
+  `value_source_raw` causes a full-cell override on the **source** column only. A rule with
+  `#EXACT#` in `value_target_raw` causes a full-cell override on the **target** column only.
+  The two sides are independent: `#EXACT#` in the source condition does NOT affect how the
+  target column is rewritten, and vice versa. Example: source `"a; b; c"` with rule
+  `#EXACT# a; b; c` → `"X"` and target `"p; q"` with condition `"p"` → `"P"` yields source
+  `"X"` and target `"P; q"` (source is full-cell override, target is token substitution).
+- **D3 — `#ANY#` adds a token (does not replace).** A rule with `#ANY#` in the condition
+  adds the rule's value as an additional token without replacing existing tokens. Both
+  source and target. Example: target `"a; b; c"` with rule `#ANY#` → `"X"` yields
+  `"X; a; b; c"` (sorted and deduplicated). If the token already exists, it is not
+  duplicated.
+- **D4 — `value_target_raw = None` matches only NA.** An empty cell in the rules file
+  matches **only** when the current target value is `None`/NA. It is not a wildcard.
+  The wildcard is `#ANY#`, not `None`. No changes from previous behavior.
+- **D5 — Normal rule replaces the matching token.** A rule without directives replaces
+  only the matching token, preserving siblings. Example: target `"a; b; c"` with rule
+  `"b"` → `"B"` yields `"a; B; c"`.
+- **D6 — Multi-token values expand.** When a rule's `value_source` or `value_target`
+  contains `";"`, it is expanded into individual tokens during reconstruction by
+  `canonicalize_token_cell`. In the next multi-pass iteration, the expanded tokens are
+  independent. Example: source `"x; y"` with rule `"x"` → `"a; b; c"` yields
+  `"a; b; c; y"` after reconstruction.
+- **D7 — `last_rule_wins` at token level.** When multiple rules match the **same
+  token**, the last rule in rule order wins for that specific token. This is the same
+  concept as the old cell-level `last_rule_wins`, applied at a finer granularity.
+  Example: target `"a; b; c"` with two rules `"a"` → `"A"` and `"a"` → `"AA"` yields
+  `"AA; b; c"`.
+- **D9 — No overwrite-event diagnostics.** Token-level conflicts are resolved silently by
+  D7; nothing records them. There is no overwrite-event frame and no `matched_token` field
+  anywhere in the engine — `ConditionalGroupResult` carries only `data`, `audit`,
+  `changed_value_count` and `changed_columns`. The per-rule `audit` frame, which records one
+  row per applied rule, is the only diagnostic surface for rule application.
+- **D10 — `value_source_raw = None` matches only NA.** Symmetric to D4 on the source side: an
+  empty source cell in the rules file matches **only** when the current source value is
+  `None`/NA. It is not a wildcard (`#ANY#` is). A NULL source condition is inherently a
+  full-cell condition — the only thing it can mean is "this cell is NA" — so it is flagged
+  exact and joins the full-cell candidate, never a token; `encode_rule_match_key` folds both
+  sides' nulls to the NA sentinel, so it matches NA cells and only NA cells. This enables rules
+  shaped "when `continent` IS NULL and `footnotes` contains X → fill `continent`, clear
+  `footnotes`", which silently never fired before 2026-09-05.
+- **D11 — A full-cell override outranks token substitution, regardless of rule order.** When
+  one rule produces a full-cell override for a row (`#EXACT#`, or a `None`-matches-NA
+  condition) and another rule in the same group substitutes a token in that same row, the
+  full-cell override wins and the token rule is discarded — even when the token rule comes
+  later in rule order. D7's last-in-order precedence governs collisions on *the same token*;
+  an `#EXACT#` rule addresses the whole cell, not a token, so the two never compete for the
+  same slot. The precedence is deterministic and applies identically on the source and target
+  sides. Example: cell `"a; b"` with rules `#EXACT# a; b` → `"P"` and `"a"` → `"Q"` yields
+  `"P"` in either rule order. Authoring both is contradictory; the engine does not warn.
 - `concatenate` merges both sides into one canonical token set: deduplicated and **sorted**,
   like every other reconstruction path. This applies even when only one side is present.
 - **`footnotes` has no special engine.** A footnote rule is just a rule whose source column is
@@ -157,6 +213,86 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
 - Layers with identical value sets share one sheet (e.g. `raw_clean_normalize_harmonize`), in a
   fixed sheet order.
 - The workbook `created` date is pinned so repeated runs are byte-reproducible.
+
+## Target tokenization
+
+Source and target are now **symmetric**: both use token-by-token substitution by value.
+The rule engine no longer distinguishes between source and target handling.
+
+### Behavior by rule type
+
+| Rule type | Condition in rules file | Source behavior | Target behavior |
+|-----------|------------------------|-----------------|-----------------|
+| Normal | `value_source_raw = "x"` / `value_target_raw = "x"` | Replaces matching token | Replaces matching token |
+| Exact match (source) | `value_source_raw = "#EXACT# a; b"` | Replaces entire source cell | No effect on target |
+| Exact match (target) | `value_target_raw = "#EXACT# a; b"` | No effect on source | Replaces entire target cell |
+| Wildcard add | `value_source_raw = "#ANY#"` / `value_target_raw = "#ANY#"` | Adds token to cell | Adds token to cell |
+| None (empty) | `value_target_raw` is empty/NA | N/A | Matches only when current value is NA |
+
+### Concrete examples
+
+**Normal rule (token substitution):**
+```
+Cell: "a; b; c"
+Rule: "b" → "B"
+Result: "a; B; c"  (only "b" replaced; siblings preserved)
+```
+
+**Multiple rules, different tokens:**
+```
+Cell: "a; b; c"
+Rule 1: "a" → "A"
+Rule 2: "c" → "C"
+Result: "A; b; C"  (each token substituted independently)
+```
+
+**Multiple rules, same token (last wins at token level):**
+```
+Cell: "a; b; c"
+Rule 1: "a" → "A"
+Rule 2: "a" → "AA"
+Result: "AA; b; c"  (Rule 2 wins for token "a")
+```
+
+**`#EXACT#` (full cell rewrite):**
+```
+Cell: "a; b; c"
+Rule: "#EXACT# a; b; c" → "X"
+Result: "X"  (entire cell replaced)
+```
+
+**`#ANY#` (add token):**
+```
+Cell: "a; b; c"
+Rule: "#ANY#" → "X"
+Result: "X; a; b; c"  (sorted, deduplicated; "X" added)
+```
+
+**Multi-token value expansion:**
+```
+Cell: "x; y"
+Rule: "x" → "a; b; c"
+Result: "a; b; c; y"  ("a; b; c" expanded into individual tokens)
+```
+
+**`None` condition (NA-only match):**
+```
+Cell: null/NA
+Rule: value_target_raw = (empty) → "default"
+Result: "default"  (applies only because cell is NA)
+
+Cell: "existing"
+Rule: value_target_raw = (empty) → "default"
+Result: "existing"  (does NOT match; None is not a wildcard)
+```
+
+**`#EXACT#` in source only (independent sides):**
+```
+Source cell: "a; b; c"    Target cell: "x; y; z"
+Rule: "#EXACT# a; b; c" → "REPLACED"  |  condition: "y" → "Y"
+Result: source = "REPLACED"  target = "x; Y; z"
+(Source is full-cell override; target is token substitution. Independent.)
+```
 
 ## Determinism
 

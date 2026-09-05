@@ -11,10 +11,10 @@ Modules:
   the ``#EXACT#`` exact-match directive.
 * ``matching_values.py`` — tokenized ``;``-membership match, order-preserving concat merge,
   elementwise change count (drives multi-pass convergence).
-* ``target_apply.py`` — ``last_rule_wins`` (stable-sort + group-last) with overwrite-event
-  emission, and ``concatenate``.
+* ``target_apply.py`` — ``concatenate`` strategy only; raises ``ValidationError`` for
+  unsupported strategies.
 * ``conditional_group.py`` — cartesian keyed join on ``source_key``, subset target-condition
-  match, source+target scatter, audit.
+  match, symmetric token substitution for source and target, audit.
 
 * ``schema_validation.py`` — coerce/validate rules, duplicate/conflict checks, code-point-ordered
   conditional dictionary.

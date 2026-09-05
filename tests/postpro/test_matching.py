@@ -4,7 +4,7 @@ Covers :mod:`whep_digitize.postpro.rule_engine.matching_strategy`
 and :mod:`whep_digitize.postpro.rule_engine.matching_values`. Byte
 parity is covered separately in ``tests/parity/test_matching_parity.py``; these tests pin
 the behavioral contract (NA handling, tokenized membership, wildcard, existing-first dedupe,
-change counting, strategy resolution).
+change counting, strategy resolution, token-map matching).
 """
 
 from __future__ import annotations
@@ -15,11 +15,9 @@ import pytest
 from whep_digitize.postpro.rule_engine.matching_strategy import (
     TargetUpdateStrategyConfig,
     decode_target_rule_value,
-    empty_last_rule_wins_overwrite_events_df,
     encode_rule_match_key,
     encode_target_rule_value,
     get_target_update_strategy_config,
-    resolve_last_rule_wins_unique_row_fast_path_enabled,
     resolve_rule_match_normalization_settings,
     resolve_target_update_strategy,
 )
@@ -27,6 +25,7 @@ from whep_digitize.postpro.rule_engine.matching_values import (
     concatenate_existing_and_incoming_values,
     count_elementwise_value_changes,
     match_rule_target_condition_values,
+    match_target_condition_token_map,
 )
 from whep_digitize.setup.errors import ConfigurationError, ValidationError
 from whep_digitize.setup.helpers.strings import resolve_exact_match_directive
@@ -306,15 +305,15 @@ def test_resolve_rule_match_normalization_settings() -> None:
 
 def test_get_target_update_strategy_config() -> None:
     config = get_target_update_strategy_config()
-    assert config.default == "last_rule_wins"
-    assert config.supported == ("last_rule_wins", "concatenate")
+    assert config.default == "token_substitute"
+    assert config.supported == ("token_substitute", "concatenate")
     assert config.concatenate_delimiter == "; "
     assert config.by_column == {"notes": "concatenate"}
 
 
 def test_resolve_target_update_strategy_uses_override_then_default() -> None:
     assert resolve_target_update_strategy("notes") == "concatenate"
-    assert resolve_target_update_strategy("unit") == "last_rule_wins"
+    assert resolve_target_update_strategy("unit") == "token_substitute"
 
 
 def test_resolve_target_update_strategy_rejects_empty_column() -> None:
@@ -324,8 +323,8 @@ def test_resolve_target_update_strategy_rejects_empty_column() -> None:
 
 def test_resolve_target_update_strategy_rejects_unsupported_strategy() -> None:
     bad_config = TargetUpdateStrategyConfig(
-        default="last_rule_wins",
-        supported=("last_rule_wins", "concatenate"),
+        default="token_substitute",
+        supported=("token_substitute", "concatenate"),
         concatenate_delimiter="; ",
         by_column={"weird": "unsupported_strategy"},
     )
@@ -333,23 +332,131 @@ def test_resolve_target_update_strategy_rejects_unsupported_strategy() -> None:
         resolve_target_update_strategy("weird", bad_config)
 
 
-def test_resolve_last_rule_wins_unique_row_fast_path_enabled() -> None:
-    assert resolve_last_rule_wins_unique_row_fast_path_enabled() is True
+# ------------------------------------------------------ token map (match + matched tokens)
 
 
-def test_empty_last_rule_wins_overwrite_events_df_schema() -> None:
-    frame = empty_last_rule_wins_overwrite_events_df()
-    assert frame.height == 0
-    assert frame.columns == [
-        "dataset_name",
-        "execution_stage",
-        "rule_file_identifier",
-        "column_source",
-        "column_target",
-        "row_id",
-        "candidate_count",
-        "unique_candidate_count",
-        "selected_value",
-        "candidate_values",
-    ]
-    assert frame.schema["row_id"] == pl.Int64
+def test_simple_token_match() -> None:
+    """current='a; b; c', condition='b' → matched=['b']."""
+    current = _s(["a; b; c"])
+    condition = _s(["b"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True]
+    assert matched == [["b"]]
+
+
+def test_token_does_not_match() -> None:
+    """current='a; b; c', condition='d' → matched=[]."""
+    current = _s(["a; b; c"])
+    condition = _s(["d"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [False]
+    assert matched == [[]]
+
+
+def test_any_wildcard_returns_empty_list() -> None:
+    """#ANY# → matched=[] (no specific token matched)."""
+    current = _s(["a; b; c"])
+    condition = _s(["#ANY#"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True]
+    assert matched == [[]]
+
+
+def test_exact_match_returns_full_cell() -> None:
+    """current='a; b; c', condition='#EXACT# a; b; c' → matched=['a; b; c']."""
+    current = _s(["a; b; c"])
+    condition = _s(["#EXACT# a; b; c"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True]
+    assert matched == [["a; b; c"]]
+
+
+def test_exact_no_match_returns_empty() -> None:
+    """current='a; b; c', condition='#EXACT# x' → matched=[]."""
+    current = _s(["a; b; c"])
+    condition = _s(["#EXACT# x"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [False]
+    assert matched == [[]]
+
+
+def test_none_matches_none() -> None:
+    """current=None, condition=None → matched=[None]."""
+    current = _s([None])
+    condition = _s([None])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True]
+    assert matched == [[None]]
+
+
+def test_none_does_not_match_value() -> None:
+    """current='a', condition=None → matched=[]."""
+    current = _s(["a"])
+    condition = _s([None])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [False]
+    assert matched == [[]]
+
+
+def test_value_does_not_match_none() -> None:
+    """current=None, condition='a' → matched=[]."""
+    current = _s([None])
+    condition = _s(["a"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [False]
+    assert matched == [[]]
+
+
+def test_multi_row_mixed() -> None:
+    """Multiple rows with different match types."""
+    current = _s(["a; b; c", "x", None, "p; q"])
+    condition = _s(["b", "#ANY#", None, "z"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True, True, True, False]
+    assert matched == [["b"], [], [None], []]
+
+
+def test_multiple_token_matches() -> None:
+    """When a condition matches multiple tokens (via full-string equality on a single token)."""
+    current = _s(["a; b; c"])
+    condition = _s(["a"])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == [True]
+    assert matched == [["a"]]
+
+
+def test_empty_series() -> None:
+    """Empty series returns empty results."""
+    current = _s([])
+    condition = _s([])
+    match_series, matched = match_target_condition_token_map(current, condition)
+
+    assert match_series.to_list() == []
+    assert matched == []
+
+
+def test_boolean_series_matches_reference_function() -> None:
+    """The boolean series from the token map must match the reference function."""
+    current = _s(["a; b; c", None, "x; y", "hello", ""])
+    condition = _s(["b", None, "#ANY#", "#EXACT# hello", ""])
+    match_series, _ = match_target_condition_token_map(current, condition)
+
+    reference = match_rule_target_condition_values(current, condition)
+    assert match_series.to_list() == reference.to_list()
+
+
+def test_length_mismatch_raises() -> None:
+    """Mismatched lengths raise ValidationError."""
+    with pytest.raises(ValidationError):
+        match_target_condition_token_map(_s(["a", "b"]), _s(["a"]))
+

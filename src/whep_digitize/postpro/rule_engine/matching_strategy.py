@@ -195,29 +195,6 @@ def resolve_rule_match_normalization_settings() -> RuleMatchNormalizationSetting
     )
 
 
-def empty_last_rule_wins_overwrite_events_df() -> pl.DataFrame:
-    """Return the standardized empty ``last_rule_wins`` overwrite-events frame.
-
-    Returns:
-        An empty frame with the overwrite-event schema (used to collect diagnostics when the
-        ``last_rule_wins`` strategy discards competing candidates).
-    """
-    return pl.DataFrame(
-        schema={
-            "dataset_name": pl.String,
-            "execution_stage": pl.String,
-            "rule_file_identifier": pl.String,
-            "column_source": pl.String,
-            "column_target": pl.String,
-            "row_id": pl.Int64,
-            "candidate_count": pl.Int64,
-            "unique_candidate_count": pl.Int64,
-            "selected_value": pl.String,
-            "candidate_values": pl.String,
-        }
-    )
-
-
 def get_target_update_strategy_config() -> TargetUpdateStrategyConfig:
     """Validate and return the centralized target-update strategy configuration.
 
@@ -241,6 +218,18 @@ def get_target_update_strategy_config() -> TargetUpdateStrategyConfig:
     )
 
 
+# Module-level cached config to avoid re-computing on every call.
+_TARGET_STRATEGY_CONFIG: TargetUpdateStrategyConfig | None = None
+
+
+def _get_cached_target_strategy_config() -> TargetUpdateStrategyConfig:
+    """Return the cached target strategy configuration, computing it on first call."""
+    global _TARGET_STRATEGY_CONFIG
+    if _TARGET_STRATEGY_CONFIG is None:
+        _TARGET_STRATEGY_CONFIG = get_target_update_strategy_config()
+    return _TARGET_STRATEGY_CONFIG
+
+
 def resolve_target_update_strategy(
     target_column: str,
     strategy_config: TargetUpdateStrategyConfig | None = None,
@@ -249,7 +238,7 @@ def resolve_target_update_strategy(
 
     Args:
         target_column: The target column name.
-        strategy_config: Strategy configuration (defaults to the centralized config).
+        strategy_config: Strategy configuration (defaults to the centralized cached config).
 
     Returns:
         The resolved strategy name.
@@ -258,7 +247,11 @@ def resolve_target_update_strategy(
         ConfigurationError: If the resolved strategy is not supported.
     """
     require(len(target_column) >= 1, "target_column must be a non-empty string")
-    config = strategy_config if strategy_config is not None else get_target_update_strategy_config()
+    config = (
+        strategy_config
+        if strategy_config is not None
+        else _get_cached_target_strategy_config()
+    )
 
     resolved_strategy = config.by_column.get(target_column, config.default)
 
@@ -269,12 +262,3 @@ def resolve_target_update_strategy(
             f"supported: {', '.join(config.supported)}"
         )
     return resolved_strategy
-
-
-def resolve_last_rule_wins_unique_row_fast_path_enabled() -> bool:
-    """Return whether the unique-row direct-update fast path is enabled for ``last_rule_wins``.
-
-    Returns:
-        The fast-path toggle.
-    """
-    return bool(_CONSTANTS.postpro.target_update_fast_path.last_rule_wins_unique_row_id)

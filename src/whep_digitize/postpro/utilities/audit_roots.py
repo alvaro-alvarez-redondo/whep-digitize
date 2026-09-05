@@ -61,7 +61,9 @@ def get_postpro_audit_paths(config: Config) -> PostproAuditPaths:
 def initialize_postpro_audit_root(config: Config) -> PostproAuditPaths:
     """Resolve and create the post-processing output subtree.
 
-    Creates the root and each of the four output directories (with parents) and returns them.
+    Creates the root, the audit directory, and the templates directory (with parents) and
+    returns them. The ``diagnostics`` and ``runtime_cache`` directories are **not** created
+    automatically.
 
     Args:
         config: The resolved pipeline configuration.
@@ -74,9 +76,7 @@ def initialize_postpro_audit_root(config: Config) -> PostproAuditPaths:
         [
             paths.audit_root_dir,
             paths.audit_dir,
-            paths.diagnostics_dir,
             paths.templates_dir,
-            paths.runtime_cache_dir,
         ]
     )
     return paths

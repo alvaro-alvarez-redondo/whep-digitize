@@ -35,7 +35,7 @@ from whep_digitize.export.processed_data.layers import collect_layer_tables_for_
 from whep_digitize.setup.config import Config
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
-from whep_digitize.setup.helpers.numeric import format_double_fixed
+from whep_digitize.setup.helpers.numeric import format_float_columns
 from whep_digitize.setup.helpers.strings import normalize_filename
 
 # Record separator: the platform newline — "\r\n" on Windows, "\n" elsewhere.
@@ -90,7 +90,7 @@ def write_processed_table(
     """
     if not overwrite and output_path.exists():
         raise ValidationError(f"file already exists and overwrite is disabled: {output_path}")
-    _format_float_columns(frame).write_csv(output_path, separator="\t", line_terminator=_FWRITE_EOL)
+    format_float_columns(frame).write_csv(output_path, separator="\t", line_terminator=_FWRITE_EOL)
     return output_path
 
 
@@ -143,30 +143,3 @@ def export_processed_data(
     }
 
 
-def _format_float_columns(frame: pl.DataFrame) -> pl.DataFrame:
-    """Return ``frame`` with every float column rendered as contract-conformant strings.
-
-    Non-float columns (string, integer) are left untouched — polars already writes them exactly
-    as the output contract requires.
-    """
-    float_columns = [name for name, dtype in frame.schema.items() if dtype.is_float()]
-    if not float_columns:
-        return frame
-    return frame.with_columns(
-        [_format_float_series(frame[name]).alias(name) for name in float_columns]
-    )
-
-
-def _format_float_series(series: pl.Series) -> pl.Series:
-    """Render a float :class:`polars.Series` as strings via the cardinality fast path.
-
-    Distinct values are formatted once and mapped back (the idiom used by
-    ``helpers.strings.normalize_string``); nulls stay null, which
-    :meth:`polars.DataFrame.write_csv` renders as an empty field — the contract's missing-value
-    form.
-    """
-    uniques = series.drop_nulls().unique().to_list()
-    if not uniques:
-        return series.cast(pl.String)
-    mapping = {value: format_double_fixed(value) for value in uniques}
-    return series.replace_strict(mapping, default=None, return_dtype=pl.String)

@@ -30,8 +30,8 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `paths` | relative dir names under `data/` |
 | `checkpoints` | `ingest_stage_name="ingest_pipeline"`, `.parquet`/`.pkl` suffixes, save/restore status text |
 | `tokens.commodity_start_index` | `7` (1-based) |
-| `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `last_rule_wins`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
-| `output_config` | `lists_to_export`, `output_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"`, `error_highlight` style |
+| `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `token_substitute`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
+| `output_config` | `lists_to_export`, `output_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"` |
 | `progress` | per-step messages + the stage bar's geometry (`bar_width`, `label_width`, `eta_width`, item bounds), palette (`stage_styles`, `finished_style`, `track_style`) and refresh rates |
 | `fixed_export_columns` / `audit_columns` | export/audit column tuples |
 

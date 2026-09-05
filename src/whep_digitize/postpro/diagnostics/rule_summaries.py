@@ -184,6 +184,24 @@ def build_unmatched_rule_summary(
     )
 
 
+def merge_stage_rule_summaries(
+    matched: pl.DataFrame, unmatched: pl.DataFrame
+) -> pl.DataFrame:
+    """Concatenate matched and unmatched rule summaries into a single DataFrame.
+
+    Unmatched rules get ``loop = 0`` so they can coexist with matched rules in one sheet.
+
+    Args:
+        matched: The matched-rule summary (from :func:`summarize_stage_rules`).
+        unmatched: The unmatched-rule summary (from :func:`build_unmatched_rule_summary`).
+
+    Returns:
+        The combined 9-column summary frame.
+    """
+    unmatched_fixed = unmatched.with_columns(pl.col("loop").fill_null(0))
+    return pl.concat([matched, unmatched_fixed], rechunk=True)
+
+
 def _ensure_columns(frame: pl.DataFrame, columns: Sequence[str]) -> pl.DataFrame:
     """Add any missing columns as null ``String`` and cast the named columns to ``String``."""
     additions = [

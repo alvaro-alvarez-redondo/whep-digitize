@@ -4,7 +4,8 @@ The coercion helpers turn character values into doubles, mapping empty strings a
 non-numeric text to null without warnings, and trimming surrounding whitespace.
 
 Also hosts :func:`format_double_fixed`, the double -> string rendering shared by the TSV and
-unique-list exporters.
+unique-list exporters, and the :func:`format_float_columns` / :func:`format_float_series`
+frame-level wrappers around it, so every writer renders doubles identically.
 """
 
 from __future__ import annotations
@@ -16,31 +17,6 @@ import polars as pl
 
 # Doubles are rendered at 15 significant figures wherever they become text.
 _SIGNIFICANT_DIGITS = 15
-
-
-def coerce_numeric(value: str | float | int | bool | None) -> float | None:
-    """Coerce a single value to ``float``; empty/non-numeric/``None`` become ``None``.
-
-    Whitespace is trimmed before parsing (``" 2.5 "`` -> ``2.5``). Booleans are treated
-    as non-numeric text and return ``None`` (they are never valid pipeline values).
-
-    Args:
-        value: The value to coerce.
-
-    Returns:
-        The parsed float, or ``None``.
-    """
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        return float(text)
-    except ValueError:
-        return None
 
 
 def coerce_numeric_series(values: pl.Series) -> pl.Series:
@@ -91,3 +67,44 @@ def format_double_fixed(value: float) -> str | None:
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     return text
+
+
+def format_float_columns(frame: pl.DataFrame) -> pl.DataFrame:
+    """Return ``frame`` with every float column rendered as contract-conformant strings.
+
+    Non-float columns (string, integer) are left untouched — polars already writes them exactly
+    as the output contract requires.
+
+    Args:
+        frame: The frame to render.
+
+    Returns:
+        The frame with float columns replaced by their string rendering.
+    """
+    float_columns = [name for name, dtype in frame.schema.items() if dtype.is_float()]
+    if not float_columns:
+        return frame
+    return frame.with_columns(
+        [format_float_series(frame[name]).alias(name) for name in float_columns]
+    )
+
+
+def format_float_series(series: pl.Series) -> pl.Series:
+    """Render a float :class:`polars.Series` as strings via the cardinality fast path.
+
+    Distinct values are formatted once and mapped back (the idiom used by
+    ``helpers.strings.normalize_string``); nulls stay null, which
+    :meth:`polars.DataFrame.write_csv` renders as an empty field — the contract's missing-value
+    form. ``NaN`` also renders as null, matching :func:`format_double_fixed`.
+
+    Args:
+        series: The float series to render.
+
+    Returns:
+        A ``String`` series of rendered values.
+    """
+    uniques = series.drop_nulls().unique().to_list()
+    if not uniques:
+        return series.cast(pl.String)
+    mapping = {value: format_double_fixed(value) for value in uniques}
+    return series.replace_strict(mapping, default=None, return_dtype=pl.String)

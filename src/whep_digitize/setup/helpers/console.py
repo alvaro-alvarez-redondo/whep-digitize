@@ -29,11 +29,3 @@ def alert_success(message: str) -> None:
     _console.print(f"[bold green]OK[/bold green] {message}")
 
 
-def alert_warning(message: str) -> None:
-    """Print a warning line."""
-    _console.print(f"[yellow]![/yellow] {message}")
-
-
-def alert_error(message: str) -> None:
-    """Print an error line."""
-    _console.print(f"[bold red]x[/bold red] {message}")

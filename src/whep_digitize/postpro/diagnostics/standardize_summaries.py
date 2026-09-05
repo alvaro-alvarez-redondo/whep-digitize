@@ -196,6 +196,22 @@ def build_unmatched_standardize_rule_summary(
     )
 
 
+def merge_standardize_rule_summaries(
+    matched: pl.DataFrame, unmatched: pl.DataFrame
+) -> pl.DataFrame:
+    """Concatenate matched and unmatched standardize rule summaries into a single DataFrame.
+
+    Args:
+        matched: The matched-rule summary (from :func:`summarize_standardize_rules`).
+        unmatched: The unmatched-rule summary (from
+            :func:`build_unmatched_standardize_rule_summary`).
+
+    Returns:
+        The combined 10-column summary frame.
+    """
+    return pl.concat([matched, unmatched], rechunk=True)
+
+
 def _coerce_std_keys(frame: pl.DataFrame) -> pl.DataFrame:
     """Add + coerce the standardize catalog key columns (char → String, numeric → Float64)."""
     additions = [

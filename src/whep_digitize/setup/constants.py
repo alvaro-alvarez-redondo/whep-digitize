@@ -229,21 +229,17 @@ class RuleMatchNormalization:
 
 @dataclass(frozen=True, slots=True)
 class TargetUpdateStrategies:
-    """Target-update strategy config. ``notes`` concatenates; everything else last-wins."""
+    """Target-update strategy config.
 
-    default: str = "last_rule_wins"
+    ``notes`` uses ``concatenate``; all other columns default to ``token_substitute``.
+    """
+
+    default: str = "token_substitute"
     concatenate_delimiter: str = "; "
     by_column: Mapping[str, str] = field(
         default_factory=lambda: MappingProxyType({"notes": "concatenate"})
     )
-    supported: tuple[str, ...] = ("last_rule_wins", "concatenate")
-
-
-@dataclass(frozen=True, slots=True)
-class TargetUpdateFastPath:
-    """Fast-path toggles for target updates."""
-
-    last_rule_wins_unique_row_id: bool = True
+    supported: tuple[str, ...] = ("token_substitute", "concatenate")
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,11 +305,9 @@ class Postpro:
     runtime_cache_dir_name: str = "runtime_cache"
     clean_harmonize_template_file_name: str = "clean_harmonize_template.xlsx"
     standardize_units_template_file_name: str = "standardize_units_template.xlsx"
-    data_validation_audit_suffix: str = "_data_validation_audit.xlsx"
-    clean_audit_file_name: str = "clean_audit.xlsx"
-    harmonize_audit_file_name: str = "harmonize_audit.xlsx"
-    standardize_audit_file_name: str = "standardize_audit.xlsx"
-    last_rule_wins_overwrites_file_name: str = "postpro_last_rule_wins_overwrites.xlsx"
+    clean_audit_file_name: str = "clean_audit.tsv"
+    harmonize_audit_file_name: str = "harmonize_audit.tsv"
+    standardize_audit_file_name: str = "standardize_audit.tsv"
     rule_match_wildcard_token: str = "#ANY#"
     # Rule-authoring directive: prefixing a target-condition value with this marker forces
     # full-string matching for that rule, opting out of `;`-token membership (and out of
@@ -335,22 +329,9 @@ class Postpro:
     standardization: Standardization = field(default_factory=Standardization)
     rule_match_normalization: RuleMatchNormalization = field(default_factory=RuleMatchNormalization)
     target_update_strategies: TargetUpdateStrategies = field(default_factory=TargetUpdateStrategies)
-    target_update_fast_path: TargetUpdateFastPath = field(default_factory=TargetUpdateFastPath)
     multi_pass: MultiPass = field(default_factory=MultiPass)
     runtime_cache: RuntimeCache = field(default_factory=RuntimeCache)
     schema_validation_cache: SchemaValidationCache = field(default_factory=SchemaValidationCache)
-
-
-@dataclass(frozen=True, slots=True)
-class ErrorHighlightStyle:
-    """Excel style applied to invalid audit cells."""
-
-    fg_fill: str = "#FFB84D"
-    font_colour: str = "#000000"
-    text_decoration: str = "bold"
-    border: str = "TopBottomLeftRight"
-    border_colour: str = "#6D4C41"
-    border_style: str = "thick"
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,7 +346,6 @@ class OutputConfig:
     output_layers: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
     # The processed export writes .tsv, not a workbook.
     processed_suffix: str = ".tsv"
-    error_highlight: ErrorHighlightStyle = field(default_factory=ErrorHighlightStyle)
 
 
 @dataclass(frozen=True, slots=True)

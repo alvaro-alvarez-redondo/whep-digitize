@@ -45,18 +45,11 @@ def test_audit_subtree_paths(config: Config, project_dir: Path) -> None:
     assert audit.dataset_dir == audit.audit_dir  # intentional alias of audit_dir
 
 
-def test_audit_file_path(config: Config) -> None:
-    audit = config.paths.data.audit
-    assert audit.audit_file_name == "whep_data_raw_data_validation_audit.xlsx"
-    assert audit.audit_file_path == audit.audit_dir / audit.audit_file_name
-
-
 def test_column_order_matches_constants(config: Config) -> None:
     assert config.column_order == config.sorting.stage_row_order
     assert config.column_required == config.columns.base
 
 
-def test_dataset_name_flows_into_audit_file(project_dir: Path) -> None:
+def test_dataset_name_normalizes_correctly(project_dir: Path) -> None:
     config = load_pipeline_config(dataset_name="FAO 1961", root=project_dir)
     assert config.dataset_name == "fao_1961"
-    assert config.paths.data.audit.audit_file_name == "fao_1961_data_validation_audit.xlsx"

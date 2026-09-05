@@ -12,18 +12,14 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from openpyxl import load_workbook
 
 from whep_digitize.postpro.audit.audit import AuditResult, audit_dataset
 from whep_digitize.postpro.audit.config import (
     AUDIT_FINDINGS_COLUMNS,
-    NUMERIC_STRING_MESSAGE,
     empty_audit_findings,
     prepare_audit_root,
-    resolve_audit_paths,
     validate_audit_config,
 )
-from whep_digitize.postpro.audit.export import export_validation_audit_report
 from whep_digitize.postpro.audit.validation import (
     audit_character_non_empty,
     audit_numeric_string,
@@ -57,16 +53,6 @@ def test_empty_audit_findings_schema() -> None:
 
 def test_validate_audit_config_accepts_default(config: Config) -> None:
     validate_audit_config(config)  # does not raise
-
-
-def test_resolve_audit_output_paths_joins_name() -> None:
-    path = resolve_audit_paths(Path("data") / "audit", "whep_audit.xlsx")
-    assert path == Path("data") / "audit" / "whep_audit.xlsx"
-
-
-def test_resolve_audit_output_paths_rejects_blank_name() -> None:
-    with pytest.raises(ValidationError):
-        resolve_audit_paths(Path("data"), "")
 
 
 def test_prepare_audit_root_deletes_existing(tmp_path: Path) -> None:
@@ -209,64 +195,6 @@ def test_resolve_columns_override_wins(config: Config) -> None:
     }
 
 
-# --------------------------------------------------------------------------- export (openpyxl)
-
-
-def _small_findings(row_index: int, audit_column: str) -> pl.DataFrame:
-    return pl.DataFrame(
-        {
-            "row_index": pl.Series([row_index], dtype=pl.Int64),
-            "audit_column": _series([audit_column]),
-            "audit_type": _series(["numeric_string"]),
-            "audit_message": _series([NUMERIC_STRING_MESSAGE]),
-        }
-    )
-
-
-def test_export_returns_none_when_empty(config: Config, tmp_path: Path) -> None:
-    empty = pl.DataFrame({"document": _series([]), "value": _series([])})
-    output_path = tmp_path / "audit.xlsx"
-    result = export_validation_audit_report(empty, config, empty_audit_findings(), output_path)
-    assert result is None
-    assert not output_path.exists()
-
-
-def test_export_highlights_flagged_cell_with_document_sort(config: Config, tmp_path: Path) -> None:
-    # Two invalid rows; findings flag the "bad" value. source_row_index 1 = b.xlsx row.
-    audit_df = pl.DataFrame(
-        {"document": _series(["b.xlsx", "a.xlsx"]), "value": _series(["bad", "10"])}
-    )
-    output_path = tmp_path / "audit.xlsx"
-    result = export_validation_audit_report(
-        audit_df, config, _small_findings(1, "value"), output_path
-    )
-    assert result == output_path
-
-    worksheet = load_workbook(output_path).active
-    assert worksheet.title == "audit_report"
-    # Header, then rows sorted by document (a.xlsx before b.xlsx).
-    assert [worksheet.cell(1, col).value for col in (1, 2)] == ["document", "value"]
-    assert worksheet.cell(2, 1).value == "a.xlsx"
-    assert worksheet.cell(3, 1).value == "b.xlsx"
-    # The flagged "bad" cell (row 3, col 2) is highlighted; the valid "10" cell is not.
-    flagged = worksheet.cell(3, 2)
-    assert flagged.value == "bad"
-    assert flagged.fill.fgColor.rgb == "FFFFB84D"
-    assert flagged.font.bold is True
-    assert flagged.border.left.style == "thick"
-    assert worksheet.cell(2, 2).fill.fill_type is None
-
-
-def test_export_writes_note_when_no_rows_but_findings(config: Config, tmp_path: Path) -> None:
-    empty = pl.DataFrame({"document": _series([]), "value": _series([])})
-    output_path = tmp_path / "audit.xlsx"
-    result = export_validation_audit_report(empty, config, _small_findings(1, "value"), output_path)
-    assert result == output_path
-    worksheet = load_workbook(output_path).active
-    assert worksheet.cell(1, 1).value == "note"
-    assert worksheet.cell(2, 1).value == "No audit findings detected for this dataset."
-
-
 # --------------------------------------------------------------------------- orchestration
 
 
@@ -306,14 +234,14 @@ def test_audit_data_output_findings_capture_divergence(config: Config) -> None:
     assert result.invalid_row_index == (2, 3)
 
 
-def test_audit_data_output_writes_report_when_findings(config: Config) -> None:
+def test_audit_data_output_no_report_path(config: Config) -> None:
     result = audit_dataset(_full_dataset(), config)
-    assert result.report_path is not None
-    assert result.report_path.exists()
-    assert result.report_path == config.paths.data.audit.audit_file_path
+    # No workbook is exported; report_path field no longer exists on AuditResult.
+    assert result.findings.height > 0
+    assert result.invalid_row_index == (2, 3)
 
 
-def test_audit_data_output_skips_report_when_clean(config: Config) -> None:
+def test_audit_data_output_clean_dataset(config: Config) -> None:
     clean = pl.DataFrame(
         {
             "continent": _series(["Asia"]),
@@ -327,8 +255,6 @@ def test_audit_data_output_skips_report_when_clean(config: Config) -> None:
         }
     )
     result = audit_dataset(clean, config)
-    assert result.report_path is None
-    assert not config.paths.data.audit.audit_file_path.exists()
     assert result.findings.height == 0
     assert result.audited.get_column("value").to_list() == [10.0]
 

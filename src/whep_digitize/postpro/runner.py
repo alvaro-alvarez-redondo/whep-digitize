@@ -118,15 +118,13 @@ def run_postpro_pipeline(
         )
         harmonize_df = _canonicalize_stage_frame(harmonize_layer.data)
 
-        # 9. persist per-stage audit workbooks + the last-rule-wins overwrite subset.
+        # 9. persist per-stage audit workbooks.
         progress.step(_MESSAGES["persist"])
         audit_report_paths = persist_postpro_audit(
             clean_audit_df=clean_layer.audit,
             harmonize_audit_df=harmonize_layer.audit,
             standardize_audit_df=standardize_layer.audit,
             standardize_rules_df=standardize_layer.layer_rules,
-            final_stage_df=harmonize_df,
-            last_rule_wins_overwrites_df=harmonize_layer.overwrite_events,
             config=config,
             standardize_matched_rule_counts_df=standardize_layer.matched_rule_counts,
         )
@@ -135,7 +133,7 @@ def run_postpro_pipeline(
         clean=clean_layer.diagnostics,
         standardize_units=_as_layer_diagnostics(standardize_layer.diagnostics),
         harmonize=harmonize_layer.diagnostics,
-        report_paths=_build_report_paths(audit_paths, template_path, audit_report_paths, config),
+        report_paths=_build_report_paths(audit_paths, template_path, audit_report_paths),
     )
     return PostproResult(
         harmonize=harmonize_df,
@@ -165,7 +163,6 @@ def _build_report_paths(
     audit_paths: PostproAuditPaths,
     template_path: Path,
     persisted_paths: dict[str, Path],
-    config: Config,
 ) -> dict[str, Path]:
     """Assemble the flat diagnostics ``report_paths`` mapping."""
     return {
@@ -176,5 +173,4 @@ def _build_report_paths(
         "templates_dir": audit_paths.templates_dir,
         "runtime_cache_dir": audit_paths.runtime_cache_dir,
         "clean_harmonize_template_path": template_path,
-        "data_audit_report_path": config.paths.data.audit.audit_file_path,
     }

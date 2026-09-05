@@ -74,7 +74,7 @@ def main() -> None:
 
     tmp_root = Path(tempfile.mkdtemp(prefix="whep_bench_"))
     try:
-        input_dir = tmp_root / "data" / "import"
+        input_dir = tmp_root / "data" / "input"
         input_dir.parent.mkdir(parents=True, exist_ok=True)
         label = _populate_input_tree(input_dir)
 

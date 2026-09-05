@@ -103,22 +103,6 @@ def test_normalize_text_policy(raw: str, expected: str) -> None:
 # --------------------------------------------------------------------------- numeric
 
 
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("2.5", 2.5),
-        (" 3 ", 3.0),
-        (10, 10.0),
-        ("", None),
-        ("abc", None),
-        (None, None),
-        (True, None),
-    ],
-)
-def test_coerce_numeric(raw: object, expected: float | None) -> None:
-    assert numeric.coerce_numeric(raw) == expected  # type: ignore[arg-type]
-
-
 def test_coerce_numeric_series() -> None:
     series = pl.Series("value", ["1.0", " 2 ", "bad", "", None])
     result = numeric.coerce_numeric_series(series)

@@ -100,16 +100,3 @@ def load_checkpoint(name: str, config: Config, *, enabled: bool) -> Any | None:
     return None
 
 
-def clear_checkpoints(config: Config) -> None:
-    """Delete all checkpoint files for a run.
-
-    Args:
-        config: The pipeline configuration.
-    """
-    checkpoints = get_pipeline_constants().checkpoints
-    directory = _checkpoint_dir(config)
-    if not directory.exists():
-        return
-    for path in directory.iterdir():
-        if path.suffix in {checkpoints.frame_suffix, checkpoints.object_suffix}:
-            path.unlink()

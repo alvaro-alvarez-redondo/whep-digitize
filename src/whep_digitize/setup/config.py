@@ -85,8 +85,6 @@ class AuditPaths:
     templates_dir: Path
     runtime_cache_dir: Path
     dataset_dir: Path
-    audit_file_name: str
-    audit_file_path: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +166,6 @@ def load_pipeline_config(
 
     audit_root = data_dir / path_names.postpro_dir
     audit_dir = audit_root / postpro.audit_dir_name
-    audit_file_name = f"{name}{postpro.data_validation_audit_suffix}"
     audit_paths = AuditPaths(
         audit_root_dir=audit_root,
         audit_dir=audit_dir,
@@ -176,8 +173,6 @@ def load_pipeline_config(
         templates_dir=audit_root / postpro.templates_dir_name,
         runtime_cache_dir=audit_root / postpro.runtime_cache_dir_name,
         dataset_dir=audit_dir,
-        audit_file_name=audit_file_name,
-        audit_file_path=audit_dir / audit_file_name,
     )
 
     return Config(

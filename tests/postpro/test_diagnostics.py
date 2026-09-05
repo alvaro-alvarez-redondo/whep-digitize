@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import polars as pl
 import pytest
-from openpyxl import load_workbook
 
 from whep_digitize.postpro.diagnostics.persist import (
-    build_last_rule_wins_overwrite_subset,
     build_postpro_diagnostics,
     persist_postpro_audit,
 )
@@ -24,11 +22,13 @@ from whep_digitize.postpro.diagnostics.preflight import (
 from whep_digitize.postpro.diagnostics.rule_summaries import (
     build_stage_rule_catalog_from_payloads,
     build_unmatched_rule_summary,
+    merge_stage_rule_summaries,
     summarize_stage_rules,
 )
 from whep_digitize.postpro.diagnostics.standardize_summaries import (
     build_standardize_rule_catalog,
     build_unmatched_standardize_rule_summary,
+    merge_standardize_rule_summaries,
     summarize_standardize_rules,
 )
 from whep_digitize.postpro.utilities.templates import RulePayload
@@ -161,6 +161,65 @@ def test_build_stage_rule_catalog_from_payloads() -> None:
     assert catalog.get_column("rule_file_identifier").to_list() == ["clean_rules.xlsx"]
 
 
+def test_merge_stage_rule_summaries_concatenates_correctly() -> None:
+    matched = summarize_stage_rules(_clean_audit())
+    catalog = pl.DataFrame(
+        {
+            "rule_file_identifier": _s(["clean_rules.csv"]),
+            "column_source": _s(["polity"]),
+            "value_source_raw": _s(["spain"]),
+            "value_source": _s(["spain"]),
+            "column_target": _s(["continent"]),
+            "value_target_raw": _s(["eu"]),
+            "value_target": _s(["eu"]),
+        }
+    )
+    unmatched = build_unmatched_rule_summary(catalog, matched)
+    merged = merge_stage_rule_summaries(matched, unmatched)
+    assert len(merged) == len(matched) + len(unmatched)
+    # Unmatched rows get loop=0 in the merged output
+    loop_zero = merged.filter(pl.col("loop") == 0)
+    assert len(loop_zero) == len(unmatched)
+    # Matched rows keep their original loop values (>= 1)
+    loop_nonzero = merged.filter(pl.col("loop") > 0)
+    assert len(loop_nonzero) == len(matched)
+    assert loop_nonzero.get_column("loop").to_list() == matched.get_column("loop").to_list()
+
+
+def test_merge_standardize_rule_summaries_concatenates_correctly() -> None:
+    matched = summarize_standardize_rules(
+        pl.DataFrame(
+            {
+                "rule_file_identifier": _s(["rules.xlsx"]),
+                "commodity_key": _s(["#ALL#"]),
+                "unit_source": _s(["kg"]),
+                "unit_target": _s(["t"]),
+                "unit_factor": _f([0.001]),
+                "unit_offset": _f([0.0]),
+                "affected_rows": _i([3]),
+            }
+        )
+    )
+    catalog = build_standardize_rule_catalog(
+        pl.DataFrame(
+            {
+                "source_rule_file": _s(["rules.xlsx", "rules.xlsx"]),
+                "commodity_key": _s(["#ALL#", "wheat"]),
+                "unit_source": _s(["kg", "tonne"]),
+                "unit_target": _s(["t", "kg"]),
+                "unit_factor": _f([0.001, 1000.0]),
+                "unit_offset": _f([0.0, 0.0]),
+            }
+        )
+    )
+    unmatched = build_unmatched_standardize_rule_summary(catalog, matched)
+    merged = merge_standardize_rule_summaries(matched, unmatched)
+    assert len(merged) == len(matched) + len(unmatched)
+    # Unmatched rows have affected_rows=0
+    zero_rows = merged.filter(pl.col("affected_rows") == 0)
+    assert len(zero_rows) == len(unmatched)
+
+
 # --------------------------------------------------------------------------- standardize summaries
 
 
@@ -235,25 +294,7 @@ def test_build_postpro_diagnostics_creates_three_summaries() -> None:
     assert summaries.standardize_rule_summary.height == 0
 
 
-def test_build_last_rule_wins_overwrite_subset() -> None:
-    final = pl.DataFrame({"polity": _s(["polityA", "polityB"]), "notes": _s(["note a", "note b"])})
-    events = pl.DataFrame(
-        {
-            "execution_stage": _s(["harmonize"]),
-            "rule_file_identifier": _s(["harmonize_rules.xlsx"]),
-            "column_target": _s(["notes"]),
-            "row_id": _i([2]),
-        }
-    )
-    subset = build_last_rule_wins_overwrite_subset(final, events)
-    assert subset.height == 1
-    assert subset.get_column("row_id").to_list() == [2]
-    assert subset.get_column("overwrite_event_count").to_list() == [1]
-    assert subset.get_column("overwritten_columns").to_list() == ["notes"]
-    assert subset.get_column("polity").to_list() == ["polityB"]
-
-
-def test_persist_postpro_audit_writes_workbooks(config: Config) -> None:
+def test_persist_postpro_audit_workbooks(config: Config) -> None:
     empty_stage = pl.DataFrame(
         schema={
             "loop": pl.Int64,
@@ -286,31 +327,21 @@ def test_persist_postpro_audit_writes_workbooks(config: Config) -> None:
             "source_rule_file": _s(["standardize_units_rules.xlsx"]),
         }
     )
-    final = pl.DataFrame({"polity": _s(["polityA", "polityB"]), "notes": _s(["note a", "note b"])})
-    events = pl.DataFrame(
-        {
-            "execution_stage": _s(["harmonize"]),
-            "rule_file_identifier": _s(["harmonize_rules.xlsx"]),
-            "column_target": _s(["notes"]),
-            "row_id": _i([2]),
-        }
-    )
     paths = persist_postpro_audit(
-        empty_stage, empty_stage, std_audit, std_rules, final, events, config
+        empty_stage, empty_stage, std_audit, std_rules, config
     )
 
     assert set(paths) == {
         "clean_audit",
         "harmonize_audit",
         "standardize_audit",
-        "last_rule_wins_overwrites",
     }
     for name in ("clean_audit", "harmonize_audit", "standardize_audit"):
         assert paths[name].is_file()
-        assert load_workbook(paths[name]).sheetnames == ["matched_rules", "unmatched_rules"]
-    overwrite = load_workbook(paths["last_rule_wins_overwrites"])
-    assert overwrite.sheetnames == ["last_rule_wins_overwrites"]
-    standardize = load_workbook(paths["standardize_audit"])["matched_rules"]
-    header = [cell.value for cell in standardize[1]]
-    assert header[:2] == ["affected_rows", "rule_file_identifier"]
-    assert "loop" not in header
+        assert paths[name].suffix == ".tsv"
+        df = pl.read_csv(paths[name], separator="\t")
+        # Audit TSVs have the expected column set
+        assert "rule_file_identifier" in df.columns
+    standardize_df = pl.read_csv(paths["standardize_audit"], separator="\t")
+    assert standardize_df.columns[:2] == ["affected_rows", "rule_file_identifier"]
+    assert "loop" not in standardize_df.columns

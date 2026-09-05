@@ -88,3 +88,28 @@ See [conventions.md](.claude/docs/conventions.md) for the environment specifics
 
 - `/autocode` — autonomous optimization loop. Config: `autocode.toml`. State:
   [progress.md](.claude/progress.md), [results.tsv](.claude/results.tsv).
+
+## CHANGELOG.md management protocol
+
+- **Purpose.** [CHANGELOG.md](CHANGELOG.md) is a staging log for changes made by external AIs
+  or non-Claude sources — code modifications **not yet audited by Claude**. It is not a
+  historical record; it is a work queue.
+- **Role & action.** Use it to find un-audited modifications that need refactoring, auditing,
+  verification, or optimization. Treat every entry as a claim to verify against the actual
+  diff/code, not as fact — cross-check before acting on it (see `code-review`/`security-review`
+  workflow, or a manual `git diff` read, per the size of the entry).
+- **Maintenance rule.** Once an entry has been fully audited, refactored, or integrated,
+  **remove it from `CHANGELOG.md`**. The file must stay scoped to pending, un-audited work —
+  do not accumulate a permanent history here; that's what `git log` is for.
+
+## Response counter (canary)
+
+Begin **every** response with a line containing exactly:
+
+```
+Response Nº n
+```
+
+where `n` starts at **0** for the first response in a session and increases by **1** for each subsequent response *of mine*. User messages do not advance the counter, so `n` is a count of my own replies, not of conversation turns.
+
+The line comes first, before any other text, on its own line. It appears on every response without exception — including short answers, clarifying questions, refusals, and responses that are mostly tool calls.

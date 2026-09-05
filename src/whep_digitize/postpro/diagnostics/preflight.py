@@ -71,7 +71,6 @@ def collect_postpro_preflight(
         "cleaning_dir_exists": cleaning_dir.is_dir(),
         "harmonize_dir_exists": harmonization_dir.is_dir(),
         "templates_dir_exists": audit.templates_dir.is_dir(),
-        "diagnostics_dir_exists": audit.diagnostics_dir.is_dir(),
     }
     issues: list[str] = []
     if not checks["cleaning_dir_exists"]:
@@ -80,8 +79,6 @@ def collect_postpro_preflight(
         issues.append("[harmonize stage] missing harmonize directory")
     if not checks["templates_dir_exists"]:
         issues.append("[postpro root] missing templates directory")
-    if not checks["diagnostics_dir_exists"]:
-        issues.append("[postpro root] missing diagnostics directory")
 
     checks["cleaning_pattern_ok"] = all(
         _CLEAN_PATTERN_RE.match(entry.name) for entry in _rule_files(cleaning_dir)

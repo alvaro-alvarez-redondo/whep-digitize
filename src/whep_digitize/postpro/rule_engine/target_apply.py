@@ -1,14 +1,11 @@
-"""Apply target-column updates with strategy dispatch.
+"""Apply target-column updates for the ``concatenate`` strategy.
 
 ``apply_target_updates_with_strategy`` resolves candidate row updates for one target column
-against a strategy and rewrites the column:
+using the ``concatenate`` strategy: join a row's candidates with the delimiter, then merge
+into the existing value (order-preserving, existing-first token dedupe).
 
-* **last_rule_wins** — stable-sort the candidates by the order columns, then take the last
-  candidate per row. A *fast path* (each row updated once) skips the collapse entirely; the
-  *slow path* additionally emits an overwrite-event row for every dataset row that received
-  more than one **distinct** candidate value (``unique_candidate_count > 1``).
-* **concatenate** — join a row's candidates with the delimiter, then merge into the existing
-  value (order-preserving, existing-first token dedupe).
+Other strategies (``token_substitute``, ``last_rule_wins``) are handled by
+``conditional_group`` via symmetric token substitution and should not reach this module.
 
 Every scatter is functional: a join-back on a synthesized row index plus
 ``when/then/otherwise``. ``dataset_df`` is never mutated — the updated frame is returned in
@@ -16,10 +13,9 @@ Every scatter is functional: a join-back on a synthesized row index plus
 
 Deliberate behaviors (do not "fix" these):
 
-* The explicit wildcard token is honoured on every column; ``#EXACT#`` suppresses it so a
-  literal ``#ANY#`` can be matched.
+* The explicit wildcard token is honoured; ``#EXACT#`` suppresses it so a literal
+  ``#ANY#`` can be matched.
 * Wildcard candidates whose value is already present in the current cell are dropped.
-* ``candidate_values`` renders a missing candidate as the literal string ``"NA"``.
 """
 
 from __future__ import annotations
@@ -30,10 +26,7 @@ from dataclasses import dataclass
 import polars as pl
 
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_df,
     get_target_update_strategy_config,
-    resolve_last_rule_wins_unique_row_fast_path_enabled,
-    resolve_target_update_strategy,
 )
 from whep_digitize.postpro.rule_engine.matching_values import (
     concatenate_existing_and_incoming_values,
@@ -60,14 +53,11 @@ class TargetApplyResult:
     Attributes:
         applied: Whether any update was applied.
         dataset: The updated dataset (returned; the input frame is never mutated).
-        overwrite_events: Diagnostics for rows that received multiple distinct candidates
-            (empty unless the ``last_rule_wins`` slow path fired).
         changed_value_count: Number of dataset cells whose value actually changed.
     """
 
     applied: bool
     dataset: pl.DataFrame
-    overwrite_events: pl.DataFrame
     changed_value_count: int
 
 
@@ -133,7 +123,11 @@ def apply_target_updates_with_strategy(
     rule_file_identifier: str,
     source_column: str,
 ) -> TargetApplyResult:
-    """Apply conditional and unconditional updates to one target column using its strategy.
+    """Apply conditional and unconditional updates to one target column (``concatenate`` only).
+
+    This function handles the ``concatenate`` strategy. Other strategies
+    (``token_substitute``, ``last_rule_wins``) are dispatched by ``conditional_group``
+    and should not reach this entry point.
 
     Args:
         dataset: The dataset to update (returned updated; never mutated in place).
@@ -144,18 +138,18 @@ def apply_target_updates_with_strategy(
         condition_column: The optional target-condition column in ``target_updates``.
         order_columns: Columns to deterministically (stable-)order updates before reduction.
         apply_condition_match: Whether to filter conditioned updates by condition match.
-        dataset_name: Dataset identifier (for overwrite events).
-        execution_stage: Execution stage label (for overwrite events).
-        rule_file_identifier: Rule file identifier (for overwrite events).
-        source_column: Source column name (for overwrite events).
+        dataset_name: Dataset identifier.
+        execution_stage: Execution stage label.
+        rule_file_identifier: Rule file identifier.
+        source_column: Source column name.
 
     Returns:
-        A :class:`TargetApplyResult` with the updated dataset, overwrite events, and change count.
+        A :class:`TargetApplyResult` with the updated dataset and change count.
 
     Raises:
         ValidationError: If a required string argument is empty, ``target_column`` or a required
             update column is missing, a row id is out of bounds, the ``concatenate`` target is
-            not string-typed, or the resolved strategy is unhandled.
+            not string-typed, or the resolved strategy is not ``concatenate``.
     """
     for name, value in (
         ("target_column", target_column),
@@ -169,10 +163,8 @@ def apply_target_updates_with_strategy(
     ):
         require(len(value) >= 1, f"{name} must be a non-empty string")
 
-    empty_events = empty_last_rule_wins_overwrite_events_df()
-
     if target_updates.height == 0:
-        return TargetApplyResult(False, dataset, empty_events, 0)
+        return TargetApplyResult(False, dataset, 0)
 
     if target_column not in dataset.columns:
         raise ValidationError(f"target column '{target_column}' is missing in dataset")
@@ -200,7 +192,7 @@ def apply_target_updates_with_strategy(
     ).filter(pl.col(_ROW_ID_INTERNAL).is_not_null())
 
     if updates.height == 0:
-        return TargetApplyResult(False, dataset, empty_events, 0)
+        return TargetApplyResult(False, dataset, 0)
 
     row_id_values = updates.get_column(_ROW_ID_INTERNAL)
     if ((row_id_values < 1) | (row_id_values > dataset.height)).any():
@@ -218,34 +210,24 @@ def apply_target_updates_with_strategy(
         )
 
     if updates.height == 0:
-        return TargetApplyResult(False, dataset, empty_events, 0)
+        return TargetApplyResult(False, dataset, 0)
 
-    strategy = resolve_target_update_strategy(target_column, strategy_config)
+    strategy = strategy_config.by_column.get(target_column, strategy_config.default)
 
-    if strategy == "last_rule_wins":
-        return _apply_last_rule_wins(
-            updates,
-            dataset,
-            empty_events=empty_events,
-            target_column=target_column,
-            value_column=value_column,
-            dataset_name=dataset_name,
-            execution_stage=execution_stage,
-            rule_file_identifier=rule_file_identifier,
-            source_column=source_column,
+    if strategy != "concatenate":
+        raise ValidationError(
+            f"target_apply only handles the 'concatenate' strategy; "
+            f"got '{strategy}' for '{target_column}'. "
+            "Other strategies are dispatched by conditional_group."
         )
 
-    if strategy == "concatenate":
-        return _apply_concatenate(
-            updates,
-            dataset,
-            empty_events=empty_events,
-            target_column=target_column,
-            value_column=value_column,
-            delimiter=strategy_config.concatenate_delimiter,
-        )
-
-    raise ValidationError(f"unhandled target-update strategy '{strategy}' for '{target_column}'")
+    return _apply_concatenate(
+        updates,
+        dataset,
+        target_column=target_column,
+        value_column=value_column,
+        delimiter=strategy_config.concatenate_delimiter,
+    )
 
 
 def _apply_condition_match(
@@ -296,111 +278,10 @@ def _apply_condition_match(
     return pl.concat([unconditional, conditioned], how="vertical")
 
 
-def _apply_last_rule_wins(
-    updates: pl.DataFrame,
-    dataset: pl.DataFrame,
-    *,
-    empty_events: pl.DataFrame,
-    target_column: str,
-    value_column: str,
-    dataset_name: str,
-    execution_stage: str,
-    rule_file_identifier: str,
-    source_column: str,
-) -> TargetApplyResult:
-    """Apply the ``last_rule_wins`` strategy (fast unique-row path or slow group-last path)."""
-    updates = updates.with_columns(pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE))
-    row_ids = updates.get_column(_ROW_ID_INTERNAL)
-
-    fast_path = resolve_last_rule_wins_unique_row_fast_path_enabled() and (
-        row_ids.n_unique() == row_ids.len()
-    )
-    if fast_path:
-        indices = _zero_based(row_ids.to_list())
-        previous = dataset.get_column(target_column).gather(indices)
-        new_dataset = _scatter_column(
-            dataset, target_column, indices, updates.get_column(_UPDATE_VALUE)
-        )
-        after = new_dataset.get_column(target_column).gather(indices)
-        changed = count_elementwise_value_changes(previous, after)
-        return TargetApplyResult(True, new_dataset, empty_events, changed)
-
-    collapsed = updates.group_by(_ROW_ID_INTERNAL, maintain_order=True).agg(
-        pl.col(_UPDATE_VALUE).last().alias(_UPDATE_VALUE),
-        pl.len().alias("candidate_count"),
-    )
-    multi_candidate_ids = (
-        collapsed.filter(pl.col("candidate_count") > 1).get_column(_ROW_ID_INTERNAL).to_list()
-    )
-
-    overwrite_events = empty_events
-    if multi_candidate_ids:
-        overwrite_events = _build_overwrite_events(
-            updates.filter(pl.col(_ROW_ID_INTERNAL).is_in(multi_candidate_ids)),
-            empty_events=empty_events,
-            target_column=target_column,
-            dataset_name=dataset_name,
-            execution_stage=execution_stage,
-            rule_file_identifier=rule_file_identifier,
-            source_column=source_column,
-        )
-
-    indices = _zero_based(collapsed.get_column(_ROW_ID_INTERNAL).to_list())
-    previous = dataset.get_column(target_column).gather(indices)
-    new_dataset = _scatter_column(
-        dataset, target_column, indices, collapsed.get_column(_UPDATE_VALUE)
-    )
-    after = new_dataset.get_column(target_column).gather(indices)
-    changed = count_elementwise_value_changes(previous, after)
-    return TargetApplyResult(True, new_dataset, overwrite_events, changed)
-
-
-def _build_overwrite_events(
-    multi_candidate_updates: pl.DataFrame,
-    *,
-    empty_events: pl.DataFrame,
-    target_column: str,
-    dataset_name: str,
-    execution_stage: str,
-    rule_file_identifier: str,
-    source_column: str,
-) -> pl.DataFrame:
-    """Summarize multi-candidate rows into overwrite events (only where candidates differ).
-
-    ``candidate_values`` joins the candidates with ``"; "``: a null candidate becomes
-    the literal ``"NA"``. Only rows with more than one distinct candidate value are emitted.
-    """
-    conflict = (
-        multi_candidate_updates.group_by(_ROW_ID_INTERNAL, maintain_order=True)
-        .agg(
-            pl.len().alias("candidate_count"),
-            pl.col(_UPDATE_VALUE).n_unique().alias("unique_candidate_count"),
-            pl.col(_UPDATE_VALUE).last().alias("selected_value"),
-            pl.col(_UPDATE_VALUE).fill_null("NA").str.join("; ").alias("candidate_values"),
-        )
-        .filter(pl.col("unique_candidate_count") > 1)
-    )
-    if conflict.height == 0:
-        return empty_events
-    return conflict.select(
-        pl.lit(dataset_name).alias("dataset_name"),
-        pl.lit(execution_stage).alias("execution_stage"),
-        pl.lit(rule_file_identifier).alias("rule_file_identifier"),
-        pl.lit(source_column).alias("column_source"),
-        pl.lit(target_column).alias("column_target"),
-        pl.col(_ROW_ID_INTERNAL).cast(pl.Int64).alias("row_id"),
-        pl.col("candidate_count").cast(pl.Int64),
-        pl.col("unique_candidate_count").cast(pl.Int64),
-        pl.col("selected_value").cast(pl.String),
-        pl.col("candidate_values").cast(pl.String),
-    )
-
-
 def _apply_concatenate(
     updates: pl.DataFrame,
     dataset: pl.DataFrame,
     *,
-    empty_events: pl.DataFrame,
     target_column: str,
     value_column: str,
     delimiter: str,
@@ -412,8 +293,9 @@ def _apply_concatenate(
             f"column {target_column} has type: {dataset.schema[target_column]}"
         )
 
-    updates = updates.with_columns(pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE))
     updates = updates.with_columns(
+        pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE)
+    ).with_columns(
         pl.when(pl.col(_UPDATE_VALUE).str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
         .then(pl.lit(None, dtype=pl.String))
         .otherwise(pl.col(_UPDATE_VALUE))
@@ -421,7 +303,7 @@ def _apply_concatenate(
     ).filter(pl.col(_UPDATE_VALUE).is_not_null())
 
     if updates.height == 0:
-        return TargetApplyResult(False, dataset, empty_events, 0)
+        return TargetApplyResult(False, dataset, 0)
 
     collapsed = updates.group_by(_ROW_ID_INTERNAL, maintain_order=True).agg(
         pl.col(_UPDATE_VALUE).str.join(delimiter).alias(_UPDATE_VALUE)
@@ -434,4 +316,4 @@ def _apply_concatenate(
     new_dataset = _scatter_column(dataset, target_column, indices, merged_values)
     after = new_dataset.get_column(target_column).gather(indices)
     changed = count_elementwise_value_changes(existing_values, after)
-    return TargetApplyResult(True, new_dataset, empty_events, changed)
+    return TargetApplyResult(True, new_dataset, changed)

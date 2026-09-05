@@ -7,8 +7,6 @@ on failure, for conditions worth checking at every call. Heavier schema validati
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from whep_digitize.setup.errors import ValidationError
 
 
@@ -26,18 +24,3 @@ def require(condition: bool, message: str) -> None:
         raise ValidationError(message)
 
 
-def require_columns(present: Iterable[str], required: Iterable[str], *, context: str) -> None:
-    """Assert that every required column is present.
-
-    Args:
-        present: Column names available.
-        required: Column names that must be present.
-        context: Human-readable context for the error message.
-
-    Raises:
-        ValidationError: If any required column is missing.
-    """
-    present_set = set(present)
-    missing = [column for column in required if column not in present_set]
-    if missing:
-        raise ValidationError(f"{context}: missing required column(s): {missing}")

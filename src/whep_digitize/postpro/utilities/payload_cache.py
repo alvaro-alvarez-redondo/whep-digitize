@@ -257,5 +257,9 @@ def _persist_bundle_to_disk(
     entries = _read_disk_entries(config, settings)
     entries[cache_key] = bundle
     pruned = prune_runtime_cache_entries(entries, settings.max_entries)
-    ensure_directories_exist([config.paths.data.audit.runtime_cache_dir])
-    _cache_file_path(config, settings).write_bytes(pickle.dumps(pruned))
+    cache_path = _cache_file_path(config, settings)
+    # The runtime-cache directory is deliberately not created by ``initialize_postpro_audit_root``
+    # (it exists only when the cache is enabled), so create it here, at the one place that
+    # writes into it. Without this the first write raises FileNotFoundError.
+    ensure_directories_exist([cache_path.parent])
+    cache_path.write_bytes(pickle.dumps(pruned))

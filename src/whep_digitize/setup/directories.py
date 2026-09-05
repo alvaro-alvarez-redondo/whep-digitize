@@ -77,15 +77,6 @@ def ensure_directories_exist(directories: list[Path]) -> list[Path]:
     return unique_sorted
 
 
-def ensure_audit_directories(file_paths: list[Path]) -> None:
-    """Create the parent directory of each given file path.
-
-    Args:
-        file_paths: File paths whose parent directories must exist before writing.
-    """
-    ensure_directories_exist([p.parent for p in file_paths])
-
-
 def delete_directory_if_exists(
     directory: Path,
     *,

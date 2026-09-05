@@ -1,9 +1,9 @@
 """Postpro / audit configuration.
 
 Audit-config validation, the standardized empty audit-findings schema (with the audit-type
-identifiers and messages the validators emit), audit-root preparation, and audit report-path
-resolution. Invariants are enforced through the guard helper
-(:func:`~whep_digitize.setup.helpers.assertions.require`) and the shared directory helpers.
+identifiers and messages the validators emit), and audit-root preparation. Invariants are
+enforced through the guard helper (:func:`~whep_digitize.setup.helpers.assertions.require`)
+and the shared directory helpers.
 """
 
 from __future__ import annotations
@@ -23,8 +23,15 @@ AUDIT_TYPE_NUMERIC_STRING = "numeric_string"
 CHARACTER_NON_EMPTY_MESSAGE = "value must be a non-empty character string"
 NUMERIC_STRING_MESSAGE = "value must contain only digits and at most one decimal point"
 
-# The findings-table columns. ``row_index`` is 1-based.
-AUDIT_FINDINGS_COLUMNS = ("row_index", "audit_column", "audit_type", "audit_message")
+# The findings-table schema, declared once. ``row_index`` is 1-based.
+_AUDIT_FINDINGS_SCHEMA = {
+    "row_index": pl.Int64,
+    "audit_column": pl.String,
+    "audit_type": pl.String,
+    "audit_message": pl.String,
+}
+# The findings-table columns, in order — part of the output contract.
+AUDIT_FINDINGS_COLUMNS = tuple(_AUDIT_FINDINGS_SCHEMA)
 
 
 def empty_audit_findings() -> pl.DataFrame:
@@ -37,14 +44,7 @@ def empty_audit_findings() -> pl.DataFrame:
         An empty frame with columns ``row_index`` (Int64), ``audit_column``, ``audit_type``,
         and ``audit_message`` (all String).
     """
-    return pl.DataFrame(
-        schema={
-            "row_index": pl.Int64,
-            "audit_column": pl.String,
-            "audit_type": pl.String,
-            "audit_message": pl.String,
-        }
-    )
+    return pl.DataFrame(schema=_AUDIT_FINDINGS_SCHEMA)
 
 
 def validate_audit_config(config: Config) -> None:
@@ -89,21 +89,3 @@ def prepare_audit_root(audit_root_dir: Path) -> bool:
     """
     require(len(str(audit_root_dir)) >= 1, "audit_root_dir must be a non-empty path")
     return delete_directory_if_exists(audit_root_dir, tolerate_permission_errors=True)
-
-
-def resolve_audit_paths(audit_root_dir: Path, audit_file_name: str) -> Path:
-    """Compute the audit workbook path without creating any directories.
-
-    A pure path computation: only the workbook path is needed downstream, and the directory is
-    created later by the export step.
-
-    Args:
-        audit_root_dir: The audit directory.
-        audit_file_name: The workbook file name.
-
-    Returns:
-        ``audit_root_dir / audit_file_name``.
-    """
-    require(len(str(audit_root_dir)) >= 1, "audit_root_dir must be a non-empty path")
-    require(len(audit_file_name) >= 1, "audit_file_name must be a non-empty string")
-    return audit_root_dir / audit_file_name

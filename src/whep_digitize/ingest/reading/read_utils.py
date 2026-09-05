@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 import polars as pl
 
@@ -78,11 +78,6 @@ def safe_execute_read(
 def create_empty_read_result(errors: Sequence[str] = ()) -> ReadResult:
     """Return an empty (0x0) read result with optional errors."""
     return ReadResult(data=pl.DataFrame(), errors=tuple(errors))
-
-
-def has_read_errors(read_result: ReadResult | SafeReadResult[Any]) -> bool:
-    """Whether a read or safe result carries any error."""
-    return len(read_result.errors) > 0
 
 
 def normalize_pipeline_read_result(safe_result: SafeReadResult[ReadResult]) -> ReadResult:

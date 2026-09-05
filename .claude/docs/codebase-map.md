@@ -81,7 +81,6 @@ algorithmic core.
 | `audit/audit.py` | `audit_dataset` (value→Float64; rows failing validation retained), `AuditResult` |
 | `audit/validation.py` | non-empty + numeric-string validators, master validation |
 | `audit/config.py` | audit config + findings schema |
-| `audit/export.py` | styled invalid-cell highlight (openpyxl) |
 | `utilities/stage_definitions.py` | canonical rule columns, stage names + value columns |
 | `utilities/output_roots.py` | resolve/create audit subtree, `PostproAuditPaths` |
 | `utilities/diagnostics.py` | `build_layer_diagnostics` → `LayerDiagnostics` |
@@ -92,8 +91,8 @@ algorithmic core.
 | `clean_harmonize/stage_inputs.py` | `;`-token canonicalization; drop empty footnotes |
 | `rule_engine/matching_strategy.py` | key encode/decode, strategy config |
 | `rule_engine/matching_values.py` | tokenized match (all columns) + `#EXACT#` directive, concat merge, change count |
-| `rule_engine/target_apply.py` | `last_rule_wins` + overwrite events, `concatenate` |
-| `rule_engine/conditional_group.py` | the element-wise engine for every column: explode source tokens, match, substitute in place, rebuild canonical; cross-column target updates + audit |
+| `rule_engine/target_apply.py` | `token_substitute` (symmetric token-by-token substitution by value), overwrite events, `concatenate` |
+| `rule_engine/conditional_group.py` | the element-wise engine for every column: explode source tokens, match, substitute in place, rebuild canonical; cross-column target updates + audit; dispatches `token_substitute` vs `concatenate` paths |
 | `rule_engine/schema_validation.py` | coerce/validate rules, conditional dictionary |
 | `rule_engine/payload_application.py` | `apply_rule_payload`, execution plan |
 | `standardize_units/engine.py` | `apply_standardize_rules` (fold, 2-stage, affine), `StandardizeResult` |

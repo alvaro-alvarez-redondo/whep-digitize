@@ -28,7 +28,6 @@ from whep_digitize.ingest.reading.read_utils import (
     SafeReadResult,
     build_read_error,
     create_empty_read_result,
-    has_read_errors,
     normalize_pipeline_read_result,
     safe_execute_read,
 )
@@ -76,7 +75,7 @@ def test_safe_execute_read_captures_exception() -> None:
     assert result.result is None
     assert len(result.errors) == 1
     assert "kaboom" in result.errors[0]
-    assert has_read_errors(result)
+    assert len(result.errors) > 0
 
 
 def test_create_empty_read_result() -> None:
@@ -170,7 +169,7 @@ def test_read_excel_sheet_header_collision(config: Config, tmp_path: Path) -> No
 def test_read_excel_sheet_missing_file(config: Config, tmp_path: Path) -> None:
     result = read_excel_sheet(tmp_path / "nope.xlsx", "production", config)
     assert result.data.width == 0
-    assert has_read_errors(result)
+    assert len(result.errors) > 0
     assert "failed to read sheet" in result.errors[0]
 
 

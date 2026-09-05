@@ -41,7 +41,6 @@ from whep_digitize.postpro.clean_harmonize.stage_frames import (
     drop_empty_footnotes_column,
 )
 from whep_digitize.postpro.rule_engine.matching_strategy import (
-    empty_last_rule_wins_overwrite_events_df,
     resolve_rule_match_normalization_settings,
 )
 from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
@@ -68,7 +67,6 @@ _PASS_DIAGNOSTICS_SCHEMA: dict[str, type[pl.DataType]] = {
     "changed_value_count": pl.Int64,
     "matched_count": pl.Int64,
     "audit_rows": pl.Int64,
-    "overwrite_event_rows": pl.Int64,
     "repeated_state_pass": pl.Int64,
     "stop_reason": pl.String,
 }
@@ -82,14 +80,12 @@ class StageLayerResult:
         data: The transformed stage dataset (converged, annotations canonicalized).
         diagnostics: The layer diagnostics, including the :class:`MultiPassDiagnostics`.
         audit: The combined per-rule audit across all passes.
-        overwrite_events: The combined last-rule-wins overwrite diagnostics across all passes.
         pass_diagnostics: One row per executed pass (counts + stop reason).
     """
 
     data: pl.DataFrame
     diagnostics: LayerDiagnostics
     audit: pl.DataFrame
-    overwrite_events: pl.DataFrame
     pass_diagnostics: pl.DataFrame
 
 
@@ -142,7 +138,6 @@ def run_rule_stage_layer_batch(
     max_passes = controls.max_passes if controls.enabled else 1
 
     all_pass_audits: list[pl.DataFrame] = []
-    all_pass_overwrites: list[pl.DataFrame] = []
     per_pass_rows: list[dict[str, int | str | None]] = []
 
     converged = cycle_detected = max_reached = False
@@ -159,7 +154,6 @@ def run_rule_stage_layer_batch(
         )
         pass_data = working
         pass_audits: list[pl.DataFrame] = []
-        pass_overwrites: list[pl.DataFrame] = []
         pass_changed = 0
         for payload in canonical_payloads:
             if payload.canonical_rules.height == 0:
@@ -176,17 +170,10 @@ def run_rule_stage_layer_batch(
             pass_data = result.data
             pass_audits.append(result.audit)
             pass_changed += result.changed_value_count
-            if result.overwrite_events.height > 0:
-                pass_overwrites.append(result.overwrite_events)
 
         pass_audit = _combine_audit(pass_audits)
         if pass_audit.width > 0:
             pass_audit = pass_audit.with_columns(pl.lit(pass_index, dtype=pl.Int64).alias("loop"))
-        pass_overwrite = (
-            pl.concat(pass_overwrites, how="diagonal")
-            if pass_overwrites
-            else empty_last_rule_wins_overwrite_events_df()
-        )
         pass_matched = (
             int(pass_audit.get_column(_AFFECTED_ROWS).sum() or 0)
             if _AFFECTED_ROWS in pass_audit.columns
@@ -241,14 +228,11 @@ def run_rule_stage_layer_batch(
                 "changed_value_count": pass_changed,
                 "matched_count": pass_matched,
                 "audit_rows": pass_audit.height,
-                "overwrite_event_rows": pass_overwrite.height,
                 "repeated_state_pass": repeated_pass,
                 "stop_reason": pass_stop,
             }
         )
         all_pass_audits.append(pass_audit)
-        if pass_overwrite.height > 0:
-            all_pass_overwrites.append(pass_overwrite)
         working = pass_data
         if pass_stop != "continued":
             break
@@ -259,11 +243,6 @@ def run_rule_stage_layer_batch(
         working = drop_empty_footnotes_column(working)
 
     stage_audit = _combine_audit(all_pass_audits)
-    stage_overwrite = (
-        pl.concat(all_pass_overwrites, how="diagonal")
-        if all_pass_overwrites
-        else empty_last_rule_wins_overwrite_events_df()
-    )
     pass_diagnostics = (
         pl.DataFrame(per_pass_rows, schema=_PASS_DIAGNOSTICS_SCHEMA)
         if per_pass_rows
@@ -294,7 +273,7 @@ def run_rule_stage_layer_batch(
     if max_passes_message is not None:
         messages = (*messages, max_passes_message)
     diagnostics = replace(base, messages=messages, multi_pass=multi_pass)
-    return StageLayerResult(working, diagnostics, stage_audit, stage_overwrite, pass_diagnostics)
+    return StageLayerResult(working, diagnostics, stage_audit, pass_diagnostics)
 
 
 def run_cleaning_layer_batch(

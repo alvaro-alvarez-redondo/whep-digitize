@@ -39,9 +39,8 @@ def test_audit_root_excluded_from_targets(config: Config) -> None:
 def test_file_path_collapses_to_parent_dir(config: Config) -> None:
     create_required_directories(config)
     audit = config.paths.data.audit
-    # audit_file_path is a file path; only its parent directory should be created.
+    # audit_dir is a directory path and should be created.
     assert audit.audit_dir.is_dir()
-    assert not audit.audit_file_path.exists()
 
 
 def test_delete_directory_if_exists(tmp_path: Path) -> None:
