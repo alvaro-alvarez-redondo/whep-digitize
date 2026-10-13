@@ -24,10 +24,10 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 
 | Module | Key API |
 |--------|---------|
-| `strings.py` | `normalize_text`, `normalize_string` (series), `normalize_filename`, `transliterate_ascii_lower` (the NFD diacritic-strip policy) |
+| `strings.py` | `normalize_text`, `normalize_string` (series), `normalize_filename`, `transliterate_ascii_lower` (the NFD diacritic-strip policy), `resolve_exact_match_directive`, `is_replace_match_directive` |
 | `numeric.py` | `coerce_numeric`, `coerce_numeric_series`, `format_double_fixed` (15-sig-fig fixed-notation double rendering) |
 | `sorting.py` | `sort_pipeline_stage_df(frame, sort_columns=None)` |
-| `frames.py` | `drop_na_value_rows(frame, value_column, *, enabled)` |
+| `frames.py` | `canonicalize_semicolon_string_columns`, `drop_na_value_rows(frame, value_column, *, enabled)`, `drop_all_null_columns` (used at export, not postpro) |
 | `checkpoints.py` | `save_checkpoint`, `load_checkpoint`, `clear_checkpoints` (parquet/pickle); wired into the import runner only |
 | `time_format.py` | `format_elapsed_time(seconds)` |
 | `tokens.py` | `extract_yearbook(parts)`, `extract_commodity(parts, start_index=None)` |
@@ -50,7 +50,7 @@ constants/options see [constants-and-options.md](constants-and-options.md).
 ## Stage 1 — ingest (`whep_digitize.ingest`)
 
 Public: `runner.run_ingest_pipeline(config, options=None, current_year=None) -> InputResult`
-(discover → fused read+transform → drop-null → validate-by-document → consolidate → sort).
+(discover → fused read+transform → drop-null → validate-by-file → consolidate → sort).
 
 | Module | Key API |
 |--------|---------|
@@ -63,7 +63,7 @@ Public: `runner.run_ingest_pipeline(config, options=None, current_year=None) -> 
 | `transform/transform_utils.py` | `identify_year_columns`, `normalize_key_fields`, `convert_year_columns` |
 | `transform/reshape.py` | `reshape_to_long` (unpivot), `add_metadata`, `transform_file_df`, `resolve_commodity_name`, `build_empty_transform_result`, `TransformResult` |
 | `transform/processing.py` | `read_transform_pipeline_files` (fused, `ProcessPoolExecutor`, deterministic + sequential fallback), `transform_single_file`, `ReadTransformResult` |
-| `output/validate.py` | `validate_long_df_by_document`, `ValidationResult` |
+| `assemble/validate.py` | `validate_long_df_by_file`, `ValidationResult` |
 | `output/consolidate.py` | `consolidate_audited_df`, `validate_column_order`, `ConsolidateResult` |
 | `runner.py` | `run_ingest_pipeline` (incl. `rich` progress + the opt-in checkpoint cache) |
 
@@ -90,8 +90,8 @@ algorithmic core.
 | `clean_harmonize/controls_cache.py` | multi-pass controls + two-tier cycle detection |
 | `clean_harmonize/stage_inputs.py` | `;`-token canonicalization; drop empty footnotes |
 | `rule_engine/matching_strategy.py` | key encode/decode, strategy config |
-| `rule_engine/matching_values.py` | tokenized match (all columns) + `#EXACT#` directive, concat merge, change count |
-| `rule_engine/target_apply.py` | `token_substitute` (symmetric token-by-token substitution by value), overwrite events, `concatenate` |
+| `rule_engine/matching_values.py` | tokenized match (all columns) + `#EXACT#` / `#ANY#` / `#REPLACE#` directives, concat merge, change count |
+| `rule_engine/target_apply.py` | `concatenate` strategy (incl. its `#REPLACE#` full-cell path) |
 | `rule_engine/conditional_group.py` | the element-wise engine for every column: explode source tokens, match, substitute in place, rebuild canonical; cross-column target updates + audit; dispatches `token_substitute` vs `concatenate` paths |
 | `rule_engine/schema_validation.py` | coerce/validate rules, conditional dictionary |
 | `rule_engine/payload_application.py` | `apply_rule_payload`, execution plan |
@@ -100,7 +100,8 @@ algorithmic core.
 | `standardize_units/aggregation.py` | duplicate-group sum (all-null→null), idempotent |
 | `standardize_units/orchestration.py` | `run_standardize_units_layer_batch` + rule readers + audit, `StandardizeLayerResult` |
 | `diagnostics/preflight.py` | `collect_postpro_preflight`, `assert_postpro_preflight` |
-| `diagnostics/output.py` | `build_postpro_diagnostics`, `persist_postpro_audit`, overwrite subset (group-by row + join), multi-sheet xlsx |
+| `diagnostics/persist.py` | `build_postpro_diagnostics`, `persist_postpro_logs` (writes `logs/clean_logs.tsv`, `logs/harmonize_logs.tsv`, `logs/standardize_logs.tsv`) |
+| `diagnostics/duplicates.py` | `build_duplicate_audit`, `persist_duplicate_audits` (writes `duplicates/<layer>_dup.tsv` for raw / clean / normalize / harmonize) |
 | `diagnostics/rule_summaries.py` | clean/harmonize matched + unmatched summaries (null-safe anti-join) |
 | `diagnostics/standardize_summaries.py` | standardize summaries (normalized-key counts branch) |
 
@@ -109,13 +110,14 @@ algorithmic core.
 ## Stage 3 — export (`whep_digitize.export`)
 
 Public: `runner.run_export_pipeline(config, result, *, raw=None, overwrite=True) -> OutputResult`
-(builds the `whep_data_{raw,clean,normalize,harmonize}` mapping, ensures the export dirs, writes
-processed-data TSVs + unique-list workbooks, asserts the paths contract).
+(builds the `whep_data_{raw,clean,normalize,harmonize}` mapping, canonicalizes each layer and
+drops its all-null columns, ensures the export dirs, writes processed-data TSVs + unique-list
+workbooks, asserts the paths contract).
 
 | Module | Key API |
 |--------|---------|
 | `processed_data/layers.py` | `collect_layer_tables_for_export` (name-based detect from an explicit mapping; excludes `_wide_raw`/`_post_processed`; sorted) |
-| `processed_data/output.py` | `export_processed_data` (every layer by default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
+| `processed_data/export.py` | `export_processed_data` (every layer by default), `build_processed_export_path`, `write_processed_table` (platform eol + the shared double formatter) |
 | `lists/unique_values.py` | `LISTS_SHEET_ORDER`, `infer_layer_sheet_name`, `compute_unique_column_values` (drop-null, code-point sort, `(blank)` prepend), `build_column_lists_export_path`, `build_layer_tables_by_sheet`, `collect_union_columns` |
 | `lists/merge.py` | `resolve_lists_export_columns`, `resolve_list_sheet_payloads` (identical-layer merge, fixed sheet order) |
 | `lists/write.py` | `build_column_unique_cache`, `write_column_lists_workbook` (no-header multi-sheet `xlsxwriter`), `export_lists` (filename-collision guard) |

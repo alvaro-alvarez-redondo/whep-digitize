@@ -19,6 +19,7 @@ def test_canonical_row_order() -> None:
     assert constants.sorting.stage_row_order == (
         "hemisphere",
         "continent",
+        "iso_whep",
         "polity",
         "commodity",
         "variable",
@@ -28,7 +29,7 @@ def test_canonical_row_order() -> None:
         "notes",
         "footnotes",
         "yearbook",
-        "document",
+        "file",
     )
 
 
@@ -38,6 +39,7 @@ def test_pinned_scalar_values() -> None:
     assert constants.na_placeholder == "..NA_INTERNAL.."
     assert constants.na_match_key == "..NA_MATCH_KEY.."
     assert constants.postpro.rule_match_wildcard_token == "#ANY#"
+    assert constants.postpro.rule_match_replace_token == "#REPLACE#"
     assert constants.performance.ingest_workbook_batch_size == 32
     assert constants.performance.ingest_parallel_workers == "auto"
     assert constants.defaults.notes_value is None

@@ -58,8 +58,8 @@ def test_run_postpro_pipeline_returns_result(config: Config, sample_long_df: pl.
     # Multi-pass diagnostics are populated for both rule stages.
     assert result.diagnostics.clean.multi_pass is not None
     assert result.diagnostics.harmonize.multi_pass is not None
-    # The persisted audit workbook paths are recorded in the diagnostics outputs mapping.
-    assert "clean_audit" in result.diagnostics.report_paths
+    # The persisted logs file paths are recorded in the diagnostics outputs mapping.
+    assert "clean_logs" in result.diagnostics.report_paths
 
 
 def test_run_postpro_pipeline_canonicalizes_all_string_layer_cells(
@@ -74,7 +74,7 @@ def test_run_postpro_pipeline_canonicalizes_all_string_layer_cells(
     result = run_postpro_pipeline(raw, config)
 
     for layer in (result.clean, result.normalize, result.harmonize):
-        keyed = layer.sort("document")
+        keyed = layer.sort("file")
         assert keyed.get_column("polity").to_list() == ["a; b; c", "y; z", "m"]
         assert keyed.get_column("unit").to_list() == ["tonnes", "g; kg", "litre"]
 

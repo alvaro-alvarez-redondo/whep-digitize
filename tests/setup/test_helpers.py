@@ -118,6 +118,22 @@ def test_sort_pipeline_stage_df(sample_long_df: pl.DataFrame) -> None:
     assert result["polity"].to_list() == ["japan", "spain", "france"]
 
 
+def test_sort_orders_iso_whep_after_continent_and_before_polity() -> None:
+    # iso_whep outranks polity: with continent tied, the iso_whep order decides, not polity's.
+    frame = pl.DataFrame(
+        {
+            "continent": ["asia", "asia", "asia", "europe"],
+            "iso_whep": ["b", "a", None, "a"],
+            "polity": ["a", "z", "m", "a"],
+        }
+    )
+
+    result = sorting.sort_pipeline_stage_df(frame)
+
+    assert result["iso_whep"].to_list() == ["a", "b", None, "a"]  # nulls last within a continent
+    assert result["polity"].to_list() == ["z", "a", "m", "a"]
+
+
 def test_sort_ignores_absent_columns() -> None:
     frame = pl.DataFrame({"polity": ["b", "a"], "extra": [1, 2]})
     result = sorting.sort_pipeline_stage_df(frame)
@@ -159,6 +175,68 @@ def test_canonicalize_semicolon_string_columns_is_cell_local() -> None:
 def test_canonicalize_semicolon_string_columns_ignores_non_string_columns() -> None:
     frame = pl.DataFrame({"value": pl.Series([1, 2], dtype=pl.Int64)})
     assert frames.canonicalize_semicolon_string_columns(frame).equals(frame)
+
+
+def test_drop_all_null_columns_removes_only_entirely_null_columns() -> None:
+    frame = pl.DataFrame(
+        {
+            "hemisphere": pl.Series([None, None], dtype=pl.String),
+            "commodity": pl.Series(["wheat", "rice"], dtype=pl.String),
+            "value": pl.Series([1.0, None], dtype=pl.Float64),
+        }
+    )
+
+    result = frames.drop_all_null_columns(frame)
+
+    assert result.columns == ["commodity", "value"]
+    assert result["value"].to_list() == [1.0, None]  # a partially-null column is untouched
+
+
+def test_drop_all_null_columns_keeps_empty_string_columns() -> None:
+    # An empty string is data (present, just blank), not the absence of data.
+    frame = pl.DataFrame({"notes": pl.Series(["", ""], dtype=pl.String)})
+    assert frames.drop_all_null_columns(frame).columns == ["notes"]
+
+
+def test_drop_all_null_columns_no_op_when_nothing_is_empty() -> None:
+    frame = pl.DataFrame({"commodity": pl.Series(["wheat"], dtype=pl.String)})
+    assert frames.drop_all_null_columns(frame) is frame  # unchanged, not merely equal
+
+
+def test_drop_all_null_columns_leaves_a_zero_row_frame_untouched() -> None:
+    # Every column of an empty frame is vacuously "all null"; dropping them would erase the
+    # schema rather than describe the (nonexistent) data.
+    frame = pl.DataFrame(schema={"commodity": pl.String, "value": pl.Float64})
+
+    result = frames.drop_all_null_columns(frame)
+
+    assert result.columns == ["commodity", "value"]
+    assert result.schema["value"] == pl.Float64
+
+
+def test_drop_all_null_columns_keeps_shape_when_every_column_is_empty() -> None:
+    # polars carries a frame's row count on its columns, so dropping the last one collapses
+    # the whole frame to (0, 0) -- the row count itself would be lost, not just the data.
+    frame = pl.DataFrame(
+        {
+            "hemisphere": pl.Series([None, None], dtype=pl.String),
+            "notes": pl.Series([None, None], dtype=pl.String),
+        }
+    )
+
+    result = frames.drop_all_null_columns(frame)
+
+    assert result.columns == ["hemisphere", "notes"]
+    assert result.height == 2
+
+
+def test_drop_all_null_columns_is_independent_per_frame() -> None:
+    # Two layers of the same dataset can legitimately end up with different column sets.
+    only_a_empty = pl.DataFrame({"a": [None, None], "b": ["x", "y"]})
+    only_b_empty = pl.DataFrame({"a": ["x", "y"], "b": [None, None]})
+
+    assert frames.drop_all_null_columns(only_a_empty).columns == ["b"]
+    assert frames.drop_all_null_columns(only_b_empty).columns == ["a"]
 
 
 # --------------------------------------------------------------------------- time
@@ -234,3 +312,27 @@ def test_checkpoint_disabled_is_noop(config: Config) -> None:
     frame = pl.DataFrame({"a": [1]})
     assert checkpoints.save_checkpoint("x", frame, config, enabled=False) is None
     assert checkpoints.load_checkpoint("x", config, enabled=False) is None
+
+
+# --------------------------------------------------------------------------- #REPLACE# (D12)
+
+
+@pytest.mark.parametrize("value", ["#REPLACE#", "#replace#", "  #Replace#  ", "\t#REPLACE#\n"])
+def test_is_replace_match_directive_recognizes_the_whole_value(value: str) -> None:
+    assert strings.is_replace_match_directive(value) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "",
+        "replace",
+        "#REPLACE# extra",  # the directive is the whole value, never a prefix
+        "#EXACT# #REPLACE#",  # #EXACT# suppresses it: that matches the literal text
+        "#EXACT##REPLACE#",
+        "#ANY#",
+    ],
+)
+def test_is_replace_match_directive_rejects_everything_else(value: str | None) -> None:
+    assert strings.is_replace_match_directive(value) is False

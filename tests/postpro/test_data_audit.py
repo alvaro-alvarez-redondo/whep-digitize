@@ -31,7 +31,7 @@ from whep_digitize.setup.config import Config
 from whep_digitize.setup.errors import ValidationError
 
 _DOCUMENT_VALUE_MAP = {
-    "character_non_empty": ("document",),
+    "character_non_empty": ("file",),
     "numeric_string": ("value",),
 }
 
@@ -71,21 +71,21 @@ def test_prepare_audit_root_missing_is_false(tmp_path: Path) -> None:
 
 
 def test_character_non_empty_flags_null_blank_and_whitespace() -> None:
-    dataset = pl.DataFrame({"document": _series(["a.xlsx", "", "   ", None, "b.xlsx"])})
-    findings = audit_character_non_empty(dataset, "document")
+    dataset = pl.DataFrame({"file": _series(["a.xlsx", "", "   ", None, "b.xlsx"])})
+    findings = audit_character_non_empty(dataset, "file")
     assert findings.get_column("row_index").to_list() == [2, 3, 4]
     assert findings.get_column("audit_type").unique().to_list() == ["character_non_empty"]
-    assert findings.get_column("audit_column").unique().to_list() == ["document"]
+    assert findings.get_column("audit_column").unique().to_list() == ["file"]
 
 
 def test_character_non_empty_all_valid_is_empty() -> None:
-    dataset = pl.DataFrame({"document": _series(["a.xlsx", "b.xlsx"])})
-    assert audit_character_non_empty(dataset, "document").height == 0
+    dataset = pl.DataFrame({"file": _series(["a.xlsx", "b.xlsx"])})
+    assert audit_character_non_empty(dataset, "file").height == 0
 
 
 def test_character_non_empty_missing_column_raises() -> None:
     with pytest.raises(ValidationError):
-        audit_character_non_empty(pl.DataFrame({"other": _series(["x"])}), "document")
+        audit_character_non_empty(pl.DataFrame({"other": _series(["x"])}), "file")
 
 
 def test_numeric_string_flags_non_numeric_but_skips_null() -> None:
@@ -128,19 +128,19 @@ def test_build_plan_rejects_empty_column_vector() -> None:
 # --------------------------------------------------------------------------- master validation
 
 
-def _document_value_dataset() -> pl.DataFrame:
+def _file_value_dataset() -> pl.DataFrame:
     return pl.DataFrame(
         {
-            "document": _series(["a.xlsx", "", "b.xlsx"]),
+            "file": _series(["a.xlsx", "", "b.xlsx"]),
             "value": _series(["10", "bad", "-3.5"]),
         }
     )
 
 
 def test_master_validation_orders_findings_by_plan() -> None:
-    result = run_master_validation(_document_value_dataset(), _DOCUMENT_VALUE_MAP)
-    # character_non_empty (document) first, then numeric_string (value).
-    assert result.findings.get_column("audit_column").to_list() == ["document", "value", "value"]
+    result = run_master_validation(_file_value_dataset(), _DOCUMENT_VALUE_MAP)
+    # character_non_empty (file) first, then numeric_string (value).
+    assert result.findings.get_column("audit_column").to_list() == ["file", "value", "value"]
     assert result.findings.get_column("row_index").to_list() == [2, 2, 3]
     # invalid_row_index is sorted + unique across both validators.
     assert result.invalid_row_index == (2, 3)
@@ -149,30 +149,30 @@ def test_master_validation_orders_findings_by_plan() -> None:
 def test_master_validation_warns_and_skips_unsupported_types() -> None:
     with pytest.warns(UserWarning, match="unsupported audit types"):
         result = run_master_validation(
-            _document_value_dataset(),
-            {"numeric_string": ("value",), "unknown_check": ("document",)},
+            _file_value_dataset(),
+            {"numeric_string": ("value",), "unknown_check": ("file",)},
         )
     assert result.findings.get_column("audit_type").unique().to_list() == ["numeric_string"]
 
 
 def test_master_validation_selected_validations_filters() -> None:
     result = run_master_validation(
-        _document_value_dataset(), _DOCUMENT_VALUE_MAP, selected_validations=["numeric_string"]
+        _file_value_dataset(), _DOCUMENT_VALUE_MAP, selected_validations=["numeric_string"]
     )
-    # Only numeric_string runs: "bad" (row 2) and "-3.5" (row 3) are flagged; document is skipped.
+    # Only numeric_string runs: "bad" (row 2) and "-3.5" (row 3) are flagged; file is skipped.
     assert result.findings.get_column("audit_column").unique().to_list() == ["value"]
     assert result.invalid_row_index == (2, 3)
 
 
 def test_master_validation_no_supported_returns_empty() -> None:
     with pytest.warns(UserWarning, match="unsupported audit types"):
-        result = run_master_validation(_document_value_dataset(), {"unknown_check": ("document",)})
+        result = run_master_validation(_file_value_dataset(), {"unknown_check": ("file",)})
     assert result.findings.height == 0
     assert result.invalid_row_index == ()
 
 
 def test_master_validation_clean_dataset_is_empty() -> None:
-    clean = pl.DataFrame({"document": _series(["a.xlsx"]), "value": _series(["10"])})
+    clean = pl.DataFrame({"file": _series(["a.xlsx"]), "value": _series(["10"])})
     result = run_master_validation(clean, _DOCUMENT_VALUE_MAP)
     assert result.findings.height == 0
     assert result.invalid_row_index == ()
@@ -188,9 +188,9 @@ def test_resolve_columns_default_from_config(config: Config) -> None:
 
 
 def test_resolve_columns_override_wins(config: Config) -> None:
-    override = {"character_non_empty": ["document"], "numeric_string": ["value"]}
+    override = {"character_non_empty": ["file"], "numeric_string": ["value"]}
     assert resolve_audit_columns_by_type(config, override) == {
-        "character_non_empty": ("document",),
+        "character_non_empty": ("file",),
         "numeric_string": ("value",),
     }
 
@@ -199,7 +199,7 @@ def test_resolve_columns_override_wins(config: Config) -> None:
 
 
 def _full_dataset() -> pl.DataFrame:
-    # Row 2 has a blank document (character_non_empty) and "-3.5" value (numeric_string).
+    # Row 2 has a blank file (character_non_empty) and "-3.5" value (numeric_string).
     return pl.DataFrame(
         {
             "continent": _series(["Asia", "Europe", "Africa"]),
@@ -208,7 +208,7 @@ def _full_dataset() -> pl.DataFrame:
             "variable": _series(["production", "production", "production"]),
             "unit": _series(["tonnes", "tonnes", "tonnes"]),
             "yearbook": _series(["yb", "yb", "yb"]),
-            "document": _series(["a.xlsx", "", "c.xlsx"]),
+            "file": _series(["a.xlsx", "", "c.xlsx"]),
             "value": _series(["10", "-3.5", "bad"]),
         }
     )
@@ -250,7 +250,7 @@ def test_audit_data_output_clean_dataset(config: Config) -> None:
             "variable": _series(["production"]),
             "unit": _series(["tonnes"]),
             "yearbook": _series(["yb"]),
-            "document": _series(["a.xlsx"]),
+            "file": _series(["a.xlsx"]),
             "value": _series(["10"]),
         }
     )
@@ -260,9 +260,9 @@ def test_audit_data_output_clean_dataset(config: Config) -> None:
 
 
 def test_audit_data_output_without_value_column_leaves_frame(config: Config) -> None:
-    dataset = pl.DataFrame({"document": _series(["a.xlsx", "b.xlsx"])})
-    override = {"character_non_empty": ["document"]}
+    dataset = pl.DataFrame({"file": _series(["a.xlsx", "b.xlsx"])})
+    override = {"character_non_empty": ["file"]}
     result = audit_dataset(dataset, config, audit_columns_by_type=override)
     assert "value" not in result.audited.columns
-    assert result.audited.get_column("document").to_list() == ["a.xlsx", "b.xlsx"]
+    assert result.audited.get_column("file").to_list() == ["a.xlsx", "b.xlsx"]
     assert result.findings.height == 0

@@ -8,8 +8,9 @@ Four responsibilities:
 * :func:`validate_canonical_rules` — schema completeness, required-value presence, dataset-column
   presence, rule-key uniqueness, conflict-free mappings, and rule/dataset type compatibility.
 * :func:`build_conditional_rule_dictionary` — group rules by ``(column_source, column_target)``
-  and order them by Unicode code point, which makes ``last_rule_wins`` portable. Groups are
-  ordered by ``(column_target, column_source)``.
+  and order them by Unicode code point. Groups are ordered by ``(column_target, column_source)``.
+  First-write-wins semantics for colliding source values are enforced in the token substitution
+  dict during application, not by group decomposition.
 * Supporting helpers: :func:`normalize_rule_values_for_validation` (blank/NA ->
   ``na_placeholder`` for grouping), :func:`ensure_rule_referenced_columns`, and
   :func:`check_type_compatibility`.
@@ -349,9 +350,12 @@ def build_conditional_rule_dictionary(
     """Group canonical rules by ``(column_source, column_target)`` in deterministic order.
 
     Rules are ordered by Unicode code point on
-    ``(column_source, column_target, value_source_raw, value_target_raw, value_target)`` — the
-    within-group order that feeds ``last_rule_wins``. Groups themselves are ordered by
-    ``(column_target, column_source)``; rows with a null source or target column are dropped.
+    ``(column_source, column_target, value_source_raw, value_target_raw, value_target)``.
+    Groups themselves are ordered by ``(column_target, column_source)``; rows with a null
+    source or target column are dropped.
+
+    First-write-wins semantics for colliding source values are enforced in the token
+    substitution dict during application (D7), not by group decomposition.
 
     Args:
         rules_df: Canonical rule table.
@@ -382,12 +386,15 @@ def build_conditional_rule_dictionary(
         .unique(maintain_order=True)
         .sort(["column_target", "column_source"], nulls_last=True)
     )
-    return [
-        ordered_rules.filter(
-            (pl.col("column_source") == column_source) & (pl.col("column_target") == column_target)
+
+    groups: list[pl.DataFrame] = []
+    for column_source, column_target in present_groups.iter_rows():
+        group_df = ordered_rules.filter(
+            (pl.col("column_source") == column_source)
+            & (pl.col("column_target") == column_target)
         )
-        for column_source, column_target in present_groups.iter_rows()
-    ]
+        groups.append(group_df)
+    return groups
 
 
 # --------------------------------------------------------------------------- private helpers

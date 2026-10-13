@@ -329,3 +329,68 @@ def test_dictionary_drops_rows_with_null_group_columns() -> None:
     groups = build_conditional_rule_dictionary(rules, "clean")
     assert len(groups) == 1
     assert groups[0].get_column("value_source_raw").to_list() == ["a"]
+
+
+def test_dictionary_no_decomposition_of_colliding_source_values() -> None:
+    """Groups with duplicate value_source_raw are kept together (no decomposition).
+
+    First-write-wins is handled in the token substitution dict, not by splitting groups.
+    """
+    rules = _canonical_rules(
+        {
+            "column_source": ["commodity", "commodity", "commodity"],
+            "value_source_raw": ["rice", "rice", "wheat"],
+            "column_target": ["unit", "unit", "unit"],
+            "value_target_raw": ["a", "b", "c"],
+            "value_target": ["v1", "v2", "v3"],
+        }
+    )
+    groups = build_conditional_rule_dictionary(rules, "clean")
+    # All 3 rules stay in a single group (no decomposition).
+    assert len(groups) == 1
+    assert groups[0].height == 3
+
+
+def test_dictionary_groups_by_source_target_columns() -> None:
+    """Rules are grouped by (column_source, column_target) without decomposition."""
+    rules = _canonical_rules(
+        {
+            "column_source": ["commodity", "commodity", "commodity"],
+            "value_source_raw": ["rice", "wheat", "corn"],
+            "column_target": ["unit", "unit", "unit"],
+            "value_target_raw": ["a", "b", "c"],
+            "value_target": ["v1", "v2", "v3"],
+        }
+    )
+    groups = build_conditional_rule_dictionary(rules, "clean")
+    assert len(groups) == 1
+    assert groups[0].height == 3
+
+
+def test_ensure_materializes_a_missing_iso_whep_column_as_null() -> None:
+    dataset = pl.DataFrame({"polity": pl.Series("polity", ["x"], dtype=pl.String)})
+    rules = _canonical_rules({"column_source": ["polity"], "column_target": ["iso_whep"]})
+
+    result = ensure_rule_referenced_columns(dataset, rules)
+
+    assert result.columns == ["polity", "iso_whep"]
+    assert result.get_column("iso_whep").to_list() == [None]
+
+
+def test_validate_accepts_rules_referencing_iso_whep() -> None:
+    dataset = pl.DataFrame(
+        {
+            "polity": pl.Series("polity", ["spain"], dtype=pl.String),
+            "iso_whep": pl.Series("iso_whep", [None], dtype=pl.String),
+        }
+    )
+    rules = _canonical_rules(
+        {
+            "column_source": ["polity"],
+            "value_source_raw": ["spain"],
+            "column_target": ["iso_whep"],
+            "value_target_raw": [None],
+            "value_target": ["ESP"],
+        }
+    )
+    validate_canonical_rules(rules, dataset, "rules.xlsx", "clean")  # does not raise

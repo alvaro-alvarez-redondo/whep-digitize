@@ -5,8 +5,9 @@ Four pure functions:
 * :func:`match_rule_target_condition_values` — decide, element-wise, whether each rule
   target-condition value matches the current dataset value. For tokenized columns the current
   value is split on ``;`` and the condition matches by **token membership** (or a full-string
-  match), with an explicit wildcard token (``#ANY#``). A null condition matches a null current
-  value, and only that.
+  match), with an explicit wildcard token (``#ANY#``) and the replace directive (``#REPLACE#``),
+  both of which match any current value. A null condition matches a null current value, and
+  only that.
 * :func:`match_target_condition_token_map` — like
   :func:`match_rule_target_condition_values` but also returns the list of original token
   strings from ``current_values`` that matched each condition.
@@ -30,6 +31,7 @@ from whep_digitize.postpro.rule_engine.matching_strategy import encode_rule_matc
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.helpers.assertions import require
 from whep_digitize.setup.helpers.strings import (
+    is_replace_match_directive,
     resolve_exact_match_directive,
     split_token_cell,
 )
@@ -74,8 +76,8 @@ def match_rule_target_condition_values(
 
     Matching is tokenized for **every** column: the current value is split on ``;`` and the
     condition matches on **token membership**, while a full-string match always also counts.
-    The explicit ``wildcard_token`` matches anything, and an ``NA`` condition matches only an
-    ``NA`` current value.
+    The explicit ``wildcard_token`` matches anything, and so does the ``#REPLACE#`` directive
+    (its rewrite differs, not its match); an ``NA`` condition matches only an ``NA`` current value.
 
     Prefixing a condition with ``exact_token`` (``#EXACT#``) forces full-string matching for
     that rule: no token membership, and no wildcard interpretation — which is how a literal
@@ -108,6 +110,9 @@ def match_rule_target_condition_values(
     resolved = [resolve_exact_match_directive(value, exact_token) for value in raw_condition_chr]
     condition_chr = [value for value, _ in resolved]
     exact_flags = [is_exact for _, is_exact in resolved]
+    replace_flags = [
+        is_replace_match_directive(value, exact_token=exact_token) for value in raw_condition_chr
+    ]
 
     # Full-string equality, vectorized. For a current value with no ``;`` this is already the
     # whole answer: its token set is just itself, so membership reduces to equality. Only rows
@@ -137,6 +142,8 @@ def match_rule_target_condition_values(
     # intentional; see docs/pipeline-behaviors.md.
     match_mask = [
         _is_wildcard(index)
+        # #REPLACE# matches whatever the cell holds, null and empty included.
+        or replace_flags[index]
         or (
             current_chr[index] is not None
             and (exact_flags[index] or current_chr[index] != "")
@@ -210,7 +217,7 @@ def match_target_condition_token_map(
         :func:`match_rule_target_condition_values`) and ``matched_tokens`` is a list
         of lists of original token strings that matched.  An empty list means no match.
         For ``#EXACT#`` the full cell value appears as a single-element list.
-        For ``#ANY#`` the list is empty (no specific token matched).
+        For ``#ANY#`` and ``#REPLACE#`` the list is empty (no specific token matched).
         For ``None`` matching ``None`` the list is ``[None]``.
 
     Raises:
@@ -318,6 +325,12 @@ def _match_target_condition_token_map_core(
         and (condition_chr[i] or "").strip(_TRIM_CHARS).casefold() == wildcard_casefold
         for i in range(n)
     ]
+    # #REPLACE# matched without naming a token, exactly like the wildcard; only the rewrite that
+    # consumes the match differs. Folding it in keeps it off the token-lookup paths below.
+    is_wildcard_flags = [
+        flag or is_replace_match_directive(raw, exact_token=exact_token)
+        for flag, raw in zip(is_wildcard_flags, raw_condition_chr, strict=True)
+    ]
 
     # Batch-encode condition keys once (reuses the same logic as the boolean
     # match function).
@@ -360,7 +373,7 @@ def _match_target_condition_token_map_core(
             matched_tokens.append([])
             continue
 
-        # Wildcard: matched but no specific token.
+        # Wildcard or #REPLACE#: matched but no specific token.
         if is_wildcard_flags[i]:
             matched_tokens.append([])
             continue

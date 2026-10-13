@@ -4,7 +4,7 @@ Exercises ``audit_dataset`` over a frozen fixture and
 asserts:
 
 * ``run_master_validation`` findings — 1-based ``row_index`` in plan order (``character_non_empty``
-  on ``document``, then ``numeric_string`` on ``value``), the verbatim audit type/message strings,
+  on ``file``, then ``numeric_string`` on ``value``), the verbatim audit type/message strings,
   and the sorted-unique ``invalid_row_index``.
 * the audited ``value`` column — ``cast(Float64, strict=False)``: the
   stricter audit regex flags negatives / scientific / signed values that STILL parse, and invalid
@@ -20,7 +20,7 @@ import json
 
 import polars as pl
 import pytest
-from goldens import FIXTURES_DIR, GOLDENS
+from goldens import FIXTURES_DIR, GOLDENS, current_names
 
 from whep_digitize.postpro.audit.audit import audit_dataset
 from whep_digitize.postpro.audit.validation import run_master_validation
@@ -31,7 +31,7 @@ _FIXTURE_NAME = _SPEC.fixture
 assert _FIXTURE_NAME is not None  # this spec always declares a JSON fixture
 _FIXTURE_PATH = FIXTURES_DIR / _FIXTURE_NAME
 _AUDIT_MAP: dict[str, tuple[str, ...]] = {
-    "character_non_empty": ("document",),
+    "character_non_empty": ("file",),
     "numeric_string": ("value",),
 }
 
@@ -57,7 +57,8 @@ def _dataset(fixture_data: dict[str, list[str | None]]) -> pl.DataFrame:
     return pl.DataFrame(
         {
             "value": pl.Series("value", fixture_data["value"], dtype=pl.String),
-            "document": pl.Series("document", fixture_data["document"], dtype=pl.String),
+            # The frozen fixture predates the document -> file rename; read its old key.
+            "file": pl.Series("file", fixture_data["document"], dtype=pl.String),
         }
     )
 
@@ -69,7 +70,9 @@ def test_findings_match_golden(fixture_data: dict[str, list[str | None]]) -> Non
     assert [str(index) for index in findings.get_column("row_index").to_list()] == _gold(
         "findings_row_index"
     )
-    assert findings.get_column("audit_column").to_list() == _gold("findings_audit_column")
+    assert findings.get_column("audit_column").to_list() == current_names(
+        _gold("findings_audit_column")
+    )
     assert findings.get_column("audit_type").to_list() == _gold("findings_audit_type")
     assert findings.get_column("audit_message").to_list() == _gold("findings_audit_message")
     assert [str(index) for index in result.invalid_row_index] == _gold("invalid_row_index")

@@ -13,7 +13,7 @@ Two responsibilities:
     :func:`decode_target_rule_value`).
 
 * **Strategy configuration** — resolve, per target column, whether updates use
-  ``last_rule_wins`` or ``concatenate``, plus the
+  ``token_substitute`` (the default) or ``concatenate``, plus the
   match-key normalization policy.
 
 Match-key normalization reuses :func:`whep_digitize.setup.helpers.strings.normalize_string`

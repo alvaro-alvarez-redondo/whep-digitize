@@ -20,6 +20,7 @@ would otherwise pass while comparing nothing.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -483,3 +484,41 @@ GOLDENS: dict[str, GoldenSet] = {
         ),
     ),
 }
+
+
+# --------------------------------------------------------------------------- renamed column
+#
+# The ``document`` column was renamed ``file`` after the goldens and fixtures were frozen. Both
+# are immutable, so the parity tests translate at the boundary instead: names they look up in the
+# frozen artifacts, and content they read from them, are mapped to the current name here. A golden
+# that still disagrees after this mapping is a genuine behaviour change.
+#
+# Deliberately *not* translated: the fixed prose in the mandatory-value validation message
+# (``missing mandatory value in document '...'``). It does not name the column, and consumers
+# compare it, so it is unchanged and the goldens pin it as is.
+
+_LEGACY_SUFFIX = re.compile(r"(^|_)file$")
+
+
+def legacy_key(name: str) -> str:
+    """Map a current golden key to the name of the frozen golden file.
+
+    ``file`` -> ``document``, ``clean_file`` -> ``clean_document``, ``data_file`` ->
+    ``data_document``; any other key is returned unchanged.
+    """
+    return _LEGACY_SUFFIX.sub(lambda match: f"{match.group(1)}document", name)
+
+
+def current_names(names: list[str | None]) -> list[str | None]:
+    """Rewrite the legacy column name in a golden list of column names."""
+    return ["file" if name == "document" else name for name in names]
+
+
+def current_message(message: str | None) -> str | None:
+    """Rewrite the column name a validation message embeds as ``document = <value>``."""
+    return None if message is None else message.replace(", document = ", ", file = ")
+
+
+def current_columns(columns: dict[str, list[str | None]]) -> dict[str, list[str | None]]:
+    """Rename the legacy ``document`` key of a fixture's column mapping."""
+    return {("file" if name == "document" else name): values for name, values in columns.items()}

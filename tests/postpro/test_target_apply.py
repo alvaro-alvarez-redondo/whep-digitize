@@ -174,3 +174,25 @@ def test_empty_string_argument_raises() -> None:
     updates = _updates(row_id=["1"], value_target_result=["x"], value_target_raw=[None])
     with pytest.raises(ValidationError):
         _apply(_ds("notes", ["a"]), updates, "")
+
+
+# --------------------------------------------------------------------------- #REPLACE# (D12)
+
+
+def test_concatenate_replace_sets_the_union_and_drops_other_candidates_for_that_row() -> None:
+    updates = _updates(
+        row_id=["1", "1", "1", "2"],
+        value_target_result=["appended", "b", "a", "z"],
+        value_target_raw=[None, "#REPLACE#", "#REPLACE#", None],
+    )
+
+    result = _apply(_ds("notes", ["old", "x"]), updates, "notes", apply_condition_match=False)
+
+    assert result.dataset.get_column("notes").to_list() == ["a; b", "x; z"]
+    assert result.changed_value_count == 2
+
+
+def test_concatenate_replace_with_only_empty_values_clears_the_cell() -> None:
+    updates = _updates(row_id=["1"], value_target_result=[None], value_target_raw=["#REPLACE#"])
+    result = _apply(_ds("notes", ["old"]), updates, "notes", apply_condition_match=False)
+    assert result.dataset.get_column("notes").to_list() == [None]

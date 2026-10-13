@@ -20,7 +20,7 @@ import json
 
 import polars as pl
 import pytest
-from goldens import FIXTURES_DIR, GOLDENS
+from goldens import FIXTURES_DIR, GOLDENS, current_columns, current_names, legacy_key
 from polars.testing import assert_series_equal
 
 from whep_digitize.contracts import PostproResult
@@ -42,12 +42,12 @@ _STRING_COLUMNS = (
     "notes",
     "footnotes",
     "yearbook",
-    "document",
+    "file",
 )
 
 
 def _gold(name: str) -> list[str | None]:
-    path = _SPEC.golden_paths()[name]
+    path = _SPEC.golden_paths()[legacy_key(name)]
     if not path.is_file():
         pytest.skip(
             f"Golden {path} is missing from the checkout; restore it from version control "
@@ -61,7 +61,10 @@ def _gold(name: str) -> list[str | None]:
 def result(tmp_path_factory: pytest.TempPathFactory) -> PostproResult:
     """Run the postpro stage over the frozen ingest frame + committed stage rule fixtures."""
     assert _SPEC.fixture is not None
-    columns = json.loads((FIXTURES_DIR / _SPEC.fixture).read_text(encoding="utf-8"))
+    # The frozen fixture predates the document -> file rename; map its column on load.
+    columns = current_columns(
+        json.loads((FIXTURES_DIR / _SPEC.fixture).read_text(encoding="utf-8"))
+    )
     raw = pl.DataFrame(
         {name: pl.Series(name, values, dtype=pl.String) for name, values in columns.items()}
     )
@@ -91,7 +94,7 @@ def _layer(result: PostproResult, layer: str) -> pl.DataFrame:
 @pytest.mark.parametrize("layer", _LAYERS)
 def test_layer_columns_and_row_count(layer: str, result: PostproResult) -> None:
     frame = _layer(result, layer)
-    assert frame.columns == _gold(f"{layer}_columns")
+    assert frame.columns == current_names(_gold(f"{layer}_columns"))
     assert str(frame.height) == _gold(f"{layer}_nrow")[0]
 
 

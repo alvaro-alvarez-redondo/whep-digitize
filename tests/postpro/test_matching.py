@@ -300,7 +300,7 @@ def test_resolve_rule_match_normalization_settings() -> None:
     settings = resolve_rule_match_normalization_settings()
     assert settings.apply_once_before_stage is True
     assert settings.apply_each_pass is False
-    assert settings.excluded_columns == ("year", "value", "yearbook", "document")
+    assert settings.excluded_columns == ("year", "value", "yearbook", "file")
 
 
 def test_get_target_update_strategy_config() -> None:
@@ -460,3 +460,24 @@ def test_length_mismatch_raises() -> None:
     with pytest.raises(ValidationError):
         match_target_condition_token_map(_s(["a", "b"]), _s(["a"]))
 
+
+# --------------------------------------------------------------------------- #REPLACE# (D12)
+
+
+def test_replace_condition_matches_any_current_value_including_null_and_empty() -> None:
+    current = _s([None, "", "anything", "a; b"])
+    condition = _s(["#REPLACE#"] * 4)
+    assert match_rule_target_condition_values(current, condition).to_list() == [True] * 4
+
+
+def test_exact_replace_condition_matches_the_literal_text_only() -> None:
+    current = _s(["#REPLACE#", "anything", None])
+    condition = _s(["#EXACT# #REPLACE#"] * 3)
+    assert match_rule_target_condition_values(current, condition).to_list() == [True, False, False]
+
+
+def test_replace_condition_names_no_matched_token() -> None:
+    # Like #ANY#, the match is not tied to a token; the rewrite replaces the whole cell anyway.
+    matched, tokens = match_target_condition_token_map(_s(["a; b", None]), _s(["#REPLACE#"] * 2))
+    assert matched.to_list() == [True, True]
+    assert tokens == [[], []]

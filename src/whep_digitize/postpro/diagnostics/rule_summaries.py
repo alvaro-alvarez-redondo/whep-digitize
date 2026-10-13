@@ -46,7 +46,10 @@ _STAGE_SORT = (
     "column_source",
     "column_target",
     "value_source_raw",
+    "value_source",
     "value_target_raw",
+    "value_target",
+    "affected_rows",
 )
 _CATALOG_COLUMNS = (
     "rule_file_identifier",
@@ -166,16 +169,20 @@ def build_unmatched_rule_summary(
 
     return (
         unmatched.with_columns(
-            pl.lit(None, dtype=pl.Int64).alias("loop"),
+            pl.lit(0, dtype=pl.Int64).alias("loop"),
             pl.lit(0, dtype=pl.Int64).alias("affected_rows"),
         )
         .sort(
             [
+                "loop",
                 "rule_file_identifier",
                 "column_source",
                 "column_target",
                 "value_source_raw",
+                "value_source",
                 "value_target_raw",
+                "value_target",
+                "affected_rows",
             ],
             nulls_last=True,
             maintain_order=True,
@@ -196,10 +203,11 @@ def merge_stage_rule_summaries(
         unmatched: The unmatched-rule summary (from :func:`build_unmatched_rule_summary`).
 
     Returns:
-        The combined 9-column summary frame.
+        The combined 9-column summary frame, sorted deterministically.
     """
     unmatched_fixed = unmatched.with_columns(pl.col("loop").fill_null(0))
-    return pl.concat([matched, unmatched_fixed], rechunk=True)
+    combined = pl.concat([matched, unmatched_fixed], rechunk=True)
+    return combined.sort(_STAGE_SORT, nulls_last=True, maintain_order=True)
 
 
 def _ensure_columns(frame: pl.DataFrame, columns: Sequence[str]) -> pl.DataFrame:

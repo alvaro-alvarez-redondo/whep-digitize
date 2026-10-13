@@ -63,7 +63,7 @@ def test_get_postpro_output_paths_from_config(config: Config) -> None:
     paths = get_postpro_audit_paths(config)
     assert isinstance(paths, PostproAuditPaths)
     audit = config.paths.data.audit
-    assert paths.audit_dir == audit.audit_dir
+    assert paths.logs_dir == audit.logs_dir
     assert paths.diagnostics_dir == audit.diagnostics_dir
     assert paths.templates_dir == audit.templates_dir
     assert paths.runtime_cache_dir == audit.runtime_cache_dir
@@ -73,7 +73,7 @@ def test_initialize_creates_all_output_dirs(config: Config) -> None:
     paths = initialize_postpro_audit_root(config)
     for directory in (
         paths.audit_root_dir,
-        paths.audit_dir,
+        paths.logs_dir,
         paths.templates_dir,
     ):
         assert directory.is_dir()

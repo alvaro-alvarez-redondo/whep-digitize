@@ -16,7 +16,7 @@ import json
 
 import polars as pl
 import pytest
-from goldens import FIXTURES_DIR, GOLDENS
+from goldens import FIXTURES_DIR, GOLDENS, current_names, legacy_key
 from polars.testing import assert_series_equal
 
 from whep_digitize.ingest.reading.sheet_read import read_excel_sheet
@@ -36,14 +36,14 @@ _VALUE_COLUMNS = (
     "footnotes",
     "year",
     "value",
-    "document",
+    "file",
     "notes",
     "yearbook",
 )
 
 
 def _gold(name: str) -> list[str | None]:
-    path = _SPEC.golden_paths()[name]
+    path = _SPEC.golden_paths()[legacy_key(name)]
     if not path.is_file():
         pytest.skip(
             f"Golden {path} is missing from the checkout; restore it from version control "
@@ -62,7 +62,7 @@ def result() -> TransformResult:
 
 @pytest.mark.parity
 def test_long_columns_and_row_count(result: TransformResult) -> None:
-    assert result.long_raw.columns == _gold("long_columns")
+    assert result.long_raw.columns == current_names(_gold("long_columns"))
     assert str(result.long_raw.height) == _gold("long_nrow")[0]
 
 

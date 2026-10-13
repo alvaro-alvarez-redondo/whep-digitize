@@ -17,5 +17,5 @@ def test_run_setup_pipeline_returns_config(project_dir: Path) -> None:
 def test_run_setup_pipeline_creates_directories(project_dir: Path) -> None:
     config = run_setup_pipeline(root=project_dir)
     assert config.paths.data.input.raw.is_dir()
-    assert config.paths.data.audit.audit_dir.is_dir()
+    assert config.paths.data.audit.logs_dir.is_dir()
     assert config.paths.data.output.processed.is_dir()

@@ -1,15 +1,15 @@
 """Long-format validation.
 
-``validate_long_df_by_document`` runs the three long-format checks (mandatory-field,
-year-value, duplicate) for every document in one pass and returns the validated data plus a
+``validate_long_df_by_file`` runs the three long-format checks (mandatory-field,
+year-value, duplicate) for every file in one pass and returns the validated data plus a
 verbatim, deterministically-ordered error vector. Downstream consumers compare the error
 *text*, so the message formats and their order are a behavioral contract:
 
-* **Document-major frame.** Rows are regrouped so each document's rows are contiguous, in
-  first-appearance document order, preserving within-document order. Per-document row ids and
+* **File-major frame.** Rows are regrouped so each file's rows are contiguous, in
+  first-appearance file order, preserving within-file order. Per-file row ids and
   absolute row positions feed the message text and the sort keys.
-* **4-key stable sort.** Every error carries ``(document_rank, type_rank, key_a, key_b)`` and
-  the combined errors are sorted by that tuple: within a document, mandatory errors (by column
+* **4-key stable sort.** Every error carries ``(file_rank, type_rank, key_a, key_b)`` and
+  the combined errors are sorted by that tuple: within a file, mandatory errors (by column
   then row), then year errors (by year first-appearance then check kind), then duplicate errors
   (by group first-appearance).
 
@@ -51,7 +51,7 @@ class ValidationResult:
 class _ErrorRecord(NamedTuple):
     """One error message with its four ordering keys."""
 
-    document_rank: int
+    file_rank: int
     type_rank: int
     key_a: int
     key_b: int
@@ -64,7 +64,7 @@ def _message_text(value: object) -> str:
 
 
 _ERROR_FRAME_SCHEMA: dict[str, type[pl.DataType]] = {
-    "document_rank": pl.Int64,
+    "file_rank": pl.Int64,
     "type_rank": pl.Int64,
     "key_a": pl.Int64,
     "key_b": pl.Int64,
@@ -73,7 +73,7 @@ _ERROR_FRAME_SCHEMA: dict[str, type[pl.DataType]] = {
 
 
 def _mandatory_field_error_frame(work: pl.DataFrame, mandatory_cols: list[str]) -> pl.DataFrame:
-    """Per document, column-major then row: rows with a null/blank mandatory value (vectorized).
+    """Per file, column-major then row: rows with a null/blank mandatory value (vectorized).
 
     Built entirely in polars — the message via ``pl.format`` — rather than a per-row Python loop:
     on the real dataset these are the overwhelming majority of the error volume (150k+). The
@@ -81,14 +81,16 @@ def _mandatory_field_error_frame(work: pl.DataFrame, mandatory_cols: list[str]) 
     """
     frames = [
         work.filter(pl.col(col).is_null() | (pl.col(col) == "")).select(
-            pl.col("_document_rank").cast(pl.Int64).alias("document_rank"),
+            pl.col("_file_rank").cast(pl.Int64).alias("file_rank"),
             pl.lit(_TYPE_MANDATORY, dtype=pl.Int64).alias("type_rank"),
             pl.lit(col_index, dtype=pl.Int64).alias("key_a"),
             pl.col("_global_row").cast(pl.Int64).alias("key_b"),
+            # The word "document" here is fixed prose, not the column name (which is ``file``):
+            # downstream consumers compare this text and the frozen goldens pin it byte for byte.
             pl.format(
                 "missing mandatory value in document '{}', row_id '{}', column '{}'",
-                pl.col("document").fill_null("NA"),
-                pl.col("_row_id_in_doc"),
+                pl.col("file").fill_null("NA"),
+                pl.col("_row_id_in_file"),
                 pl.lit(col),
             ).alias("message"),
         )
@@ -103,7 +105,7 @@ def _records_to_frame(records: list[_ErrorRecord]) -> pl.DataFrame:
         return pl.DataFrame(schema=_ERROR_FRAME_SCHEMA)
     return pl.DataFrame(
         {
-            "document_rank": [record.document_rank for record in records],
+            "file_rank": [record.file_rank for record in records],
             "type_rank": [record.type_rank for record in records],
             "key_a": [record.key_a for record in records],
             "key_b": [record.key_b for record in records],
@@ -114,16 +116,16 @@ def _records_to_frame(records: list[_ErrorRecord]) -> pl.DataFrame:
 
 
 def _year_value_errors(work: pl.DataFrame, max_year: int) -> list[_ErrorRecord]:
-    """Per document, first-appearance year order: implausible plain years and ranges."""
+    """Per file, first-appearance year order: implausible plain years and ranges."""
     year_pairs = (
-        work.select("_document_rank", "year", "_global_row")
-        .unique(subset=["_document_rank", "year"], keep="first", maintain_order=True)
+        work.select("_file_rank", "year", "_global_row")
+        .unique(subset=["_file_rank", "year"], keep="first", maintain_order=True)
         .filter(pl.col("year").is_not_null() & (pl.col("year") != ""))
     )
     records: list[_ErrorRecord] = []
     for row in year_pairs.iter_rows(named=True):
         year = row["year"]
-        rank = row["_document_rank"]
+        rank = row["_file_rank"]
         appearance = row["_global_row"]
         if _YEAR_RANGE_RE.match(year):
             start_text, end_text = year.split("-")
@@ -164,7 +166,7 @@ def _year_value_errors(work: pl.DataFrame, max_year: int) -> list[_ErrorRecord]:
     return records
 
 
-def _duplicate_errors(work: pl.DataFrame, doc_rank_map: dict[object, int]) -> list[_ErrorRecord]:
+def _duplicate_errors(work: pl.DataFrame, file_rank_map: dict[object, int]) -> list[_ErrorRecord]:
     """Groups (full identity key) repeated more than once, in group first-appearance order."""
     key_columns = [col for col in _STAGE_ROW_ORDER if col in work.columns]
     if not key_columns:
@@ -181,32 +183,32 @@ def _duplicate_errors(work: pl.DataFrame, doc_rank_map: dict[object, int]) -> li
             f"duplicate entries detected (count {row['duplicate_count']}) for {key_description}"
         )
         records.append(
-            _ErrorRecord(doc_rank_map[row["document"]], _TYPE_DUPLICATE, group_index, 1, message)
+            _ErrorRecord(file_rank_map[row["file"]], _TYPE_DUPLICATE, group_index, 1, message)
         )
     return records
 
 
-def validate_long_df_by_document(
+def validate_long_df_by_file(
     long_df: pl.DataFrame, config: Config, current_year: int | None = None
 ) -> ValidationResult:
-    """Validate a long-format frame for every document in one pass.
+    """Validate a long-format frame for every file in one pass.
 
     Args:
-        long_df: Long-format frame with a ``document`` column.
+        long_df: Long-format frame with a ``file`` column.
         config: Pipeline configuration (``column_required`` are the mandatory columns).
         current_year: Reference year for the plausible-year range ``[1900, current_year + 1]``;
             defaults to the system year.
 
     Returns:
-        A :class:`ValidationResult` with the document-major validated frame and the verbatim
-        error messages, ordered by ``(document_rank, type_rank, key_a, key_b)``.
+        A :class:`ValidationResult` with the file-major validated frame and the verbatim
+        error messages, ordered by ``(file_rank, type_rank, key_a, key_b)``.
 
     Raises:
         ValidationError: If ``config.column_required`` is empty or ``long_df`` lacks the
-            ``document`` (or, when non-empty, ``year``) column.
+            ``file`` (or, when non-empty, ``year``) column.
     """
     require(len(config.column_required) >= 1, "config.column_required must be non-empty")
-    require("document" in long_df.columns, "long_df must have a 'document' column")
+    require("file" in long_df.columns, "long_df must have a 'file' column")
 
     mandatory_cols = list(config.column_required)
     work = long_df
@@ -222,20 +224,20 @@ def validate_long_df_by_document(
     resolved_year = current_year if current_year is not None else date.today().year
     max_year = resolved_year + 1
 
-    # Document-major: order documents by first appearance, keep within-document order; then
-    # per-document row id, and the absolute row position (both feed messages + sort keys).
+    # File-major: order files by first appearance, keep within-file order; then
+    # per-file row id, and the absolute row position (both feed messages + sort keys).
     work = (
         work.with_row_index("_orig")
-        .with_columns(pl.col("_orig").min().over("document").alias("_doc_first"))
-        .sort(["_doc_first", "_orig"], maintain_order=True)
+        .with_columns(pl.col("_orig").min().over("file").alias("_file_first"))
+        .sort(["_file_first", "_orig"], maintain_order=True)
         .with_columns(
-            (pl.col("_doc_first").rle_id() + 1).alias("_document_rank"),
-            (pl.int_range(pl.len()).over("document") + 1).alias("_row_id_in_doc"),
+            (pl.col("_file_first").rle_id() + 1).alias("_file_rank"),
+            (pl.int_range(pl.len()).over("file") + 1).alias("_row_id_in_file"),
             (pl.int_range(pl.len()) + 1).alias("_global_row"),
         )
     )
-    doc_rank_map: dict[object, int] = dict(
-        work.select("document", "_document_rank").unique().iter_rows()
+    file_rank_map: dict[object, int] = dict(
+        work.select("file", "_file_rank").unique().iter_rows()
     )
 
     # Assemble every check's errors as one frame and sort by the 4 keys in polars. The keys are
@@ -246,9 +248,9 @@ def validate_long_df_by_document(
         [
             _mandatory_field_error_frame(work, mandatory_cols),
             _records_to_frame(_year_value_errors(work, max_year)),
-            _records_to_frame(_duplicate_errors(work, doc_rank_map)),
+            _records_to_frame(_duplicate_errors(work, file_rank_map)),
         ]
-    ).sort(["document_rank", "type_rank", "key_a", "key_b"], maintain_order=True)
+    ).sort(["file_rank", "type_rank", "key_a", "key_b"], maintain_order=True)
     errors = tuple(error_frame.get_column("message").to_list())
 
     return ValidationResult(data=work.select(data_columns), errors=errors)

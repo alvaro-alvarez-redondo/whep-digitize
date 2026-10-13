@@ -14,12 +14,12 @@ list workbooks under `data/output/`. All four stages are implemented and covered
 - **Read before changing semantics.** [pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md)
   records the behaviors that *look* like bugs and are deliberate. Changing one changes published
   data.
-- **Reuse project context.** Read `.claude/docs/` (kept current) instead of rescanning. Start
-  with [codebase-map.md](.claude/docs/codebase-map.md) to find code and
-  [common-changes.md](.claude/docs/common-changes.md) for recipes.
+- **Reuse project context.** Read `.claude/docs/` before rescanning. Start with
+  [codebase-map.md](.claude/docs/codebase-map.md) to find code and
+  [common-changes.md](.claude/docs/common-changes.md) for recipes. The docs can lag the code:
+  confirm a path or symbol exists before relying on it.
 - **Use `/autocode`** for perf/quality/test work.
-- **Deliver complete solutions.** Don't stop at partial work; a change is done only with passing
-  tests + gates.
+- **Definition of done.** A change is done only when tests and gates pass.
 - **One concern per change.** Focused diffs. Delete every temporary file the moment it is no
   longer needed — never defer to commit time, never commit one (temp-file policy in
   [conventions.md](.claude/docs/conventions.md)).
@@ -37,7 +37,8 @@ list workbooks under `data/output/`. All four stages are implemented and covered
 ## Reference docs (read on demand)
 
 - [architecture.md](.claude/docs/architecture.md) — stages, data flow, entry points, contracts.
-- [codebase-map.md](.claude/docs/codebase-map.md) — every module by stage. Use instead of grepping.
+- [codebase-map.md](.claude/docs/codebase-map.md) — every module by stage; a starting point, not a
+  substitute for checking the code.
 - [pipeline-behaviors.md](.claude/docs/pipeline-behaviors.md) — the intentional behaviors and
   output contracts. **Read before changing pipeline semantics.**
 - [constants-and-options.md](.claude/docs/constants-and-options.md) — `get_pipeline_constants()`

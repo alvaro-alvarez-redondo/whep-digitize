@@ -76,11 +76,12 @@ class OutputStagePaths:
 class AuditPaths:
     """Absolute paths of the post-processing audit subtree.
 
-    ``dataset_dir`` is an intentional alias of ``audit_dir`` — both resolve to the same path.
+    ``dataset_dir`` is an intentional alias of ``logs_dir`` — both resolve to the same path.
     """
 
     audit_root_dir: Path
-    audit_dir: Path
+    logs_dir: Path
+    duplicates_dir: Path
     diagnostics_dir: Path
     templates_dir: Path
     runtime_cache_dir: Path
@@ -165,14 +166,15 @@ def load_pipeline_config(
     )
 
     audit_root = data_dir / path_names.postpro_dir
-    audit_dir = audit_root / postpro.audit_dir_name
+    logs_dir = audit_root / postpro.logs_dir_name
     audit_paths = AuditPaths(
         audit_root_dir=audit_root,
-        audit_dir=audit_dir,
+        logs_dir=logs_dir,
+        duplicates_dir=audit_root / postpro.duplicates_dir_name,
         diagnostics_dir=audit_root / postpro.diagnostics_dir_name,
         templates_dir=audit_root / postpro.templates_dir_name,
         runtime_cache_dir=audit_root / postpro.runtime_cache_dir_name,
-        dataset_dir=audit_dir,
+        dataset_dir=logs_dir,
     )
 
     return Config(

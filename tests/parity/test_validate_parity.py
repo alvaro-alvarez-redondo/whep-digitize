@@ -1,7 +1,7 @@
-"""Parity test: document-major validation must match the frozen reference byte-for-byte.
+"""Parity test: file-major validation must match the frozen reference byte-for-byte.
 
-Runs ``validate_long_df_by_document`` over the interleaved multi-document fixture and asserts
-the verbatim error strings, their exact order (the 4-key stable sort), and the document-major
+Runs ``validate_long_df_by_file`` over the interleaved multi-file fixture and asserts
+the verbatim error strings, their exact order (the 4-key stable sort), and the file-major
 reordered data all equal the frozen reference. ``current_year`` is pinned to 2025 to match the
 year the reference was produced under, so the plausible-year range in the messages is
 deterministic.
@@ -16,9 +16,9 @@ import json
 
 import polars as pl
 import pytest
-from goldens import FIXTURES_DIR, GOLDENS
+from goldens import FIXTURES_DIR, GOLDENS, current_message, legacy_key
 
-from whep_digitize.ingest.assemble.validate import ValidationResult, validate_long_df_by_document
+from whep_digitize.ingest.assemble.validate import ValidationResult, validate_long_df_by_file
 from whep_digitize.setup.config import load_pipeline_config
 
 _SPEC = GOLDENS["validate"]
@@ -29,7 +29,7 @@ _PINNED_YEAR = 2025  # matches the reference Sys.Date override
 
 
 def _gold(name: str) -> list[str | None]:
-    path = _SPEC.golden_paths()[name]
+    path = _SPEC.golden_paths()[legacy_key(name)]
     if not path.is_file():
         pytest.skip(
             f"Golden {path} is missing from the checkout; restore it from version control "
@@ -42,18 +42,19 @@ def _gold(name: str) -> list[str | None]:
 @pytest.fixture(scope="module")
 def result() -> ValidationResult:
     records = json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
-    frame = pl.DataFrame(records)
+    # The frozen fixture predates the document -> file rename; map its column on load.
+    frame = pl.DataFrame(records).rename({"document": "file"})
     config = load_pipeline_config(root=FIXTURES_DIR.parents[1])
-    return validate_long_df_by_document(frame, config, current_year=_PINNED_YEAR)
+    return validate_long_df_by_file(frame, config, current_year=_PINNED_YEAR)
 
 
 @pytest.mark.parity
 def test_error_strings_and_order(result: ValidationResult) -> None:
     # Verbatim error text AND order (a downstream consumer compares the text).
-    assert list(result.errors) == _gold("errors")
+    assert list(result.errors) == [current_message(message) for message in _gold("errors")]
 
 
 @pytest.mark.parity
-def test_document_major_data(result: ValidationResult) -> None:
-    assert result.data.get_column("document").to_list() == _gold("data_document")
+def test_file_major_data(result: ValidationResult) -> None:
+    assert result.data.get_column("file").to_list() == _gold("data_file")
     assert result.data.get_column("value").to_list() == _gold("data_value")

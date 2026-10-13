@@ -38,11 +38,11 @@ def test_audit_subtree_paths(config: Config, project_dir: Path) -> None:
     audit = config.paths.data.audit
     postpro_root = project_dir / "data" / "postpro"
     assert audit.audit_root_dir == postpro_root
-    assert audit.audit_dir == postpro_root / "audit"
+    assert audit.logs_dir == postpro_root / "logs"
     assert audit.diagnostics_dir == postpro_root / "diagnostics"
     assert audit.templates_dir == postpro_root / "templates"
     assert audit.runtime_cache_dir == postpro_root / "runtime_cache"
-    assert audit.dataset_dir == audit.audit_dir  # intentional alias of audit_dir
+    assert audit.dataset_dir == audit.logs_dir  # intentional alias of logs_dir
 
 
 def test_column_order_matches_constants(config: Config) -> None:

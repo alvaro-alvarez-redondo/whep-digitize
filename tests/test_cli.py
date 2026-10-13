@@ -54,7 +54,7 @@ def test_cli_bootstrap_does_not_run_default_pipeline(monkeypatch: MonkeyPatch) -
             paths=SimpleNamespace(
                 data=SimpleNamespace(
                     input=SimpleNamespace(raw=Path("data/input/raw")),
-                    audit=SimpleNamespace(audit_dir=Path("data/postpro/audit")),
+                    audit=SimpleNamespace(logs_dir=Path("data/postpro/logs")),
                     output=SimpleNamespace(processed=Path("data/output/processed_data")),
                 )
             ),

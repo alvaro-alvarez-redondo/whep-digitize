@@ -52,13 +52,36 @@ Pinned by policy tests in `tests/setup/test_helpers.py`.
   round-trip to the exact stored number are rewritten. *Residual limitation:* a column mixing
   text and numbers infers as `String`, so its numeric cells keep the rounded text.
 - The `country` header is renamed to the canonical `polity`.
+- **`iso_whep`** sits between `continent` and `polity` in the canonical order (and so in the row
+  sort, ahead of `polity`). No source workbook carries it, so ingest **creates it once**, during
+  consolidation, on the combined raw frame: every row gets `"iso-" + year` (`iso-1937`,
+  `iso-1934-1939`; a null `year` gives a null seed). The prefix is
+  `defaults.iso_whep_year_prefix`. That is the only time code writes the column: every later
+  change comes from clean/harmonize rule files (e.g. `polity_iso` turning `iso-1937` into a
+  code). The seed is unconditional, so a sheet that did carry `iso_whep` would be overwritten.
+  Its values are *not* normalized at ingest (`variable`/`hemisphere`/`continent`/`polity` are;
+  normalization would lowercase an ISO code and replace any `-` in it with a space), and it is
+  not an audit column.
+- **Row order follows the seed.** Because `iso_whep` is a sort key ahead of `polity`, rows in
+  `raw`/`clean`/`normalize` are ordered continent → year tag → polity → …, and in `harmonize`
+  (once rules have written codes) continent → code → polity → …. The frozen ingest golden
+  predates the column, so `test_import_stage_parity.py` compares values in the golden's key order
+  (the current key without `iso_whep`) and pins the new order in a separate test.
 - Each **sheet name becomes the `variable` value** (one variable per sheet).
 - Year columns are those matching `^\d{4}(-\d{4})?$`; a duplicate after year-header cleanup is a
   fatal error, not a silent merge.
 - `unit` is intentionally left **raw** — only the four key columns are normalized.
 - Rows null in `value` are dropped by default (`RuntimeOptions.drop_na_values`).
-- Validation error strings and their ordering are a **contract**: per-document row ids,
-  first-appearance document ordering, and a 4-key stable sort. Consumers compare the text.
+- **`file`** (formerly `document`) is the provenance column: the name of the source workbook,
+  written for every row by `add_metadata` during the per-file transform. Validation groups rows
+  by it.
+- Validation error strings and their ordering are a **contract**: per-file row ids,
+  first-appearance file ordering, and a 4-key stable sort. Consumers compare the text. The
+  duplicate-entry message lists each key column as `<column> = <value>`, so it now ends
+  `..., file = <workbook>`. The mandatory-value message keeps its fixed wording
+  (`missing mandatory value in document '<workbook>', row_id ..., column ...`): that "document"
+  is prose, not the column name, and the frozen goldens pin the text byte for byte.
+  Parity tests translate the old column name at the boundary (`tests/parity/goldens.py`).
 
 ## Audit
 
@@ -100,6 +123,9 @@ Two deliberate behaviors — **do not "fix" either**:
   equivalent; likewise `#ANY#` / `#any#`.
 - `#ANY#` is the explicit wildcard, honoured on **every** column (previously only the tokenized
   ones), unless suppressed by `#EXACT#`.
+- `#REPLACE#` is the unconditional full-cell overwrite (D12). Like `#ANY#` it is the **whole**
+  condition value, case-insensitive and whitespace-tolerant, and `#EXACT#` suppresses it
+  (`#EXACT# #REPLACE#` matches the literal text).
 - An **empty-string current value never matches** under tokenized matching — the token lookup
   cannot key it. Under `#EXACT#`, which is pure full-string equality, an empty condition *does*
   match an empty current value. Both are intentional.
@@ -108,7 +134,7 @@ Two deliberate behaviors — **do not "fix" either**:
   independently against rules, and the cell is rebuilt deduplicated and sorted.
   Substitution is by **token value** (not by index), so the result is independent of
   token order. The default strategy is `token_substitute`; the old cell-level
-  `last_rule_wins` strategy has been removed.
+  `last_rule_wins` strategy was replaced by `first_rule_wins` via token substitution dict (D7).
 - **D1 — Substitution by value.** Token substitutions are keyed by the matched token's
   value, not its position. This is equivalent to index-based substitution (tokens are
   unique after deduplication) but more robust against reordering.
@@ -135,16 +161,30 @@ Two deliberate behaviors — **do not "fix" either**:
   `canonicalize_token_cell`. In the next multi-pass iteration, the expanded tokens are
   independent. Example: source `"x; y"` with rule `"x"` → `"a; b; c"` yields
   `"a; b; c; y"` after reconstruction.
-- **D7 — `last_rule_wins` at token level.** When multiple rules match the **same
-  token**, the last rule in rule order wins for that specific token. This is the same
-  concept as the old cell-level `last_rule_wins`, applied at a finer granularity.
-  Example: target `"a; b; c"` with two rules `"a"` → `"A"` and `"a"` → `"AA"` yields
-  `"AA; b; c"`.
-- **D9 — No overwrite-event diagnostics.** Token-level conflicts are resolved silently by
-  D7; nothing records them. There is no overwrite-event frame and no `matched_token` field
-  anywhere in the engine — `ConditionalGroupResult` carries only `data`, `audit`,
-  `changed_value_count` and `changed_columns`. The per-rule `audit` frame, which records one
-  row per applied rule, is the only diagnostic surface for rule application.
+- **D7 — `first_rule_wins` via token substitution dict.** When multiple rules in the same
+  `(column_source, column_target)` group match the same source token, the first rule in join
+  order wins. This is enforced by the token substitution dict using first-write-wins semantics:
+  when a token already has a pending substitution, subsequent substitutions for that token are
+  skipped. Groups are NOT decomposed — all rules in a `(column_source, column_target)` pair
+  are processed together in a single vectorized pass. Example: target `"a; b; c"` with two
+  rules `"a"` → `"A"` and `"a"` → `"AA"` yields `"A; b; c"` (the first rule's substitution
+  for token `"a"` is applied; the second rule's substitution for the same token is skipped).
+  Two consequences, both deliberate:
+  - **A losing rule's target token substitution is suppressed as well**, on *both* the
+    `token_substitute` and the `concatenate` path. A rule whose source rewrite was skipped must
+    not silently apply its target token removals or merges. Rules that never competed on the
+    source side (`source_value_column_present` false — target-only rules) are never losers and
+    are never suppressed.
+  - **A full-cell override is exempt from that suppression.** An `#EXACT#` rule that loses the
+    source cell still applies its own target rewrite: the two address different columns, so
+    losing one does not invalidate the other. Example: `commodity` `"a; b"` with
+    `#EXACT# a; b` → `"FIRST"` (target `"p"` → `"P"`) and `#EXACT# a; b` → `"SECOND"`
+    (target `"q"` → `"Q"`) yields commodity `"FIRST"` and target `"P; Q"`.
+- **D9 — No overwrite-event diagnostics.** Token-level collisions are resolved silently by
+  D7 (first-write-wins in token substitution dict); nothing records them. There is no overwrite-event frame and no
+  `matched_token` field anywhere in the engine — `ConditionalGroupResult` carries only `data`,
+  `audit`, `changed_value_count` and `changed_columns`. The per-rule `audit` frame, which
+  records one row per applied rule, is the only diagnostic surface for rule application.
 - **D10 — `value_source_raw = None` matches only NA.** Symmetric to D4 on the source side: an
   empty source cell in the rules file matches **only** when the current source value is
   `None`/NA. It is not a wildcard (`#ANY#` is). A NULL source condition is inherently a
@@ -157,19 +197,48 @@ Two deliberate behaviors — **do not "fix" either**:
   one rule produces a full-cell override for a row (`#EXACT#`, or a `None`-matches-NA
   condition) and another rule in the same group substitutes a token in that same row, the
   full-cell override wins and the token rule is discarded — even when the token rule comes
-  later in rule order. D7's last-in-order precedence governs collisions on *the same token*;
+  later in rule order. D7's first-write-wins governs collisions on *the same token*;
   an `#EXACT#` rule addresses the whole cell, not a token, so the two never compete for the
   same slot. The precedence is deterministic and applies identically on the source and target
-  sides. Example: cell `"a; b"` with rules `#EXACT# a; b` → `"P"` and `"a"` → `"Q"` yields
+  sides. When two *full-cell* rules compete for the same cell they do address the same slot, so
+  D7 arbitrates: the **first** in join order claims it, and a first override of `None` (delete
+  the cell) is not replaced by a later one. Example: cell `"a; b"` with rules `#EXACT# a; b` →
+  `"P"` and `"a"` → `"Q"` yields
   `"P"` in either rule order. Authoring both is contradictory; the engine does not warn.
+- **D12 — `#REPLACE#` overwrites the whole cell, whatever it holds, with no rule-order
+  tie-break.** As a condition value it matches **any** current cell — null, empty, single- or
+  multi-token — and the cell becomes the rule's result. Typical use, in `value_target_raw`:
+  `polity, british aden, british aden, iso_whep, #REPLACE#, adc-1937-1967` sets `iso_whep` to
+  `adc-1937-1967` on every `british aden` row, independent of its current value (a blank
+  condition would only fill an empty cell, D4; `#ANY#` would add a token, D3; `#EXACT#` needs the
+  old value). Rules:
+  - **Outranks every other rewrite of that cell** in the same group (token, `#EXACT#`, `#ANY#`,
+    `None`-matches-NA), in either rule order.
+  - **No tie-break.** Every `#REPLACE#` rule that matches a cell contributes, and the cell is the
+    canonical **union** of their results (split, deduplicated, sorted). Rule order therefore
+    never changes the outcome: a `british aden; yemen` cell with one replace rule per polity
+    gets `adc-1937-1967; yem-1990` either way. Two replace rules giving *one* polity different
+    codes also produce both — that is a rule-file conflict, and it stays visible in the data
+    instead of being silently resolved.
+  - **Exempt from D7 suppression.** A `#REPLACE#` target still applies when its rule lost the
+    source-token competition, on both the token and the `concatenate` paths.
+  - An empty result clears the cell to null; an empty result alongside non-empty ones
+    contributes nothing.
+  - **Source side** (`value_source_raw = #REPLACE#`): the rule matches every row (the source
+    condition is dropped, so only the target condition selects rows) and the whole source cell
+    becomes the union of the matching replace rules' `value_source`.
+  - **`concatenate` columns** (`notes`, `footnotes`): the cell is replaced, not appended to.
+  - In multi-pass, a replace rule fires on every pass but changes nothing after the first, so it
+    converges; two groups that rewrite the same cell differently can still oscillate, which the
+    cycle detection reports.
 - `concatenate` merges both sides into one canonical token set: deduplicated and **sorted**,
   like every other reconstruction path. This applies even when only one side is present.
 - **`footnotes` has no special engine.** A footnote rule is just a rule whose source column is
   `footnotes`; it runs through the same element-wise path as every other column. A rule whose
   source result is missing **removes** the matched token and keeps its siblings. Where several
-  rules hit the same token the last in join order wins (there is no remove-over-replace
-  precedence), and the rebuilt cell is deduplicated and sorted rather than kept in original
-  token order.
+  rules hit the same token, the first in rule order wins via first-write-wins (D7) — there
+  is no remove-over-replace precedence. The rebuilt cell is deduplicated and sorted rather
+  than kept in original token order.
 - A group whose only effect was a source rewrite marks the **source** column as changed, not the
   target.
 
@@ -205,6 +274,25 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
 - **Every layer is exported to its own TSV** — `whep_data_raw`, `_clean`, `_normalize`,
   `_harmonize` (`output_config.output_layers`). A configured layer with no table is skipped
   rather than an error, so `raw` is absent unless the ingest frame reached the export runner.
+- **All-null columns are dropped per layer, immediately before export.** Every layer frame is
+  passed through `drop_all_null_columns` (`setup/helpers/frames.py`) after canonicalization and
+  before either export family reads it. "Empty" means every value is `null` — a column of
+  nothing but empty strings is real data and is kept. This runs *after* postpro, not inside it:
+  the frames `PostproResult` carries, the per-stage `logs` TSVs, and the duplicate audit all see
+  the full, undropped column set; only the four exported layer tables are pruned.
+  **The drop is independent per layer** — a column entirely null in `clean` but populated by a
+  later rule in `harmonize` is dropped from `clean`'s TSV and kept in `harmonize`'s, so the four
+  processed TSVs can legitimately have different headers. Both export families already tolerate
+  this: `export_processed_data` writes each layer as its own file with no shared-schema
+  assumption, and the unique-list machinery treats an absent column in one layer as contributing
+  no values from that layer, not an error (`compute_unique_column_values` returns `[]` for a
+  missing column; `resolve_lists_export_columns` only fails if a configured column is missing
+  from *every* layer). A frame with zero rows, or one whose columns are *all* null, is left
+  untouched rather than collapsed — see `drop_all_null_columns`'s docstring for why.
+  Consequence for `notes` in `raw` (nothing populates it before postpro): it is absent from
+  `whep_data_raw.tsv`; a layer gains the column, in canonical position, as soon as a rule
+  fills it there. `iso_whep` is seeded at ingest, so it is present in every layer, `raw`
+  included, and always has a `unique_iso_whep.xlsx`.
 - Layer detection includes names ending `_raw`/`_clean`/`_normalize`/`_harmonize` and **excludes**
   `_wide_raw` and `_post_processed`.
 - **Unique lists:** per (layer, column) unique values with nulls dropped, sorted by Unicode code
@@ -213,6 +301,32 @@ Strict order: **fold → revert-probe → two-stage match → affine convert**.
 - Layers with identical value sets share one sheet (e.g. `raw_clean_normalize_harmonize`), in a
   fixed sheet order.
 - The workbook `created` date is pinned so repeated runs are byte-reproducible.
+
+## Duplicate audit
+
+The last post-processing step writes one TSV per layer into `data/postpro/duplicates/`, named
+`<layer>_dup.tsv` for `raw`, `clean`, `normalize` and `harmonize`.
+
+- **Two criteria, two boolean columns.** `dup_full` — the row repeats across *every* column;
+  `dup_excl_value` — the row repeats across every column *except* `value`. All occurrences of a
+  repeated row are flagged, not just the second and later ones.
+- **Only `dup_excl_value` rows are exported.** `dup_full` is a strict subset of it, so a row with
+  `dup_excl_value` true and `dup_full` false is the interesting case: the same record carrying a
+  conflicting `value`.
+- **A file is always written**, even when a layer has no duplicates or is empty — header row
+  only, preserving the source schema plus the two flags. "Audited, nothing found" therefore
+  reads differently from "never ran".
+- **Nulls compare equal** (polars grouping semantics), so rows jointly missing a field still
+  count as duplicates.
+- **`raw` means the canonicalized raw frame**, not the untouched ingest output: semicolon-token
+  cells are canonicalized first, so rows differing only in token order compare equal.
+- Row order is inherited from the source layer, which is already canonically sorted — the audit
+  adds no ordering of its own and is deterministic.
+- **Provenance columns dominate the key.** Every non-`value` column participates, including
+  `file` (then named `document`) and `yearbook`. On the production dataset the audit finds
+  nothing, because repeated records occur across *different* source workbooks rather than within
+  one; they only appear once provenance columns are excluded too (measured 2026-09-17: 0
+  excluding `value` alone, 1,029 also excluding `file`, 149,713 also excluding `yearbook`).
 
 ## Target tokenization
 
@@ -227,6 +341,7 @@ The rule engine no longer distinguishes between source and target handling.
 | Exact match (source) | `value_source_raw = "#EXACT# a; b"` | Replaces entire source cell | No effect on target |
 | Exact match (target) | `value_target_raw = "#EXACT# a; b"` | No effect on source | Replaces entire target cell |
 | Wildcard add | `value_source_raw = "#ANY#"` / `value_target_raw = "#ANY#"` | Adds token to cell | Adds token to cell |
+| Replace (D12) | `value_source_raw = "#REPLACE#"` / `value_target_raw = "#REPLACE#"` | Matches every row; replaces entire source cell | Matches any cell; replaces entire target cell |
 | None (empty) | `value_target_raw` is empty/NA | N/A | Matches only when current value is NA |
 
 ### Concrete examples
@@ -246,12 +361,12 @@ Rule 2: "c" → "C"
 Result: "A; b; C"  (each token substituted independently)
 ```
 
-**Multiple rules, same token (last wins at token level):**
+**Multiple rules, same token (first wins at token level):**
 ```
 Cell: "a; b; c"
 Rule 1: "a" → "A"
 Rule 2: "a" → "AA"
-Result: "AA; b; c"  (Rule 2 wins for token "a")
+Result: "A; b; c"  (Rule 1 wins for token "a" via first-write-wins)
 ```
 
 **`#EXACT#` (full cell rewrite):**
@@ -266,6 +381,14 @@ Result: "X"  (entire cell replaced)
 Cell: "a; b; c"
 Rule: "#ANY#" → "X"
 Result: "X; a; b; c"  (sorted, deduplicated; "X" added)
+```
+
+**`#REPLACE#` (overwrite, whatever the cell holds):**
+```
+Cell: "a; b; c"   (or "", or NA)
+Rule: "#REPLACE#" → "X"
+Result: "X"
+Two matching replace rules → "X" and "Y": "X; Y" in either rule order
 ```
 
 **Multi-token value expansion:**

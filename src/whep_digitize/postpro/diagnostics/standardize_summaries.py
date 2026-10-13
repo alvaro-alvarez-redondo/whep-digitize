@@ -42,7 +42,16 @@ _STD_CATALOG_COLUMNS = (
     "unit_factor_effective",
 )
 _STD_SUMMARY_COLUMNS = ("affected_rows", *_STD_CATALOG_COLUMNS)
-_STD_SORT = ("rule_file_identifier", "commodity_key", "unit_source", "unit_target")
+_STD_SORT = (
+    "rule_file_identifier",
+    "commodity_key",
+    "unit_source",
+    "unit_target",
+    "unit_factor",
+    "unit_factor_effective",
+    "unit_offset",
+    "affected_rows",
+)
 
 
 def _std_dtype(column: str) -> type[pl.DataType]:
@@ -207,9 +216,10 @@ def merge_standardize_rule_summaries(
             :func:`build_unmatched_standardize_rule_summary`).
 
     Returns:
-        The combined 10-column summary frame.
+        The combined 10-column summary frame, sorted deterministically.
     """
-    return pl.concat([matched, unmatched], rechunk=True)
+    combined = pl.concat([matched, unmatched], rechunk=True)
+    return combined.sort(_STD_SORT, nulls_last=True, maintain_order=True)
 
 
 def _coerce_std_keys(frame: pl.DataFrame) -> pl.DataFrame:

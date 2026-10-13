@@ -24,13 +24,29 @@ Recipes for frequent edits. Each lists where, what, tests, watch-outs. **Check h
 
 ## Add a column to the canonical schema
 
-- **Canonical order** — `Sorting.stage_row_order`.
+- **Canonical order** — `Sorting.stage_row_order` (also the row-sort priority, and the
+  `column_order` consolidation reorders to).
+- **Target-schema guard** — `_TARGET_SCHEMA` in `ingest/assemble/consolidate.py` is a separate,
+  hard-coded copy of the full set; `validate_column_order` rejects a `column_order` that omits
+  any of it. Easy to miss: nothing derives it from `stage_row_order`.
 - **Column role** — add to `Columns` (`base`/`id_vars`/`value`/`system`); import header
-  recognition uses `base ∪ id_vars`.
-- **Source aliases** — `HeaderNormalization.canonical_aliases`.
-- **Export lists** — `OutputConfig.lists_to_export` if needed.
-- **Tests:** update `test_constants.py` order assertion; add transform/validate coverage.
-- **Watch out:** everything is string-typed until the postpro audit step.
+  recognition uses `base ∪ id_vars`. `base` is `column_required`: a column there is added as
+  all-null when a sheet lacks it *and flagged as an error* — leave a not-yet-sourced column out.
+- **Source aliases** — `HeaderNormalization.canonical_aliases`. Header matching lowercases and
+  turns spaces into `_` but keeps `-`, so a canonical name made of letters and `_` also matches
+  its space/case spellings, while a hyphenated one (or a hyphenated source header) only matches
+  itself; anything else needs an alias. Prefer `_` in new column names.
+- **Export lists** — `FIXED_EXPORT_COLUMNS` (feeds `OutputConfig.lists_to_export` and the
+  duplicate `fixed_export_columns`). The list file stem goes through `normalize_filename` (which turns `-` into `_`).
+- **Not automatic:** `AUDIT_COLUMNS` (non-empty validation — a column that is empty by design
+  must stay out) and `_KEY_NORM_COLUMNS` in `ingest/transform/transform_utils.py` (ingest value
+  normalization, documented as exactly four key columns) are separate opt-ins.
+- **Tests:** update `test_constants.py` order assertion; add transform/validate coverage. The
+  frozen ingest golden (`data_columns`) cannot change, so `test_import_stage_parity.py` compares
+  over the golden's columns and pins any added column separately (`_ADDED_COLUMNS`).
+- **Watch out:** everything is string-typed until the postpro audit step, and an all-null column
+  is dropped from the exports (see `pipeline-behaviors.md` → Export), so a new empty column is
+  invisible in the TSVs and lists until something populates it.
 
 ## Add a runtime option
 

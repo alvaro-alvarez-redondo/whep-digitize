@@ -1,16 +1,16 @@
 """Stage 2 runner.
 
-Runs the deterministic 9-step post-processing orchestration: audit the raw import frame, resolve
-the audit roots, generate the rule templates, collect + assert the preflight checks, then
+Runs the deterministic 10-step post-processing orchestration: audit the raw import frame,
+resolve the audit roots, generate the rule templates, collect + assert the preflight checks,
 run the clean → standardize-units → harmonize layers (each sorted to the canonical row order),
-and finally persist the per-stage audit workbooks. Returns a typed
-:class:`~whep_digitize.contracts.PostproResult` carrying the clean / normalize / harmonize
-frames and the aggregate diagnostics.
+persist the per-stage logs TSVs, and finally audit each layer for duplicate records. Returns a
+typed :class:`~whep_digitize.contracts.PostproResult` carrying the clean / normalize /
+harmonize frames and the aggregate diagnostics.
 
-Progress reporting emits nine hard ticks through a gated :func:`stage_progress` bar — one per
-orchestration step, with no per-pass pulses. The diagnostics ``outputs`` mapping is flat: the
-four persisted audit paths sit at the top level alongside the resolved directories, the
-template, and the data-audit path.
+Progress reporting emits ten hard ticks through a gated :func:`stage_progress` bar — one per
+orchestration step, with no per-pass pulses. The diagnostics ``report_paths`` mapping is flat:
+the persisted logs paths and the ``<layer>_dup`` duplicate audits sit at the top level
+alongside the resolved directories and the template path.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ from whep_digitize.postpro.clean_harmonize.layer_runner import (
     run_cleaning_layer_batch,
     run_harmonize_layer_batch,
 )
-from whep_digitize.postpro.diagnostics.persist import persist_postpro_audit
+from whep_digitize.postpro.diagnostics.duplicates import persist_duplicate_audits
+from whep_digitize.postpro.diagnostics.persist import persist_postpro_logs
 from whep_digitize.postpro.diagnostics.preflight import (
     assert_postpro_preflight,
     collect_postpro_preflight,
@@ -58,9 +59,10 @@ def run_postpro_pipeline(
 ) -> PostproResult:
     """Audit, clean, standardize units, and harmonize the raw import frame.
 
-    The nine deterministic steps: audit → resolve audit roots → templates → collect preflight →
-    assert preflight → clean → standardize → harmonize → persist. Each layer frame is sorted to
-    the canonical row order by :func:`sort_pipeline_stage_df` before feeding the next stage.
+    The ten deterministic steps: audit → resolve audit roots → templates → collect preflight →
+    assert preflight → clean → standardize → harmonize → persist → duplicate audit. Each layer
+    frame is sorted to the canonical row order by :func:`sort_pipeline_stage_df` before feeding
+    the next stage.
 
     Args:
         raw: The raw long frame from the ingest stage.
@@ -81,7 +83,7 @@ def run_postpro_pipeline(
     resolved_options = options or RuntimeOptions()
     resolved_dataset_name = dataset_name if dataset_name is not None else _DEFAULT_DATASET_NAME
 
-    with stage_progress("postpro", total=9, enabled=resolved_options.progress_enabled) as progress:
+    with stage_progress("postpro", total=10, enabled=resolved_options.progress_enabled) as progress:
         # 1. audit — coerce ``value`` to Float64, export invalid-cell highlights (rows kept).
         progress.step(_MESSAGES["audit"])
         raw_df = _canonicalize_stage_frame(raw)
@@ -118,9 +120,9 @@ def run_postpro_pipeline(
         )
         harmonize_df = _canonicalize_stage_frame(harmonize_layer.data)
 
-        # 9. persist per-stage audit workbooks.
+        # 9. persist per-stage logs TSVs.
         progress.step(_MESSAGES["persist"])
-        audit_report_paths = persist_postpro_audit(
+        logs_report_paths = persist_postpro_logs(
             clean_audit_df=clean_layer.audit,
             harmonize_audit_df=harmonize_layer.audit,
             standardize_audit_df=standardize_layer.audit,
@@ -129,11 +131,28 @@ def run_postpro_pipeline(
             standardize_matched_rule_counts_df=standardize_layer.matched_rule_counts,
         )
 
+        # 10. duplicate audit — one TSV per layer, always written (header-only when clean).
+        # ``raw_df`` rather than the untouched ``raw`` argument: canonicalizing the
+        # semicolon-token cells first means rows differing only in token order compare equal,
+        # which is what "duplicate" has to mean for this pipeline.
+        progress.step(_MESSAGES["duplicates"])
+        duplicate_report_paths = persist_duplicate_audits(
+            {
+                "raw": raw_df,
+                "clean": clean_df,
+                "normalize": normalize_df,
+                "harmonize": harmonize_df,
+            },
+            config,
+        )
+
     diagnostics = PostproDiagnostics(
         clean=clean_layer.diagnostics,
         standardize_units=_as_layer_diagnostics(standardize_layer.diagnostics),
         harmonize=harmonize_layer.diagnostics,
-        report_paths=_build_report_paths(audit_paths, template_path, audit_report_paths),
+        report_paths=_build_report_paths(
+            audit_paths, template_path, logs_report_paths, duplicate_report_paths
+        ),
     )
     return PostproResult(
         harmonize=harmonize_df,
@@ -163,12 +182,19 @@ def _build_report_paths(
     audit_paths: PostproAuditPaths,
     template_path: Path,
     persisted_paths: dict[str, Path],
+    duplicate_paths: dict[str, Path],
 ) -> dict[str, Path]:
-    """Assemble the flat diagnostics ``report_paths`` mapping."""
+    """Assemble the flat diagnostics ``report_paths`` mapping.
+
+    Duplicate-audit entries are keyed ``<layer>_dup`` so they cannot collide with the bare
+    layer names used elsewhere in the diagnostics contract.
+    """
     return {
         **persisted_paths,
+        **{f"{layer}_dup": path for layer, path in duplicate_paths.items()},
         "audit_root_dir": audit_paths.audit_root_dir,
-        "audit_dir": audit_paths.audit_dir,
+        "logs_dir": audit_paths.logs_dir,
+        "duplicates_dir": audit_paths.duplicates_dir,
         "diagnostics_dir": audit_paths.diagnostics_dir,
         "templates_dir": audit_paths.templates_dir,
         "runtime_cache_dir": audit_paths.runtime_cache_dir,

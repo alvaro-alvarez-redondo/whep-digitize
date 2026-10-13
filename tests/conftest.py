@@ -53,6 +53,6 @@ def sample_long_df() -> pl.DataFrame:
             "notes": [None, None, None],
             "footnotes": [None, None, None],
             "yearbook": ["fao_2000", "fao_2001", "fao_1999"],
-            "document": ["a.xlsx", "b.xlsx", "c.xlsx"],
+            "file": ["a.xlsx", "b.xlsx", "c.xlsx"],
         }
     )

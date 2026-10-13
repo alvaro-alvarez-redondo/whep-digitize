@@ -18,7 +18,7 @@ import json
 
 import polars as pl
 import pytest
-from goldens import FIXTURES_DIR, GOLDENS
+from goldens import FIXTURES_DIR, GOLDENS, current_names, legacy_key
 from polars.testing import assert_series_equal
 
 from whep_digitize.ingest.file_io.discovery import discover_files
@@ -40,14 +40,14 @@ _VALUE_COLUMNS = (
     "footnotes",
     "year",
     "value",
-    "document",
+    "file",
     "notes",
     "yearbook",
 )
 
 
 def _gold(name: str) -> list[str | None]:
-    path = _SPEC.golden_paths()[name]
+    path = _SPEC.golden_paths()[legacy_key(name)]
     if not path.is_file():
         pytest.skip(
             f"Golden {path} is missing from the checkout; restore it from version control "
@@ -88,7 +88,7 @@ def parallel(config: Config, file_list: pl.DataFrame) -> ReadTransformResult:
 
 @pytest.mark.parity
 def test_sequential_columns_and_row_count(sequential: ReadTransformResult) -> None:
-    assert sequential.transformed.long_raw.columns == _gold("long_columns")
+    assert sequential.transformed.long_raw.columns == current_names(_gold("long_columns"))
     assert str(sequential.transformed.long_raw.height) == _gold("long_nrow")[0]
     assert sequential.errors == ()
 
@@ -108,6 +108,6 @@ def test_parallel_matches_sequential_and_golden(
     # Determinism: parallel output is identical to sequential regardless of worker count...
     assert parallel.transformed.long_raw.equals(sequential.transformed.long_raw)
     # ...and therefore identical to the frozen reference.
-    assert parallel.transformed.long_raw.columns == _gold("long_columns")
+    assert parallel.transformed.long_raw.columns == current_names(_gold("long_columns"))
     for column in _VALUE_COLUMNS:
         assert parallel.transformed.long_raw.get_column(column).to_list() == _gold(column)

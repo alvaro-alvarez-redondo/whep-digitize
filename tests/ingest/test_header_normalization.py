@@ -176,3 +176,28 @@ def test_validate_length_mismatch_raises() -> None:
 def test_validate_blank_args_raise(file_path: str, sheet_name: str) -> None:
     with pytest.raises(ValidationError):
         validate_header_normalization(["A"], ["a"], file_path, sheet_name)
+
+
+@pytest.mark.parametrize("header", ["ISO_WHEP", "Iso Whep", "ISO WHEP"])
+def test_resolve_canonical_maps_iso_whep_by_case_and_space(header: str) -> None:
+    # Header normalization turns spaces into underscores and lowercases, so every such spelling
+    # keys to 'iso_whep' -- the canonical name's own key -- and is renamed to it.
+    raw = [header, "Unit"]
+    result = resolve_canonical_header_renames(
+        raw, normalize_header_names(raw), ["unit", "iso_whep"]
+    )
+    renames = dict(zip(result.old, result.new, strict=True))
+    assert renames == {header: "iso_whep", "Unit": "unit"}
+
+
+@pytest.mark.parametrize("header", ["iso-whep", "ISO-WHEP"])
+def test_resolve_canonical_does_not_match_hyphen_spellings(header: str) -> None:
+    # Documents a real limitation rather than an intent: header normalization keeps '-', so a
+    # hyphenated header keys to 'iso-whep' and never meets the canonical 'iso_whep'. The column
+    # would be dropped by the reshape, not renamed. Mapping it needs an alias (cf. the default
+    # country -> polity one); change this test if one is added.
+    raw = [header, "Unit"]
+    result = resolve_canonical_header_renames(
+        raw, normalize_header_names(raw), ["unit", "iso_whep"]
+    )
+    assert dict(zip(result.old, result.new, strict=True)) == {"Unit": "unit"}

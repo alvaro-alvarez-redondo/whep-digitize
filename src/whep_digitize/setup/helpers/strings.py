@@ -30,6 +30,7 @@ _NORMALIZE_NON_ALNUM = re.compile(_constants.patterns.normalize_non_alnum)
 _UNKNOWN_FILENAME = _constants.defaults.unknown_filename
 _TOKEN_DELIMITER = _constants.postpro.target_update_strategies.concatenate_delimiter
 _EXACT_MATCH_TOKEN = _constants.postpro.rule_match_exact_token
+_REPLACE_MATCH_TOKEN = _constants.postpro.rule_match_replace_token
 # The whitespace class used for token trimming: space, tab, CR, LF only -- deliberately
 # not the full Unicode whitespace set.
 _TRIM_CHARS = " \t\r\n"
@@ -127,6 +128,37 @@ def resolve_exact_match_directive(
     if stripped[: len(exact_token)].casefold() != exact_token.casefold():
         return condition, False
     return stripped[len(exact_token) :].strip(_TRIM_CHARS), True
+
+
+def is_replace_match_directive(
+    condition: str | None,
+    replace_token: str = _REPLACE_MATCH_TOKEN,
+    exact_token: str = _EXACT_MATCH_TOKEN,
+) -> bool:
+    """Return whether a rule condition value is the replace directive (``#REPLACE#``).
+
+    The directive is the **whole** condition value, matched case-insensitively with surrounding
+    whitespace ignored, like ``#ANY#``. An ``#EXACT#`` prefix suppresses it, so
+    ``#EXACT# #REPLACE#`` is an ordinary condition that matches the literal text ``#REPLACE#``.
+
+    The pipeline's single recognizer for the directive: the target-condition matcher, the
+    source and target rewrites, and the ``concatenate`` path all call it, so they can never
+    disagree about which rules are replace rules.
+
+    Args:
+        condition: The raw rule condition value (``value_source_raw`` or ``value_target_raw``).
+        replace_token: The directive marker.
+        exact_token: The exact-match marker that suppresses it.
+
+    Returns:
+        ``True`` when ``condition`` is the replace directive.
+    """
+    body, is_exact = resolve_exact_match_directive(condition, exact_token)
+    return (
+        not is_exact
+        and body is not None
+        and body.strip(_TRIM_CHARS).casefold() == replace_token.casefold()
+    )
 
 
 def split_token_cell(value: str | None) -> list[str]:

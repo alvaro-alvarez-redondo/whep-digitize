@@ -4,8 +4,8 @@
 using the ``concatenate`` strategy: join a row's candidates with the delimiter, then merge
 into the existing value (order-preserving, existing-first token dedupe).
 
-Other strategies (``token_substitute``, ``last_rule_wins``) are handled by
-``conditional_group`` via symmetric token substitution and should not reach this module.
+The only other strategy, ``token_substitute``, is handled by ``conditional_group`` via
+symmetric token substitution and should not reach this module.
 
 Every scatter is functional: a join-back on a synthesized row index plus
 ``when/then/otherwise``. ``dataset_df`` is never mutated — the updated frame is returned in
@@ -16,6 +16,9 @@ Deliberate behaviors (do not "fix" these):
 * The explicit wildcard token is honoured; ``#EXACT#`` suppresses it so a literal
   ``#ANY#`` can be matched.
 * Wildcard candidates whose value is already present in the current cell are dropped.
+* A ``#REPLACE#`` candidate (D12) does not concatenate: the row's cell becomes the canonical
+  union of every replace candidate's value, discarding what it held and any other candidate for
+  that row. Rule order never decides the result.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from whep_digitize.postpro.rule_engine.matching_values import (
 from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.errors import ValidationError
 from whep_digitize.setup.helpers.assertions import require
+from whep_digitize.setup.helpers.strings import canonicalize_token_cell, is_replace_match_directive
 
 _CONSTANTS = get_pipeline_constants()
 _WILDCARD_TOKEN = _CONSTANTS.postpro.rule_match_wildcard_token
@@ -125,9 +129,9 @@ def apply_target_updates_with_strategy(
 ) -> TargetApplyResult:
     """Apply conditional and unconditional updates to one target column (``concatenate`` only).
 
-    This function handles the ``concatenate`` strategy. Other strategies
-    (``token_substitute``, ``last_rule_wins``) are dispatched by ``conditional_group``
-    and should not reach this entry point.
+    This function handles the ``concatenate`` strategy. The only other strategy,
+    ``token_substitute``, is dispatched by ``conditional_group`` and should not reach
+    this entry point.
 
     Args:
         dataset: The dataset to update (returned updated; never mutated in place).
@@ -226,6 +230,7 @@ def apply_target_updates_with_strategy(
         dataset,
         target_column=target_column,
         value_column=value_column,
+        condition_column=condition_column,
         delimiter=strategy_config.concatenate_delimiter,
     )
 
@@ -284,13 +289,46 @@ def _apply_concatenate(
     *,
     target_column: str,
     value_column: str,
+    condition_column: str,
     delimiter: str,
 ) -> TargetApplyResult:
-    """Apply the ``concatenate`` strategy (per-row paste, then order-preserving token merge)."""
+    """Apply the ``concatenate`` strategy (per-row paste, then order-preserving token merge).
+
+    Rows carrying a ``#REPLACE#`` candidate are taken out first and set to the union of their
+    replace values (D12); only the remaining rows are concatenated.
+    """
     if dataset.schema[target_column] != pl.String:
         raise ValidationError(
             "concatenate strategy requires a character-like target column; "
             f"column {target_column} has type: {dataset.schema[target_column]}"
+        )
+
+    is_replace = pl.Series(
+        [is_replace_match_directive(value) for value in updates.get_column(condition_column)],
+        dtype=pl.Boolean,
+    )
+    if is_replace.any():
+        replaced = _apply_replacements(
+            updates.filter(is_replace),
+            dataset,
+            target_column=target_column,
+            value_column=value_column,
+            delimiter=delimiter,
+        )
+        replaced_rows = updates.filter(is_replace).get_column(_ROW_ID_INTERNAL).unique()
+        remaining = updates.filter(pl.col(_ROW_ID_INTERNAL).is_in(replaced_rows.implode()).not_())
+        concatenated = _apply_concatenate(
+            remaining,
+            replaced.dataset,
+            target_column=target_column,
+            value_column=value_column,
+            condition_column=condition_column,
+            delimiter=delimiter,
+        )
+        return TargetApplyResult(
+            replaced.applied or concatenated.applied,
+            concatenated.dataset,
+            replaced.changed_value_count + concatenated.changed_value_count,
         )
 
     updates = updates.with_columns(
@@ -314,6 +352,40 @@ def _apply_concatenate(
         existing_values, collapsed.get_column(_UPDATE_VALUE), delimiter
     )
     new_dataset = _scatter_column(dataset, target_column, indices, merged_values)
+    after = new_dataset.get_column(target_column).gather(indices)
+    changed = count_elementwise_value_changes(existing_values, after)
+    return TargetApplyResult(True, new_dataset, changed)
+
+
+def _apply_replacements(
+    updates: pl.DataFrame,
+    dataset: pl.DataFrame,
+    *,
+    target_column: str,
+    value_column: str,
+    delimiter: str,
+) -> TargetApplyResult:
+    """Set each row's cell to the canonical union of its ``#REPLACE#`` values (D12).
+
+    Order-independent: the union is split, deduplicated and sorted. Empty values contribute
+    nothing; a row whose replace values are all empty is cleared to null.
+    """
+    collapsed = (
+        updates.with_columns(pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE))
+        .group_by(_ROW_ID_INTERNAL, maintain_order=True)
+        .agg(pl.col(_UPDATE_VALUE).drop_nulls())
+        .sort(_ROW_ID_INTERNAL)
+    )
+    indices = _zero_based(collapsed.get_column(_ROW_ID_INTERNAL).to_list())
+    new_values = pl.Series(
+        [
+            canonicalize_token_cell(delimiter.join(values)) if values else None
+            for values in collapsed.get_column(_UPDATE_VALUE).to_list()
+        ],
+        dtype=pl.String,
+    )
+    existing_values = dataset.get_column(target_column).gather(indices)
+    new_dataset = _scatter_column(dataset, target_column, indices, new_values)
     after = new_dataset.get_column(target_column).gather(indices)
     changed = count_elementwise_value_changes(existing_values, after)
     return TargetApplyResult(True, new_dataset, changed)

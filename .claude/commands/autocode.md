@@ -9,16 +9,18 @@ State: [progress.md](../progress.md), [results.tsv](../results.tsv).
 - **Language:** Python 3.11+ (this host: `py -3.14`, venv at `.venv/`).
 - **Tests:** `pytest` (`.venv/Scripts/python.exe -m pytest`).
 - **Quality:** `ruff check` + `mypy` (strict).
-- **Performance:** full-pipeline benchmark under `.claude/bench/` (added once stages exist).
+- **Performance:** full-pipeline benchmark, `.claude/bench/bench.py`.
 
-## Metrics (see `autocode.toml`)
+## Metrics
 
-| Metric | Command | Direction | Weight |
-|--------|---------|-----------|--------|
-| tests | `pytest -q` (pass %) | up | 0.5 |
-| quality | `ruff check` (issue count) | down | 0.2 |
-| types | `mypy` (error count) | down | 0.2 |
-| performance | `.claude/bench/bench.py` (seconds) | down | 0.1 (pending stages) |
+| Metric | Command | Direction |
+|--------|---------|-----------|
+| tests | `pytest -q` (pass %) | up |
+| quality | `ruff check` (issue count) | down |
+| types | `mypy` (error count) | down |
+| performance | `.claude/bench/bench.py` (seconds) | down |
+
+Weights and exact commands live in `autocode.toml` only.
 
 **Critical rule:** never accept a change that drops test pass rate below baseline —
 correctness is not tradeable. Parity tests (`@pytest.mark.parity`) are part of correctness.

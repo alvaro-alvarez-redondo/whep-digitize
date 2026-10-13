@@ -48,7 +48,7 @@ def test_transform_single_file(config: Config) -> None:
     result = transform_single_file(file_row, _wide(), config)
     assert result is not None
     assert result.long_raw["commodity"].unique().to_list() == ["wheat"]
-    assert result.long_raw["document"].unique().to_list() == ["f.xlsx"]
+    assert result.long_raw["file"].unique().to_list() == ["f.xlsx"]
 
 
 def test_transform_single_file_empty_returns_none(config: Config) -> None:

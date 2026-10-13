@@ -74,8 +74,8 @@ def audit_dataset(
         An :class:`AuditResult` with the parsed frame, findings, and invalid indices.
     """
     validate_audit_config(config)
-    audit_dir = config.paths.data.audit.audit_dir
-    prepare_audit_root(audit_dir)
+    logs_dir = config.paths.data.audit.logs_dir
+    prepare_audit_root(logs_dir)
 
     columns_by_type = resolve_audit_columns_by_type(config, audit_columns_by_type)
     master = run_master_validation(dataset, columns_by_type)

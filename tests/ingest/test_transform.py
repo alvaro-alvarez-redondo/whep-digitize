@@ -138,8 +138,8 @@ def test_reshape_to_long_variable_major_order(config: Config) -> None:
 def test_add_metadata(config: Config) -> None:
     long = pl.DataFrame({"continent": ["x"], "year": ["2020"], "value": ["1"]})
     result = add_metadata(long, "file.xlsx", "fao_2020", config)
-    assert result.columns == ["continent", "year", "value", "document", "notes", "yearbook"]
-    assert result["document"].to_list() == ["file.xlsx"]
+    assert result.columns == ["continent", "year", "value", "file", "notes", "yearbook"]
+    assert result["file"].to_list() == ["file.xlsx"]
     assert result["yearbook"].to_list() == ["fao_2020"]
     assert result["notes"].to_list() == [None]  # config default notes_value is None
     assert result.schema["notes"] == pl.String
@@ -178,7 +178,7 @@ def test_transform_file_df(config: Config) -> None:
         "footnotes",
         "year",
         "value",
-        "document",
+        "file",
         "notes",
         "yearbook",
     ]

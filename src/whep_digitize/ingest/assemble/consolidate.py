@@ -2,7 +2,8 @@
 
 Row-binds the audited long tables into one frame with ``pl.concat(how="diagonal")`` (union of
 columns, missing values null), fills any missing target-schema columns with null, and reorders
-columns to the configured canonical order (extras last).
+columns to the configured canonical order (extras last). ``iso_whep`` is the one exception to
+"missing means null": it is created as ``"iso-" + year`` (no source workbook carries it).
 """
 
 from __future__ import annotations
@@ -14,12 +15,18 @@ from dataclasses import dataclass
 import polars as pl
 
 from whep_digitize.setup.config import Config
+from whep_digitize.setup.constants import get_pipeline_constants
 from whep_digitize.setup.helpers.assertions import require
+
+_DEFAULTS = get_pipeline_constants().defaults
+_ISO_WHEP = _DEFAULTS.iso_whep_column
+_ISO_WHEP_PREFIX = _DEFAULTS.iso_whep_year_prefix
 
 # The full canonical output schema every consolidated frame must contain.
 _TARGET_SCHEMA = (
     "hemisphere",
     "continent",
+    "iso_whep",
     "polity",
     "commodity",
     "variable",
@@ -29,7 +36,7 @@ _TARGET_SCHEMA = (
     "notes",
     "footnotes",
     "yearbook",
-    "document",
+    "file",
 )
 
 
@@ -86,7 +93,7 @@ def consolidate_audited_df(
         warnings.warn(message, stacklevel=2)
         return ConsolidateResult(data=pl.DataFrame(), warnings=(message,))
 
-    combined = pl.concat(items, how="diagonal")
+    combined = _seed_iso_whep(pl.concat(items, how="diagonal"))
     missing = [col for col in column_order if col not in combined.columns]
     if missing:
         combined = combined.with_columns(
@@ -96,3 +103,18 @@ def consolidate_audited_df(
     extra = [col for col in combined.columns if col not in ordered]
     combined = combined.select([*column_order, *extra])
     return ConsolidateResult(data=combined, warnings=())
+
+
+def _seed_iso_whep(frame: pl.DataFrame) -> pl.DataFrame:
+    """Create ``iso_whep`` as ``"iso-" + year`` on the combined raw frame, once.
+
+    This is the one place the pipeline writes ``iso_whep`` from code: every later change comes
+    from clean/harmonize rule files. No source workbook carries the column, so it is always
+    created here. A null ``year`` yields a null seed.
+    """
+    seed = (
+        pl.concat_str(pl.lit(_ISO_WHEP_PREFIX), pl.col("year").cast(pl.String))
+        if "year" in frame.columns
+        else pl.lit(None, dtype=pl.String)
+    )
+    return frame.with_columns(seed.alias(_ISO_WHEP))

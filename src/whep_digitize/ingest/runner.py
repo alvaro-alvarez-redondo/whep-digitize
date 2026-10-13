@@ -1,7 +1,7 @@
 """Stage 1 runner — the ingest stage entry point.
 
 Discovers the raw workbooks, reads + transforms them (fused, per batch), drops null-value
-rows, validates every document group, consolidates the validated long tables, sorts to the
+rows, validates every file group, consolidates the validated long tables, sorts to the
 canonical row order, and returns a typed :class:`~whep_digitize.contracts.InputResult`.
 
 The stage is checkpointed (opt-in, default off): a restored checkpoint short-circuits the whole
@@ -17,7 +17,7 @@ from dataclasses import replace
 
 from whep_digitize.contracts import InputDiagnostics, InputResult
 from whep_digitize.ingest.assemble.consolidate import consolidate_audited_df
-from whep_digitize.ingest.assemble.validate import validate_long_df_by_document
+from whep_digitize.ingest.assemble.validate import validate_long_df_by_file
 from whep_digitize.ingest.file_io.discovery import discover_pipeline_files
 from whep_digitize.ingest.transform.processing import read_transform_pipeline_files
 from whep_digitize.setup.config import Config
@@ -88,9 +88,9 @@ def run_ingest_pipeline(
             fused.transformed.long_raw, enabled=resolved_options.drop_na_values
         )
         progress.step(_MESSAGES["validating"])
-        validation = validate_long_df_by_document(long_raw, config, current_year=current_year)
+        validation = validate_long_df_by_file(long_raw, config, current_year=current_year)
         progress.step(_MESSAGES["splitting"])
-        # Zero rows -> zero document groups: consolidate an empty list to keep the shape.
+        # Zero rows -> zero file groups: consolidate an empty list to keep the shape.
         audited = [validation.data] if validation.data.height > 0 else []
         consolidated = consolidate_audited_df(audited, config)
         progress.step(_MESSAGES["sorting"])

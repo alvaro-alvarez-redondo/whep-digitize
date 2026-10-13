@@ -151,7 +151,8 @@ def test_concatenate_target_column() -> None:
     assert result.changed_columns == ("notes",)
 
 
-def test_conflicting_target_rules_last_wins() -> None:
+def test_conflicting_target_rules_first_wins() -> None:
+    """D7: when two rules match the same token, first rule wins (first-write-wins)."""
     dataset = _dataset(commodity=["rice"], unit=["kg"])
     group = _group(
         [
@@ -161,8 +162,8 @@ def test_conflicting_target_rules_last_wins() -> None:
         present=[False, False],
     )
     result = _apply(dataset, group_rules=group)
-    # Two rules target the same token ("kg") -> last-rule-wins at token level (D7).
-    assert result.data.get_column("unit").to_list() == ["gram"]
+    # Two rules target the same token ("kg") -> first-rule-wins at token level (D7).
+    assert result.data.get_column("unit").to_list() == ["tonne"]
 
 
 def test_prepared_group_path() -> None:
@@ -262,19 +263,36 @@ def test_target_exact_rewrites_cell() -> None:
     assert result.changed_columns == ("unit",)
 
 
-def test_target_same_token_last_rule_wins() -> None:
-    """D7: when two rules match the same token, last rule wins at token level."""
-    dataset = _dataset(commodity=["rice"], unit=["a; b"])
-    group = _group(
+def test_target_same_token_first_rule_wins() -> None:
+    """D7: when two rules match the same token, first rule wins at token level.
+
+    The token substitution dict uses first-write-wins: when two rules in the same group
+    match the same token, the first rule in join order (determined by __whep_rule_order__)
+    gets its substitution applied, and the second is skipped.
+    """
+    from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
+
+    dataset = _dataset(commodity=["rice"], unit=["tok_a; b"])
+    rules = _group(
         [
-            ("commodity", "rice", None, "unit", "a", "A"),
-            ("commodity", "rice", None, "unit", "a", "AA"),
+            ("commodity", "rice", None, "unit", "tok_a", "REPLACED_A"),
+            ("commodity", "rice", None, "unit", "tok_a", "REPLACED_AA"),
         ],
         present=[False, False],
     )
-    result = _apply(dataset, group_rules=group)
-    # Rule 2 wins for token "a" -> "AA"; "b" preserved.
-    assert result.data.get_column("unit").to_list() == ["AA; b"]
+    result = apply_rule_payload(
+        dataset,
+        rules,
+        stage_name="clean",
+        dataset_name="whep",
+        rule_file_id="rules.xlsx",
+        execution_timestamp_utc="2026-01-01T00:00:00Z",
+    )
+    # Rule 1 wins for token "tok_a" -> "REPLACED_A"; "b" preserved.
+    # Both rules are in the same group. Rule 1's substitution is applied first
+    # (first-write-wins in token_substitutions dict), so Rule 2's substitution
+    # for the same token is skipped.
+    assert result.data.get_column("unit").to_list() == ["REPLACED_A; b"]
     assert result.changed_columns == ("unit",)
 
 
@@ -612,3 +630,314 @@ def test_distinct_source_and_target_columns_are_unaffected() -> None:
 
     assert result.data.get_column("commodity").to_list() == ["A; b"]
     assert result.data.get_column("unit").to_list() == ["X; y"]
+
+
+def test_collision_first_rule_wins_e2e() -> None:
+    """Two rules matching same token via payload_application: first rule wins.
+
+    Verifies that when two rules in the same group share value_source_raw but differ
+    in value_target_raw, the first rule in join order wins via first-write-wins in the
+    token substitution dict. The group is NOT decomposed.
+    """
+    from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
+
+    # Two rules with same source token but different target conditions.
+    # Both conditions match the initial target, but after Rule 1 applies,
+    # Rule 2's condition no longer matches.
+    dataset = _dataset(commodity=["cotton"], footnotes=["tok_cond_a; tok_cond_b"])
+    rules = _group(
+        [
+            ("commodity", "cotton", None, "footnotes", "tok_cond_a", "cotton_a"),
+            ("commodity", "cotton", None, "footnotes", "tok_cond_a", "cotton_b"),
+        ],
+        present=[False, False],
+    )
+    result = apply_rule_payload(
+        dataset,
+        rules,
+        stage_name="clean",
+        dataset_name="whep",
+        rule_file_id="rules.xlsx",
+        execution_timestamp_utc="2026-01-01T00:00:00Z",
+    )
+    # Rule 1 wins: tok_cond_a → cotton_a in footnotes.
+    # Rule 2's target condition (tok_cond_a) no longer matches after Rule 1.
+    assert result.data.get_column("footnotes").to_list() == ["cotton_a; tok_cond_b"]
+    assert result.changed_value_count == 1
+
+
+def test_multi_pass_retry_after_collision() -> None:
+    """Multi-pass loop with first-write-wins: losing rule may apply in a subsequent pass.
+
+    Pass 1: Rule A wins (first in join order via first-write-wins), rewrites commodity.
+    Rule B's source condition "cotton" no longer matches "cotton_sea".
+    Pass 2: Rule B's source condition still doesn't match. Converged.
+
+    This verifies that first-write-wins resolves the collision within a single group
+    without group decomposition.
+    """
+    # Row: commodity="cotton", footnotes="tok_sea; tok_stripped"
+    # Rule A: cotton + tok_sea → commodity="cotton_sea", footnote tok_sea removed
+    # Rule B: cotton + tok_stripped → commodity="cotton_stripped"
+    #
+    # Rule A and Rule B share value_source_raw="cotton" but differ in value_target_raw.
+    # They are in the same group. Rule A wins via first-write-wins.
+    # Pass 1: Rule A applies, commodity → "cotton_sea".
+    #   Rule B's source condition is "cotton", but commodity is now "cotton_sea" → no match.
+    # Pass 2: Rule B's source condition "cotton" still doesn't match "cotton_sea".
+    #   Converged.
+    dataset = _dataset(commodity=["cotton"], footnotes=["tok_sea; tok_stripped"])
+    rules = _group(
+        [
+            # Rule A: when commodity=cotton and footnotes contains tok_sea,
+            # rewrite commodity to cotton_sea.
+            ("commodity", "cotton", "cotton_sea", "footnotes", "tok_sea", None),
+            # Rule B: when commodity=cotton and footnotes contains tok_stripped,
+            # rewrite commodity to cotton_stripped.
+            ("commodity", "cotton", "cotton_stripped", "footnotes", "tok_stripped", None),
+        ],
+        present=[True, True],
+    )
+    from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
+
+    result = apply_rule_payload(
+        dataset,
+        rules,
+        stage_name="clean",
+        dataset_name="whep",
+        rule_file_id="rules.xlsx",
+        execution_timestamp_utc="2026-01-01T00:00:00Z",
+    )
+    # Rule A (first in sort order) wins: commodity → "cotton_sea", footnote cleared.
+    # Rule B's source condition "cotton" no longer matches "cotton_sea".
+    # changed_value_count == 2: commodity changed + footnotes changed (tok_sea removed).
+    assert result.data.get_column("commodity").to_list() == ["cotton_sea"]
+    assert result.changed_value_count == 2
+
+
+@pytest.mark.parametrize("side", ["source", "target"])
+def test_exact_vs_exact_first_rule_wins(side: str) -> None:
+    """D7 governs full-cell overrides too: the first ``#EXACT#`` rule claims the cell.
+
+    Two ``#EXACT#`` rules matching the same row compete for the whole cell, not for a token,
+    so D11 does not arbitrate between them — D7 does. Before this was pinned, the override
+    dict was written unconditionally and the *last* rule won, the very behaviour
+    first-rule-wins replaced.
+    """
+    if side == "source":
+        dataset = _dataset(commodity=["a; b"], unit=["u"])
+        rules: list[tuple[str | None, ...]] = [
+            ("commodity", "#EXACT# a; b", "FIRST", "unit", "u", "u"),
+            ("commodity", "#EXACT# a; b", "SECOND", "unit", "u", "u"),
+        ]
+        column = "commodity"
+    else:
+        dataset = _dataset(commodity=["src"], unit=["a; b"])
+        rules = [
+            ("commodity", "src", "src", "unit", "#EXACT# a; b", "FIRST"),
+            ("commodity", "src", "src", "unit", "#EXACT# a; b", "SECOND"),
+        ]
+        column = "unit"
+
+    result = _apply(dataset, group_rules=_group(rules, present=[True, True]))
+
+    assert result.data.get_column(column).to_list() == ["FIRST"]
+
+
+def test_exact_source_loser_still_applies_its_target_rewrite() -> None:
+    """Losing the source cell must not suppress a rule's independent target rewrite.
+
+    Two ``#EXACT#`` source rules compete for ``commodity``; only the first wins it. Their
+    target rewrites address a different column and different tokens, so both must land —
+    unlike a token-level source loser, whose target substitution is suppressed.
+    """
+    dataset = _dataset(commodity=["a; b"], unit=["p; q"])
+    rules: list[tuple[str | None, ...]] = [
+        ("commodity", "#EXACT# a; b", "FIRST", "unit", "p", "P"),
+        ("commodity", "#EXACT# a; b", "SECOND", "unit", "q", "Q"),
+    ]
+
+    result = _apply(dataset, group_rules=_group(rules, present=[True, True]))
+
+    assert result.data.get_column("commodity").to_list() == ["FIRST"]
+    assert result.data.get_column("unit").to_list() == ["P; Q"]
+
+
+def test_exact_source_first_override_of_none_is_kept() -> None:
+    """A first full-cell override of ``None`` (delete the cell) is not replaced by a later rule.
+
+    Guards the membership test in the override dict: a truthiness check would let the second
+    rule overwrite a legitimate null.
+    """
+    dataset = _dataset(commodity=["a; b"], unit=["u"])
+    rules: list[tuple[str | None, ...]] = [
+        ("commodity", "#EXACT# a; b", None, "unit", "u", "u"),
+        ("commodity", "#EXACT# a; b", "SECOND", "unit", "u", "u"),
+    ]
+
+    result = _apply(dataset, group_rules=_group(rules, present=[True, True]))
+
+    assert result.data.get_column("commodity").to_list() == [None]
+
+
+def test_concatenate_target_suppresses_losing_rule() -> None:
+    """D7 suppression reaches the ``concatenate`` path, not just token substitution.
+
+    ``notes`` uses the concatenate strategy, which goes through
+    :func:`apply_target_updates_with_strategy`. A rule that lost the source-side
+    first-write-wins competition must not merge its target value in either — otherwise a
+    suppressed rule still contributes to the published cell.
+    """
+    dataset = _dataset(commodity=["a; b"], notes=["x; y"])
+    rules: list[tuple[str | None, ...]] = [
+        ("commodity", "a", "WIN", "notes", "x", "XW"),
+        ("commodity", "a", "LOSE", "notes", "y", "YL"),
+    ]
+
+    result = _apply(dataset, group_rules=_group(rules, present=[True, True]))
+
+    assert result.data.get_column("commodity").to_list() == ["WIN; b"]
+    notes = result.data.get_column("notes").to_list()[0]
+    assert notes is not None
+    tokens = set(notes.split("; "))
+    assert "XW" in tokens, "the winning rule's target value must be merged"
+    assert "YL" not in tokens, "the losing rule's target value must be suppressed"
+
+
+def test_rule_populates_the_empty_iso_whep_column() -> None:
+    """``iso_whep`` is created empty so rules can fill it, then read and written like any column.
+
+    A target-only rule keyed on ``polity`` whose target condition is empty (D4: matches only a
+    null target) writes the code into the still-empty ``iso_whep`` cells of matching rows.
+    """
+    iso: list[str | None] = [None, None]
+    dataset = _dataset(polity=["spain", "japan"], **{"iso_whep": iso})
+    group = _group([("polity", "spain", None, "iso_whep", None, "ESP")], present=[False])
+
+    result = _apply(dataset, group_rules=group)
+
+    assert result.data.get_column("iso_whep").to_list() == ["ESP", None]
+    assert result.changed_columns == ("iso_whep",)
+
+
+def test_rule_can_key_on_iso_whep_as_its_source() -> None:
+    """A populated ``iso_whep`` is a usable rule *source*: matched by its normalized key.
+
+    The rule's source value is the lowercase ``esp`` while the data holds ``ESP``; the match key
+    normalization folds case, so the row still fires and its target is rewritten.
+    """
+    iso: list[str | None] = ["ESP", "JPN"]
+    dataset = _dataset(polity=["x", "y"], **{"iso_whep": iso})
+    group = _group([("iso_whep", "esp", "ESP", "polity", "x", "spain")])
+
+    result = _apply(dataset, group_rules=group)
+
+    assert result.data.get_column("polity").to_list() == ["spain", "y"]
+    assert result.data.get_column("iso_whep").to_list() == ["ESP", "JPN"]
+
+
+# --------------------------------------------------------------------------- #REPLACE# (D12)
+
+_REPLACE_ADEN = ("polity", "british aden", "british aden", "iso_whep", "#REPLACE#", "adc-1937-1967")
+
+
+def test_replace_overwrites_the_target_whatever_it_holds() -> None:
+    """The requested rule: every british aden row gets the code, independent of iso_whep."""
+    iso: list[str | None] = [None, "", "old-code", "a; b", "FRA"]
+    dataset = _dataset(
+        polity=["british aden", "british aden", "british aden", "british aden", "france"],
+        iso_whep=iso,
+    )
+
+    result = _apply(dataset, group_rules=_group([_REPLACE_ADEN]))
+
+    assert result.data.get_column("iso_whep").to_list() == ["adc-1937-1967"] * 4 + ["FRA"]
+    assert result.data.get_column("polity").to_list() == dataset.get_column("polity").to_list()
+    assert result.changed_columns == ("iso_whep",)
+    assert result.changed_value_count == 4
+
+
+def test_replace_ignores_rule_order_and_takes_the_union_of_matching_rules() -> None:
+    # A two-polity cell matches both rules. No tie-break: both contribute, in canonical order,
+    # and swapping the rules changes nothing.
+    yemen = ("polity", "yemen", None, "iso_whep", "#REPLACE#", "yem-1990")
+    aden = ("polity", "british aden", None, "iso_whep", "#REPLACE#", "adc-1937-1967")
+    iso: list[str | None] = ["old", None, "x"]
+    dataset = _dataset(polity=["british aden; yemen", "british aden", "yemen"], iso_whep=iso)
+
+    forward = _apply(dataset, group_rules=_group([aden, yemen])).data
+    reverse = _apply(dataset, group_rules=_group([yemen, aden])).data
+
+    expected = ["adc-1937-1967; yem-1990", "adc-1937-1967", "yem-1990"]
+    assert forward.get_column("iso_whep").to_list() == expected
+    assert reverse.get_column("iso_whep").to_list() == expected
+
+
+@pytest.mark.parametrize("replace_first", [True, False])
+def test_replace_outranks_token_exact_and_any_rules_on_the_same_cell(replace_first: bool) -> None:
+    others: list[tuple[str | None, ...]] = [
+        ("polity", "british aden", None, "iso_whep", "old", "TOKEN"),
+        ("polity", "british aden", None, "iso_whep", "#EXACT# old", "EXACT"),
+        ("polity", "british aden", None, "iso_whep", "#ANY#", "ANY"),
+    ]
+    replace: tuple[str | None, ...] = (
+        "polity", "british aden", None, "iso_whep", "#REPLACE#", "adc-1937-1967"
+    )
+    rules = [replace, *others] if replace_first else [*others, replace]
+
+    result = _apply(_dataset(polity=["british aden"], iso_whep=["old"]), group_rules=_group(rules))
+
+    assert result.data.get_column("iso_whep").to_list() == ["adc-1937-1967"]
+
+
+def test_replace_with_an_empty_result_clears_the_cell() -> None:
+    clear = ("polity", "british aden", None, "iso_whep", "#REPLACE#", None)
+    dataset = _dataset(polity=["british aden"], iso_whep=["old"])
+    result = _apply(dataset, group_rules=_group([clear]))
+    assert result.data.get_column("iso_whep").to_list() == [None]
+
+
+def test_replace_applies_even_when_its_rule_lost_the_source_token() -> None:
+    # Both rules rewrite source token 'british aden'; D7 keeps the first source rewrite, but a
+    # #REPLACE# target is exempt from the loser suppression, so both targets still apply.
+    first = ("polity", "british aden", "aden", "iso_whep", "#REPLACE#", "FIRST")
+    second = ("polity", "british aden", "colony", "iso_whep", "#REPLACE#", "SECOND")
+
+    result = _apply(
+        _dataset(polity=["british aden"], iso_whep=["old"]), group_rules=_group([first, second])
+    )
+
+    assert result.data.get_column("polity").to_list() == ["aden"]
+    assert result.data.get_column("iso_whep").to_list() == ["FIRST; SECOND"]
+
+
+def test_replace_on_the_source_side_matches_every_row_gated_by_the_target() -> None:
+    rule = ("polity", "#REPLACE#", "spain", "iso_whep", "ESP", "ESP")
+    iso: list[str | None] = ["ESP", "ESP", "FRA"]
+    dataset = _dataset(polity=["espana", None, "france"], iso_whep=iso)
+
+    result = _apply(dataset, group_rules=_group([rule]))
+
+    assert result.data.get_column("polity").to_list() == ["spain", "spain", "france"]
+
+
+def test_exact_replace_on_the_source_side_is_a_literal_match() -> None:
+    rule = ("polity", "#EXACT# #REPLACE#", None, "iso_whep", "#ANY#", "Z")
+    iso: list[str | None] = [None, None]
+    dataset = _dataset(polity=["spain", "#REPLACE#"], iso_whep=iso)
+
+    result = _apply(dataset, group_rules=_group([rule]))
+
+    assert result.data.get_column("iso_whep").to_list() == [None, "Z"]
+
+
+def test_replace_on_a_concatenate_column_replaces_instead_of_appending() -> None:
+    # `notes` uses the concatenate strategy; #REPLACE# must not paste onto the existing text,
+    # and it outranks an #ANY# append on the same row.
+    replace = ("polity", "british aden", None, "notes", "#REPLACE#", "set note")
+    append_rule = ("polity", "british aden", None, "notes", "#ANY#", "appended")
+    dataset = _dataset(polity=["british aden", "france"], notes=["existing; more", "keep"])
+
+    result = _apply(dataset, group_rules=_group([append_rule, replace]))
+
+    assert result.data.get_column("notes").to_list() == ["set note", "keep"]

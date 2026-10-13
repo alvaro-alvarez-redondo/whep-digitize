@@ -1,9 +1,15 @@
 """Directory construction for a pipeline run.
 
 Creates the import/export directory tree and the post-processing audit subtree
-(``audit``, ``diagnostics``, ``templates``, ``runtime_cache``). By contract the
-audit *root* (``data/postpro``) is created lazily by the post-processing stage,
-not eagerly here.
+(``audit``, ``templates``). By contract the audit *root* (``data/postpro``) is created
+lazily by the post-processing stage, not eagerly here. Two subdirectories are excluded from
+eager creation entirely, since nothing needs them to exist ahead of time:
+
+* ``runtime_cache`` — exists only when the rule-payload cache is enabled and actually
+  persists an entry (see ``postpro.utilities.payload_cache._persist_bundle_to_disk``).
+* ``diagnostics`` — currently unused; no code path writes into it.
+* ``duplicates`` — created by the post-processing duplicate audit when it writes its TSVs
+  (see ``postpro.diagnostics.duplicates``), so a bootstrap-only run never creates it.
 """
 
 from __future__ import annotations
@@ -42,8 +48,22 @@ def _resolve_directory_targets(config: Config) -> list[Path]:
     """Resolve the set of directories to create from a config's path tree.
 
     Flattens all paths; for a path whose basename looks like a file (matches the
-    file-extension pattern), uses its parent directory; excludes the audit root;
-    deduplicates and sorts deterministically.
+    file-extension pattern), uses its parent directory; excludes the audit root, the
+    runtime-cache directory, and the diagnostics directory; deduplicates and sorts
+    deterministically.
+
+    ``runtime_cache_dir`` is excluded deliberately: the rule-payload cache is off by default,
+    and creating its directory on every run regardless of whether it is ever used would leave
+    an empty ``runtime_cache`` folder in the output tree. It is created lazily, only when the
+    cache is enabled and a bundle is actually persisted to disk (see
+    ``postpro.utilities.payload_cache``).
+
+    ``diagnostics_dir`` is excluded for the same reason: nothing currently writes into it, so
+    eagerly creating it would leave a permanently empty ``diagnostics`` folder. If a future
+    writer needs it, that writer should create it lazily, the way the runtime cache does.
+
+    ``duplicates_dir`` is excluded because the post-processing duplicate audit creates it when
+    it writes, so a stage-0-only run (``bootstrap``) leaves no empty folder behind.
 
     Args:
         config: The resolved pipeline configuration.
@@ -51,12 +71,18 @@ def _resolve_directory_targets(config: Config) -> list[Path]:
     Returns:
         A sorted, unique list of directory paths to create.
     """
-    audit_root = config.paths.data.audit.audit_root_dir.resolve()
+    audit = config.paths.data.audit
+    excluded = {
+        audit.audit_root_dir.resolve(),
+        audit.runtime_cache_dir.resolve(),
+        audit.diagnostics_dir.resolve(),
+        audit.duplicates_dir.resolve(),
+    }
     targets: set[Path] = set()
     for raw_path in _flatten_paths(config.paths):
         directory = raw_path.parent if _FILE_SUFFIX_RE.search(raw_path.name) else raw_path
         resolved = directory.resolve()
-        if resolved == audit_root:
+        if resolved in excluded:
             continue
         targets.add(resolved)
     return sorted(targets)

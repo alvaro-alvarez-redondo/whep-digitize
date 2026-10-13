@@ -31,7 +31,7 @@ locations (`data/input/`, `data/output/`, `paths.data.input`, `paths.data.output
 
 ```
 Excel workbooks (data/input/raw/**.xlsx)
-   │  discover → read (all-text) → wide→long unpivot → validate (by document)
+   │  discover → read (all-text) → wide→long unpivot → validate (by file)
    ▼
 InputResult(data=long df, wide_raw=wide df, diagnostics)
    │  run_postpro_pipeline: audit → clean → standardize units → harmonize
@@ -45,8 +45,8 @@ OutputResult(processed_paths, lists_paths)
 ### Canonical column order
 
 ```
-hemisphere, continent, polity, commodity, variable, unit, year, value,
-notes, footnotes, yearbook, document
+hemisphere, continent, iso_whep, polity, commodity, variable, unit, year, value,
+notes, footnotes, yearbook, file
 ```
 
 Data is **string-typed through import** (every column read as text). The one downstream

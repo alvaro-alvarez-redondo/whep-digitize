@@ -1,6 +1,6 @@
 """Wide->long reshape + enrichment.
 
-Unpivots the year columns into ``year`` / ``value`` pairs, appends ``document`` / ``notes`` /
+Unpivots the year columns into ``year`` / ``value`` pairs, appends ``file`` / ``notes`` /
 ``yearbook`` metadata, drops null-value rows, and orchestrates the per-file transform.
 
 Reshape semantics:
@@ -8,7 +8,7 @@ Reshape semantics:
 * ``unpivot(index=available_id, on=year_cols)`` keeps exactly ``available_id`` plus the
   unpivoted ``year`` / ``value`` and drops every other column. The year columns are recomputed
   from the cleaned headers on each call rather than carried along on the frame.
-* Column order out: ``[available_id..., year, value, document, notes, yearbook]``.
+* Column order out: ``[available_id..., year, value, file, notes, yearbook]``.
 """
 
 from __future__ import annotations
@@ -62,11 +62,11 @@ def reshape_to_long(frame: pl.DataFrame, config: Config) -> pl.DataFrame:
 def add_metadata(
     long_frame: pl.DataFrame, file_name: str, yearbook: str, config: Config
 ) -> pl.DataFrame:
-    """Append ``document`` / ``notes`` / ``yearbook`` columns to a long frame.
+    """Append ``file`` / ``notes`` / ``yearbook`` columns to a long frame.
 
     Args:
         long_frame: The long frame from :func:`reshape_to_long`.
-        file_name: Source file name -> ``document`` (scalar).
+        file_name: Source file name -> ``file`` (scalar).
         yearbook: Yearbook identifier -> ``yearbook`` (scalar).
         config: Pipeline configuration (``defaults.notes_value`` -> ``notes``).
 
@@ -74,7 +74,7 @@ def add_metadata(
         The frame with the three metadata columns appended (in that order).
     """
     return long_frame.with_columns(
-        pl.lit(file_name, dtype=pl.String).alias("document"),
+        pl.lit(file_name, dtype=pl.String).alias("file"),
         pl.lit(config.defaults.notes_value, dtype=pl.String).alias("notes"),
         pl.lit(yearbook, dtype=pl.String).alias("yearbook"),
     )

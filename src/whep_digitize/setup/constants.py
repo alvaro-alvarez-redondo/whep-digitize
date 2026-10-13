@@ -32,6 +32,7 @@ from types import MappingProxyType
 FIXED_EXPORT_COLUMNS: tuple[str, ...] = (
     "hemisphere",
     "continent",
+    "iso_whep",
     "polity",
     "commodity",
     "variable",
@@ -39,7 +40,7 @@ FIXED_EXPORT_COLUMNS: tuple[str, ...] = (
     "notes",
     "footnotes",
     "yearbook",
-    "document",
+    "file",
 )
 AUDIT_COLUMNS: tuple[str, ...] = (
     "continent",
@@ -48,7 +49,7 @@ AUDIT_COLUMNS: tuple[str, ...] = (
     "variable",
     "unit",
     "yearbook",
-    "document",
+    "file",
 )
 
 
@@ -107,13 +108,17 @@ class Performance:
 class Defaults:
     """Operational default values (placeholders for unknown/blank metadata)."""
 
-    unknown_document: str = "(unknown_document)"
+    unknown_file: str = "(unknown_file)"
     unknown_commodity: str = "(unknown_commodity)"
     list_blank_label: str = "(blank)"
     unknown_filename: str = "unknown"
     value_column: str = "value"
     # The default ``notes`` value is "no note at all", i.e. null.
     notes_value: str | None = None
+    # When ingest creates ``iso_whep`` it seeds each row with this prefix + the row's own
+    # ``year`` (e.g. "iso-1937"). Seeded once; clean/harmonize rules rewrite it from there.
+    iso_whep_column: str = "iso_whep"
+    iso_whep_year_prefix: str = "iso-"
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,11 +146,12 @@ class Columns:
         "unit",
         "hemisphere",
         "continent",
+        "iso_whep",
         "polity",
         "footnotes",
     )
     value: tuple[str, ...] = ("year", "value")
-    system: tuple[str, ...] = ("notes", "yearbook", "document")
+    system: tuple[str, ...] = ("notes", "yearbook", "file")
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +161,7 @@ class Sorting:
     stage_row_order: tuple[str, ...] = (
         "hemisphere",
         "continent",
+        "iso_whep",
         "polity",
         "commodity",
         "variable",
@@ -164,7 +171,7 @@ class Sorting:
         "notes",
         "footnotes",
         "yearbook",
-        "document",
+        "file",
     )
 
 
@@ -224,7 +231,7 @@ class RuleMatchNormalization:
 
     apply_once_before_stage: bool = True
     apply_each_pass: bool = False
-    excluded_columns: tuple[str, ...] = ("year", "value", "yearbook", "document")
+    excluded_columns: tuple[str, ...] = ("year", "value", "yearbook", "file")
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,22 +304,32 @@ class Standardization:
 
 @dataclass(frozen=True, slots=True)
 class Postpro:
-    """Post-processing settings: rule engine, multi-pass, caches, and audit file names."""
+    """Post-processing settings: rule engine, multi-pass, caches, and logs file names."""
 
-    audit_dir_name: str = "audit"
+    logs_dir_name: str = "logs"
+    duplicates_dir_name: str = "duplicates"
     diagnostics_dir_name: str = "diagnostics"
     templates_dir_name: str = "templates"
     runtime_cache_dir_name: str = "runtime_cache"
+    # One duplicate-audit file per analysed layer, named ``<layer>`` + this suffix.
+    duplicates_file_suffix: str = "_dup.tsv"
+    # The layers the duplicate audit analyses, in output order.
+    duplicates_layers: tuple[str, ...] = ("raw", "clean", "normalize", "harmonize")
     clean_harmonize_template_file_name: str = "clean_harmonize_template.xlsx"
     standardize_units_template_file_name: str = "standardize_units_template.xlsx"
-    clean_audit_file_name: str = "clean_audit.tsv"
-    harmonize_audit_file_name: str = "harmonize_audit.tsv"
-    standardize_audit_file_name: str = "standardize_audit.tsv"
+    clean_logs_file_name: str = "clean_logs.tsv"
+    harmonize_logs_file_name: str = "harmonize_logs.tsv"
+    standardize_logs_file_name: str = "standardize_logs.tsv"
     rule_match_wildcard_token: str = "#ANY#"
     # Rule-authoring directive: prefixing a target-condition value with this marker forces
     # full-string matching for that rule, opting out of `;`-token membership (and out of
     # wildcard interpretation, so a literal "#ANY#" can be matched). Stripped before keying.
     rule_match_exact_token: str = "#EXACT#"
+    # Rule-authoring directive: as a whole condition value it matches any current cell (null and
+    # empty included) and replaces the entire cell with the rule's result, regardless of what the
+    # cell held. Several such rules hitting one cell contribute the union of their results, so
+    # rule order never decides the outcome. "#EXACT# #REPLACE#" matches the literal text instead.
+    rule_match_replace_token: str = "#REPLACE#"
     # The 6 canonical rule columns; value_source is optional.
     canonical_rule_columns: tuple[str, ...] = (
         "column_source",
@@ -420,6 +437,7 @@ class Progress:
                         "standardize": "running standardize layer",
                         "harmonize": "running harmonize layer",
                         "persist": "persisting diagnostics",
+                        "duplicates": "auditing duplicate records",
                     }
                 ),
                 "export": MappingProxyType(

@@ -1,9 +1,10 @@
 """Postpro / diagnostics — cross-stage diagnostics assembly + persistence.
 
 * :func:`build_postpro_diagnostics` — the clean / harmonize / standardize matched-rule summaries;
-* :func:`persist_postpro_audit` — write the per-stage audit TSVs.
+* :func:`persist_postpro_logs` — write the per-stage logs TSVs.
 
-Audit files are written as tab-separated values (TSV) via polars.
+Logs files are written as tab-separated values (TSV) via polars, into the ``logs`` subdirectory
+of the post-processing output root.
 """
 
 from __future__ import annotations
@@ -38,7 +39,12 @@ _POSTPRO = _CONSTANTS.postpro
 _TRIM_CHARS = " \t\r\n"
 # Record separator for TSV output: platform newline.
 _FWRITE_EOL: str = "\r\n" if os.name == "nt" else "\n"
-# Standardize audit workbook column subset (effective before the header offset).
+# Column renames applied when writing clean/harmonize logs TSVs.
+_CLEAN_HARM_RENAMES = {
+    "rule_file_identifier": "file",
+    "affected_rows": "rows",
+}
+# Standardize logs workbook column subset + renames (applied before writing).
 _STANDARDIZE_EXCEL_COLUMNS = (
     "affected_rows",
     "rule_file_identifier",
@@ -49,6 +55,11 @@ _STANDARDIZE_EXCEL_COLUMNS = (
     "unit_factor_effective",
     "unit_offset",
 )
+_STANDARDIZE_RENAMES = {
+    "rule_file_identifier": "file",
+    "affected_rows": "rows",
+    "unit_factor_effective": "unit_factor_net",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +84,7 @@ def build_postpro_diagnostics(
     )
 
 
-def persist_postpro_audit(
+def persist_postpro_logs(
     clean_audit_df: pl.DataFrame,
     harmonize_audit_df: pl.DataFrame,
     standardize_audit_df: pl.DataFrame,
@@ -82,7 +93,7 @@ def persist_postpro_audit(
     *,
     standardize_matched_rule_counts_df: pl.DataFrame | None = None,
 ) -> dict[str, Path]:
-    """Write the per-stage audit TSVs.
+    """Write the per-stage logs TSVs.
 
     Args:
         clean_audit_df: The clean-stage audit.
@@ -93,18 +104,18 @@ def persist_postpro_audit(
         standardize_matched_rule_counts_df: Optional standardize matched-rule counts.
 
     Returns:
-        Mapping of audit name → written path.
+        Mapping of logs name → written path.
     """
     diagnostics = build_postpro_diagnostics(
         clean_audit_df, harmonize_audit_df, standardize_audit_df
     )
     paths = initialize_postpro_audit_root(config)
-    ensure_directories_exist([paths.audit_dir])
+    ensure_directories_exist([paths.logs_dir])
 
     output_paths = {
-        "clean_audit": paths.audit_dir / _POSTPRO.clean_audit_file_name,
-        "harmonize_audit": paths.audit_dir / _POSTPRO.harmonize_audit_file_name,
-        "standardize_audit": paths.audit_dir / _POSTPRO.standardize_audit_file_name,
+        "clean_logs": paths.logs_dir / _POSTPRO.clean_logs_file_name,
+        "harmonize_logs": paths.logs_dir / _POSTPRO.harmonize_logs_file_name,
+        "standardize_logs": paths.logs_dir / _POSTPRO.standardize_logs_file_name,
     }
     clean_catalog = build_stage_rule_catalog_from_payloads(
         load_stage_rule_payloads(config, "clean")
@@ -127,18 +138,21 @@ def persist_postpro_audit(
     clean_merged = merge_stage_rule_summaries(
         diagnostics.clean_rule_summary, clean_unmatched
     )
-    _write_audit_tsv(output_paths["clean_audit"], clean_merged)
+    _write_logs_tsv(output_paths["clean_logs"], clean_merged.rename(_CLEAN_HARM_RENAMES))
 
     harmonize_merged = merge_stage_rule_summaries(
         diagnostics.harmonize_rule_summary, harmonize_unmatched
     )
-    _write_audit_tsv(output_paths["harmonize_audit"], harmonize_merged)
+    _write_logs_tsv(
+        output_paths["harmonize_logs"], harmonize_merged.rename(_CLEAN_HARM_RENAMES)
+    )
 
     standardize_merged = merge_standardize_rule_summaries(
         diagnostics.standardize_rule_summary, standardize_unmatched
     )
-    _write_audit_tsv(
-        output_paths["standardize_audit"], _standardize_excel_subset(standardize_merged)
+    _write_logs_tsv(
+        output_paths["standardize_logs"],
+        _standardize_excel_subset(standardize_merged).rename(_STANDARDIZE_RENAMES),
     )
 
     return output_paths
@@ -148,11 +162,11 @@ def persist_postpro_audit(
 
 
 def _standardize_excel_subset(frame: pl.DataFrame) -> pl.DataFrame:
-    """Select the standardize audit workbook column subset."""
+    """Select the standardize logs workbook column subset."""
     return frame.select(_STANDARDIZE_EXCEL_COLUMNS)
 
 
-def _write_audit_tsv(path: Path, frame: pl.DataFrame) -> None:
+def _write_logs_tsv(path: Path, frame: pl.DataFrame) -> None:
     """Write a single frame to a tab-separated ``.tsv`` file.
 
     Float columns are rendered with the pipeline's fixed-notation double rendering.

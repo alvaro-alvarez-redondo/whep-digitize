@@ -68,8 +68,8 @@ def validate_audit_config(config: Config) -> None:
         "config.paths.data.import.raw must be a non-empty path",
     )
     require(
-        len(str(config.paths.data.audit.audit_dir)) >= 1,
-        "config.paths.data.audit.audit_dir must be a non-empty path",
+        len(str(config.paths.data.audit.logs_dir)) >= 1,
+        "config.paths.data.audit.logs_dir must be a non-empty path",
     )
 
 

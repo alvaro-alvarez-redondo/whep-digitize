@@ -9,7 +9,7 @@ are tuples, mappings are `MappingProxyType`. **Treat as immutable.**
 ```python
 from whep_digitize.setup.constants import get_pipeline_constants
 c = get_pipeline_constants()
-c.sorting.stage_row_order        # the 12-column canonical order
+c.sorting.stage_row_order        # the 13-column canonical order
 c.postpro.canonical_rule_columns # the 6 rule columns
 ```
 
@@ -22,15 +22,15 @@ c.postpro.canonical_rule_columns # the 6 rule columns
 | `patterns` | regexes (year column, header normalization, footnote, file extension, …) |
 | `header_normalization` | replacements + `canonical_aliases` (`country`→`polity`) |
 | `performance` | `ingest_workbook_batch_size=32`, `ingest_parallel_workers="auto"`, `ingest_parallel_workers_auto_max=8`, `import_future_scheduling=4`, normalize thresholds |
-| `defaults` | `unknown_document`, `unknown_commodity`, `list_blank_label`, `unknown_filename`, `value_column`, `notes_value=None` |
+| `defaults` | `unknown_file`, `unknown_commodity`, `list_blank_label`, `unknown_filename`, `value_column`, `notes_value=None`, `iso_whep_column`, `iso_whep_year_prefix="iso-"` (ingest seed) |
 | `object_names` | canonical layer object names (`whep_data_raw/_clean/_normalize/_harmonize`) |
 | `columns` | `base`, `id_vars`, `value`, `system` |
-| `sorting.stage_row_order` | the 12-column canonical order |
+| `sorting.stage_row_order` | the 13-column canonical order |
 | `files` | workbook file names |
 | `paths` | relative dir names under `data/` |
 | `checkpoints` | `ingest_stage_name="ingest_pipeline"`, `.parquet`/`.pkl` suffixes, save/restore status text |
 | `tokens.commodity_start_index` | `7` (1-based) |
-| `postpro` | rule columns, wildcard `#ANY#`, `rule_match_normalization`, `target_update_strategies` (default `token_substitute`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), audit file names |
+| `postpro` | rule columns, wildcard `#ANY#`, exact `#EXACT#`, replace `#REPLACE#`, `rule_match_normalization`, `target_update_strategies` (default `token_substitute`; `notes`→`concatenate`), `multi_pass` (max 10, `cycle_policy="warn"`), `runtime_cache`/`schema_validation_cache` (both off), logs file names |
 | `output_config` | `lists_to_export`, `output_layers=("raw","clean","normalize","harmonize")`, `processed_suffix=".tsv"` |
 | `progress` | per-step messages + the stage bar's geometry (`bar_width`, `label_width`, `eta_width`, item bounds), palette (`stage_styles`, `finished_style`, `track_style`) and refresh rates |
 | `fixed_export_columns` / `audit_columns` | export/audit column tuples |

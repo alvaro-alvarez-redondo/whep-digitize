@@ -1,7 +1,7 @@
 """Postpro / utilities — audit output-root resolution.
 
-Resolve the post-processing output subtree (``audit`` / ``diagnostics`` / ``templates`` /
-``runtime_cache``) from the config, and create it on disk. The typed
+Resolve the post-processing output subtree (``audit`` / ``logs`` / ``diagnostics`` /
+``templates`` / ``runtime_cache``) from the config, and create it on disk. The typed
 :class:`~whep_digitize.setup.config.Config` has already resolved every directory, so these
 helpers read them directly and never invent a fallback.
 """
@@ -22,14 +22,20 @@ class PostproAuditPaths:
 
     Attributes:
         audit_root_dir: The post-processing output root (``data/postpro``).
-        audit_dir: The data-validation audit directory.
+        logs_dir: The ``logs`` directory — the data-validation root (cleared and re-validated
+            on every run) and the destination of the per-stage rule-application TSVs written
+            by :func:`~whep_digitize.postpro.diagnostics.persist.persist_postpro_logs`.
+        duplicates_dir: The ``duplicates`` directory — one duplicate-audit TSV per layer,
+            written by
+            :func:`~whep_digitize.postpro.diagnostics.duplicates.persist_duplicate_audits`.
         diagnostics_dir: The diagnostics directory.
         templates_dir: The rule-template directory.
         runtime_cache_dir: The rule-payload runtime-cache directory.
     """
 
     audit_root_dir: Path
-    audit_dir: Path
+    logs_dir: Path
+    duplicates_dir: Path
     diagnostics_dir: Path
     templates_dir: Path
     runtime_cache_dir: Path
@@ -51,7 +57,8 @@ def get_postpro_audit_paths(config: Config) -> PostproAuditPaths:
     require(len(str(audit.audit_root_dir)) >= 1, "config audit_root_dir must be a non-empty path")
     return PostproAuditPaths(
         audit_root_dir=audit.audit_root_dir,
-        audit_dir=audit.audit_dir,
+        logs_dir=audit.logs_dir,
+        duplicates_dir=audit.duplicates_dir,
         diagnostics_dir=audit.diagnostics_dir,
         templates_dir=audit.templates_dir,
         runtime_cache_dir=audit.runtime_cache_dir,
@@ -61,7 +68,7 @@ def get_postpro_audit_paths(config: Config) -> PostproAuditPaths:
 def initialize_postpro_audit_root(config: Config) -> PostproAuditPaths:
     """Resolve and create the post-processing output subtree.
 
-    Creates the root, the audit directory, and the templates directory (with parents) and
+    Creates the root, the logs directory, and the templates directory (with parents) and
     returns them. The ``diagnostics`` and ``runtime_cache`` directories are **not** created
     automatically.
 
@@ -75,7 +82,7 @@ def initialize_postpro_audit_root(config: Config) -> PostproAuditPaths:
     ensure_directories_exist(
         [
             paths.audit_root_dir,
-            paths.audit_dir,
+            paths.logs_dir,
             paths.templates_dir,
         ]
     )

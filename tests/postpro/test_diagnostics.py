@@ -1,7 +1,7 @@
 """Unit tests for the post-processing diagnostics modules.
 
 Covers :mod:`whep_digitize.postpro.diagnostics` — preflight, rule summaries, standardize
-summaries, and audit output. Reference parity for the summary tables lives in
+summaries, and logs output. Reference parity for the summary tables lives in
 ``tests/parity/test_diagnostics_parity.py``; these pin the behavioral contract directly.
 """
 
@@ -12,7 +12,7 @@ import pytest
 
 from whep_digitize.postpro.diagnostics.persist import (
     build_postpro_diagnostics,
-    persist_postpro_audit,
+    persist_postpro_logs,
 )
 from whep_digitize.postpro.diagnostics.preflight import (
     PreflightResult,
@@ -294,7 +294,7 @@ def test_build_postpro_diagnostics_creates_three_summaries() -> None:
     assert summaries.standardize_rule_summary.height == 0
 
 
-def test_persist_postpro_audit_workbooks(config: Config) -> None:
+def test_persist_postpro_logs_files(config: Config) -> None:
     empty_stage = pl.DataFrame(
         schema={
             "loop": pl.Int64,
@@ -327,21 +327,21 @@ def test_persist_postpro_audit_workbooks(config: Config) -> None:
             "source_rule_file": _s(["standardize_units_rules.xlsx"]),
         }
     )
-    paths = persist_postpro_audit(
+    paths = persist_postpro_logs(
         empty_stage, empty_stage, std_audit, std_rules, config
     )
 
     assert set(paths) == {
-        "clean_audit",
-        "harmonize_audit",
-        "standardize_audit",
+        "clean_logs",
+        "harmonize_logs",
+        "standardize_logs",
     }
-    for name in ("clean_audit", "harmonize_audit", "standardize_audit"):
+    for name in ("clean_logs", "harmonize_logs", "standardize_logs"):
         assert paths[name].is_file()
         assert paths[name].suffix == ".tsv"
         df = pl.read_csv(paths[name], separator="\t")
-        # Audit TSVs have the expected column set
-        assert "rule_file_identifier" in df.columns
-    standardize_df = pl.read_csv(paths["standardize_audit"], separator="\t")
-    assert standardize_df.columns[:2] == ["affected_rows", "rule_file_identifier"]
+        # Logs TSVs use shortened column names in output
+        assert "file" in df.columns
+    standardize_df = pl.read_csv(paths["standardize_logs"], separator="\t")
+    assert standardize_df.columns[:2] == ["rows", "file"]
     assert "loop" not in standardize_df.columns
