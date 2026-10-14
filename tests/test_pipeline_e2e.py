@@ -116,7 +116,8 @@ def test_replace_directive_overrides_a_populated_cell_through_the_whole_pipeline
         return albania.get_column("iso_whep").unique().to_list()
 
     seeded = albania_codes("clean")
-    assert seeded and all(code.startswith("iso-") for code in seeded)  # the ingest year tags
+    # The ingest year tags (never null: every fixture row has a year).
+    assert seeded and all(code is not None and code.startswith("iso-") for code in seeded)
     assert albania_codes("harmonize") == ["alb-1912-1944"]  # all replaced, not appended
 
 
