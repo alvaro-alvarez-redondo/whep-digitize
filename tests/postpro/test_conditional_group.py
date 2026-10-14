@@ -230,9 +230,7 @@ def test_target_multiple_token_substitutions() -> None:
 def test_target_any_adds_token() -> None:
     """D3: #ANY# adds a new token without replacing existing tokens."""
     dataset = _dataset(commodity=["rice"], unit=["a; b"])
-    group = _group(
-        [("commodity", "rice", None, "unit", "#ANY#", "c")], present=[False]
-    )
+    group = _group([("commodity", "rice", None, "unit", "#ANY#", "c")], present=[False])
     result = _apply(dataset, group_rules=group)
     # "c" added to existing "a; b"; sorted and deduplicated.
     assert result.data.get_column("unit").to_list() == ["a; b; c"]
@@ -242,9 +240,7 @@ def test_target_any_adds_token() -> None:
 def test_target_any_deduplicates() -> None:
     """D3: #ANY# does not duplicate an existing token."""
     dataset = _dataset(commodity=["rice"], unit=["a; b"])
-    group = _group(
-        [("commodity", "rice", None, "unit", "#ANY#", "a")], present=[False]
-    )
+    group = _group([("commodity", "rice", None, "unit", "#ANY#", "a")], present=[False])
     result = _apply(dataset, group_rules=group)
     # "a" already present -> no change.
     assert result.data.get_column("unit").to_list() == ["a; b"]
@@ -254,9 +250,7 @@ def test_target_any_deduplicates() -> None:
 def test_target_exact_rewrites_cell() -> None:
     """D2: #EXACT# rewrites the entire target cell, bypassing tokenization."""
     dataset = _dataset(commodity=["rice"], unit=["a; b; c"])
-    group = _group(
-        [("commodity", "rice", None, "unit", "#EXACT# a; b; c", "X")], present=[False]
-    )
+    group = _group([("commodity", "rice", None, "unit", "#EXACT# a; b; c", "X")], present=[False])
     result = _apply(dataset, group_rules=group)
     # Full cell override: "a; b; c" → "X".
     assert result.data.get_column("unit").to_list() == ["X"]
@@ -363,9 +357,7 @@ def test_source_target_symmetric() -> None:
 def test_concatenate_column_unchanged() -> None:
     """D8: columns configured with 'concatenate' (e.g., notes) still use concatenate strategy."""
     dataset = _dataset(commodity=["rice"], notes=["a; b"])
-    group = _group(
-        [("commodity", "rice", None, "notes", "#ANY#", "b; c")], present=[False]
-    )
+    group = _group([("commodity", "rice", None, "notes", "#ANY#", "b; c")], present=[False])
     result = _apply(dataset, group_rules=group)
     # Concatenate merges token sets: {"a", "b"} U {"b", "c"} = {"a", "b", "c"}.
     assert result.data.get_column("notes").to_list() == ["a; b; c"]
@@ -481,9 +473,7 @@ def test_exact_source_does_not_leak_to_target_token_substitution() -> None:
     # Source: full-cell override (correct — #EXACT# in source).
     assert result.data.get_column("commodity").to_list() == ["horse"]
     # Target: token substitution only — 'horse' replaced, 'latin america' preserved.
-    assert result.data.get_column("footnotes").to_list() == [
-        "--temporal--horse; latin america"
-    ]
+    assert result.data.get_column("footnotes").to_list() == ["--temporal--horse; latin america"]
     assert result.changed_columns == ("commodity", "footnotes")
 
 
@@ -518,11 +508,7 @@ def test_exact_source_normal_target_preserves_all_siblings() -> None:
         commodity=["a; b; c"],
         unit=["x; y; z"],
     )
-    group = _group(
-        [
-            ("commodity", "#EXACT# a; b; c", "REPLACED", "unit", "y", "Y")
-        ]
-    )
+    group = _group([("commodity", "#EXACT# a; b; c", "REPLACED", "unit", "y", "Y")])
     result = _apply(dataset, group_rules=group)
     # Source: full-cell override.
     assert result.data.get_column("commodity").to_list() == ["REPLACED"]
@@ -536,11 +522,7 @@ def test_exact_source_any_target() -> None:
         commodity=["a; b; c"],
         unit=["x; y"],
     )
-    group = _group(
-        [
-            ("commodity", "#EXACT# a; b; c", "REPLACED", "unit", "#ANY#", "z")
-        ]
-    )
+    group = _group([("commodity", "#EXACT# a; b; c", "REPLACED", "unit", "#ANY#", "z")])
     result = _apply(dataset, group_rules=group)
     # Source: full-cell override.
     assert result.data.get_column("commodity").to_list() == ["REPLACED"]
@@ -554,11 +536,7 @@ def test_normal_source_exact_target_still_works() -> None:
         commodity=["a; b"],
         unit=["x; y; z"],
     )
-    group = _group(
-        [
-            ("commodity", "a", "A", "unit", "#EXACT# x; y; z", "REPLACED")
-        ]
-    )
+    group = _group([("commodity", "a", "A", "unit", "#EXACT# x; y; z", "REPLACED")])
     result = _apply(dataset, group_rules=group)
     # Source: token substitution ('a' -> 'A', 'b' preserved).
     assert result.data.get_column("commodity").to_list() == ["A; b"]
@@ -881,7 +859,12 @@ def test_replace_outranks_token_exact_and_any_rules_on_the_same_cell(replace_fir
         ("polity", "british aden", None, "iso_whep", "#ANY#", "ANY"),
     ]
     replace: tuple[str | None, ...] = (
-        "polity", "british aden", None, "iso_whep", "#REPLACE#", "adc-1937-1967"
+        "polity",
+        "british aden",
+        None,
+        "iso_whep",
+        "#REPLACE#",
+        "adc-1937-1967",
     )
     rules = [replace, *others] if replace_first else [*others, replace]
 

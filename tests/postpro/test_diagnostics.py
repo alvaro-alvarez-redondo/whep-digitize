@@ -327,9 +327,7 @@ def test_persist_postpro_logs_files(config: Config) -> None:
             "source_rule_file": _s(["standardize_units_rules.xlsx"]),
         }
     )
-    paths = persist_postpro_logs(
-        empty_stage, empty_stage, std_audit, std_rules, config
-    )
+    paths = persist_postpro_logs(empty_stage, empty_stage, std_audit, std_rules, config)
 
     assert set(paths) == {
         "clean_logs",

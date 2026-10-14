@@ -35,9 +35,7 @@ docstring and the full body.
 In the loop `for column_source, column_target in present_groups.iter_rows():`, change:
 
 ```python
-        groups.extend(
-            _decompose_group(group_df)
-        )
+groups.extend(_decompose_group(group_df))
 ```
 
 to:
@@ -491,32 +489,38 @@ from pathlib import Path
 from whep_digitize.postpro.rule_engine.schema_validation import build_conditional_rule_dictionary
 from whep_digitize.postpro.rule_engine.conditional_group import apply_conditional_rule_group
 
-f = Path('data/input/clean/clean_commodity.xlsx')
-df = pl.read_excel(f, sheet_name='commodity_footnote')
+f = Path("data/input/clean/clean_commodity.xlsx")
+df = pl.read_excel(f, sheet_name="commodity_footnote")
 
 # Verify no decomposition
-groups = build_conditional_rule_dictionary(df, 'clean')
-print(f'Groups: {len(groups)} (expected: 1)')
+groups = build_conditional_rule_dictionary(df, "clean")
+print(f"Groups: {len(groups)} (expected: 1)")
 
 # Benchmark with 3,000 rows
-dataset = pl.DataFrame({
-    'commodity': ['cotton', 'rice', 'wheat'] * 1000,
-    'footnotes': ['sea island; stripped', 'jasmine; basmati', 'durum; soft'] * 1000,
-    'polity': ['us'] * 3000,
-    'continent': ['north america'] * 3000,
-    'unit': ['kg'] * 3000,
-    'variable': ['prod'] * 3000,
-    'year': [2000] * 3000,
-    'value': [100.0] * 3000,
-})
+dataset = pl.DataFrame(
+    {
+        "commodity": ["cotton", "rice", "wheat"] * 1000,
+        "footnotes": ["sea island; stripped", "jasmine; basmati", "durum; soft"] * 1000,
+        "polity": ["us"] * 3000,
+        "continent": ["north america"] * 3000,
+        "unit": ["kg"] * 3000,
+        "variable": ["prod"] * 3000,
+        "year": [2000] * 3000,
+        "value": [100.0] * 3000,
+    }
+)
 
 t0 = time.perf_counter()
 result = apply_conditional_rule_group(
-    dataset, group_rules=df, stage_name='clean',
-    dataset_name='t', rule_file_id='t', execution_timestamp_utc='t'
+    dataset,
+    group_rules=df,
+    stage_name="clean",
+    dataset_name="t",
+    rule_file_id="t",
+    execution_timestamp_utc="t",
 )
 elapsed = time.perf_counter() - t0
-print(f'Time: {elapsed*1000:.0f}ms (expected: <100ms, was 10446ms with decomposition)')
+print(f"Time: {elapsed * 1000:.0f}ms (expected: <100ms, was 10446ms with decomposition)")
 ```
 
 ### 7c. Verify first-rule-wins with colliding rules
@@ -524,20 +528,22 @@ print(f'Time: {elapsed*1000:.0f}ms (expected: <100ms, was 10446ms with decomposi
 ```python
 from whep_digitize.postpro.rule_engine.payload_application import apply_rule_payload
 
-dataset = pl.DataFrame({
-    'commodity': ['rice'],
-    'unit': ['tok_a; b'],
-})
-rules = pl.DataFrame({
-    'column_source': ['commodity', 'commodity'],
-    'value_source_raw': ['rice', 'rice'],
-    'column_target': ['unit', 'unit'],
-    'value_target_raw': ['tok_a', 'tok_a'],
-    'value_target': ['REPLACED_A', 'REPLACED_AA'],
-})
-result = apply_rule_payload(
-    dataset, rules, 'clean', 'whep', 'rules', '2026-01-01T00:00:00Z'
+dataset = pl.DataFrame(
+    {
+        "commodity": ["rice"],
+        "unit": ["tok_a; b"],
+    }
 )
+rules = pl.DataFrame(
+    {
+        "column_source": ["commodity", "commodity"],
+        "value_source_raw": ["rice", "rice"],
+        "column_target": ["unit", "unit"],
+        "value_target_raw": ["tok_a", "tok_a"],
+        "value_target": ["REPLACED_A", "REPLACED_AA"],
+    }
+)
+result = apply_rule_payload(dataset, rules, "clean", "whep", "rules", "2026-01-01T00:00:00Z")
 print(f"Unit: {result.data.get_column('unit').to_list()}")
 # Expected: ['REPLACED_A; b'] (first rule wins)
 ```

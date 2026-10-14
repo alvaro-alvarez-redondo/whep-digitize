@@ -135,17 +135,13 @@ def persist_postpro_logs(
         standardize_matched_rule_counts_df,
     )
 
-    clean_merged = merge_stage_rule_summaries(
-        diagnostics.clean_rule_summary, clean_unmatched
-    )
+    clean_merged = merge_stage_rule_summaries(diagnostics.clean_rule_summary, clean_unmatched)
     _write_logs_tsv(output_paths["clean_logs"], clean_merged.rename(_CLEAN_HARM_RENAMES))
 
     harmonize_merged = merge_stage_rule_summaries(
         diagnostics.harmonize_rule_summary, harmonize_unmatched
     )
-    _write_logs_tsv(
-        output_paths["harmonize_logs"], harmonize_merged.rename(_CLEAN_HARM_RENAMES)
-    )
+    _write_logs_tsv(output_paths["harmonize_logs"], harmonize_merged.rename(_CLEAN_HARM_RENAMES))
 
     standardize_merged = merge_standardize_rule_summaries(
         diagnostics.standardize_rule_summary, standardize_unmatched
@@ -172,9 +168,4 @@ def _write_logs_tsv(path: Path, frame: pl.DataFrame) -> None:
     Float columns are rendered with the pipeline's fixed-notation double rendering.
     """
     ensure_directories_exist([path.parent])
-    format_float_columns(frame).write_csv(
-        path, separator="\t", line_terminator=_FWRITE_EOL
-    )
-
-
-
+    format_float_columns(frame).write_csv(path, separator="\t", line_terminator=_FWRITE_EOL)

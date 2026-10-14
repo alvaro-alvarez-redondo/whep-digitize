@@ -331,14 +331,16 @@ def _apply_concatenate(
             replaced.changed_value_count + concatenated.changed_value_count,
         )
 
-    updates = updates.with_columns(
-        pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE)
-    ).with_columns(
-        pl.when(pl.col(_UPDATE_VALUE).str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
-        .then(pl.lit(None, dtype=pl.String))
-        .otherwise(pl.col(_UPDATE_VALUE))
-        .alias(_UPDATE_VALUE)
-    ).filter(pl.col(_UPDATE_VALUE).is_not_null())
+    updates = (
+        updates.with_columns(pl.col(value_column).cast(pl.String).alias(_UPDATE_VALUE))
+        .with_columns(
+            pl.when(pl.col(_UPDATE_VALUE).str.strip_chars(_TRIM_CHARS).str.len_chars() == 0)
+            .then(pl.lit(None, dtype=pl.String))
+            .otherwise(pl.col(_UPDATE_VALUE))
+            .alias(_UPDATE_VALUE)
+        )
+        .filter(pl.col(_UPDATE_VALUE).is_not_null())
+    )
 
     if updates.height == 0:
         return TargetApplyResult(False, dataset, 0)

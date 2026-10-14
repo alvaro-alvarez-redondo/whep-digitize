@@ -390,8 +390,7 @@ def build_conditional_rule_dictionary(
     groups: list[pl.DataFrame] = []
     for column_source, column_target in present_groups.iter_rows():
         group_df = ordered_rules.filter(
-            (pl.col("column_source") == column_source)
-            & (pl.col("column_target") == column_target)
+            (pl.col("column_source") == column_source) & (pl.col("column_target") == column_target)
         )
         groups.append(group_df)
     return groups

@@ -27,5 +27,3 @@ def alert_info(message: str) -> None:
 def alert_success(message: str) -> None:
     """Print a success line."""
     _console.print(f"[bold green]OK[/bold green] {message}")
-
-

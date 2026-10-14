@@ -238,9 +238,7 @@ def _build_normalize_rules(
         pl.Series([_WILDCARD_SOURCE_KEY_RAW], dtype=pl.String),
         apply_normalization=apply_source_norm,
     )[0]
-    source_keys = encode_rule_match_key(
-        source_match_values, apply_normalization=apply_source_norm
-    )
+    source_keys = encode_rule_match_key(source_match_values, apply_normalization=apply_source_norm)
     source_keys_list = source_keys.to_list()
     is_wildcard_list = rule_is_source_wildcard.to_list()
     is_replace_list = rule_is_source_replace.to_list()
@@ -666,8 +664,12 @@ def _apply_source_rewrite(
         return dataset, 0, set()
 
     updates = joined.filter(source_update_mask).select(
-        _JOINED_INDEX, "row_id", _TOKEN_INDEX, "value_source_result",
-        _RULE_IS_SOURCE_WILDCARD, _RULE_IS_SOURCE_REPLACE,
+        _JOINED_INDEX,
+        "row_id",
+        _TOKEN_INDEX,
+        "value_source_result",
+        _RULE_IS_SOURCE_WILDCARD,
+        _RULE_IS_SOURCE_REPLACE,
     )
     # Pull the token lists into Python only for the dataset rows a rule actually matched.
     # Converting the whole column costs ~21% of the explode for a ~5x oversupply, since the
@@ -689,9 +691,14 @@ def _apply_source_rewrite(
     # ~1.03M on the real dataset), so collecting them directly avoids materializing two
     # million-element sets and differencing them.
     losing_joined_idxs: set[int] = set()
-    for joined_idx, row_id, token_index, value, is_source_wildcard, is_source_replace in (
-        updates.iter_rows()
-    ):
+    for (
+        joined_idx,
+        row_id,
+        token_index,
+        value,
+        is_source_wildcard,
+        is_source_replace,
+    ) in updates.iter_rows():
         won = False
         if is_source_replace:
             # D12: collect every replace result for the row; the cell becomes their union.
@@ -806,8 +813,10 @@ def _apply_target_token_rewrite(
     # Note: _RULE_IS_EXACT (source-side #EXACT# flag) is intentionally excluded;
     # target rewrite strategy is determined solely by value_target_raw.
     updates = joined.filter(target_update_mask).select(
-        "row_id", _JOINED_INDEX,
-        "value_target_raw", "value_target_result",
+        "row_id",
+        _JOINED_INDEX,
+        "value_target_raw",
+        "value_target_result",
     )
 
     # Pre-compute wildcard and exact flags from data (avoids index-mapping bugs
@@ -948,9 +957,7 @@ def _drop_losing_rules(
     """
     if not losing_joined_idxs:
         return frame
-    losing = pl.Series(
-        _JOINED_INDEX, sorted(losing_joined_idxs), dtype=frame.schema[_JOINED_INDEX]
-    )
+    losing = pl.Series(_JOINED_INDEX, sorted(losing_joined_idxs), dtype=frame.schema[_JOINED_INDEX])
     dropped = pl.col(_JOINED_INDEX).is_in(losing.implode())
     if keep is not None:
         dropped = dropped & ~pl.lit(keep)

@@ -362,9 +362,7 @@ def _match_target_condition_token_map_core(
         tokens = split_token_cell(value)
         all_tokens.extend(tokens)
     if all_tokens:
-        encoded = _encode_keys_list(
-            all_tokens, apply_normalization=apply_match_normalization
-        )
+        encoded = _encode_keys_list(all_tokens, apply_normalization=apply_match_normalization)
         token_key_map = dict(zip(all_tokens, encoded, strict=True))
 
     matched_tokens: list[list[str | None]] = []

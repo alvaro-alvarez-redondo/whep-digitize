@@ -8,9 +8,10 @@ are tuples, mappings are `MappingProxyType`. **Treat as immutable.**
 
 ```python
 from whep_digitize.setup.constants import get_pipeline_constants
+
 c = get_pipeline_constants()
-c.sorting.stage_row_order        # the 13-column canonical order
-c.postpro.canonical_rule_columns # the 6 rule columns
+c.sorting.stage_row_order  # the 13-column canonical order
+c.postpro.canonical_rule_columns  # the 6 rule columns
 ```
 
 ### Groups

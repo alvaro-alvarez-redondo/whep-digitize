@@ -236,9 +236,7 @@ def validate_long_df_by_file(
             (pl.int_range(pl.len()) + 1).alias("_global_row"),
         )
     )
-    file_rank_map: dict[object, int] = dict(
-        work.select("file", "_file_rank").unique().iter_rows()
-    )
+    file_rank_map: dict[object, int] = dict(work.select("file", "_file_rank").unique().iter_rows())
 
     # Assemble every check's errors as one frame and sort by the 4 keys in polars. The keys are
     # unique within each check (mandatory: global row + column; year: appearance + kind;

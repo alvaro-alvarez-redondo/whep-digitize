@@ -201,8 +201,10 @@ def test_iso_whep_is_seeded_at_ingest_and_rewritten_by_a_rule_file(tmp_path: Pat
     for layer in ("raw", "clean", "normalize", "harmonize"):
         frame = read(layer)
         columns = frame.columns
-        assert columns.index("continent") + 1 == columns.index("iso_whep") == (
-            columns.index("polity") - 1
+        assert (
+            columns.index("continent") + 1
+            == columns.index("iso_whep")
+            == (columns.index("polity") - 1)
         ), f"{layer}: iso_whep is not between continent and polity"
         if layer == "raw":
             continue

@@ -248,9 +248,7 @@ def resolve_target_update_strategy(
     """
     require(len(target_column) >= 1, "target_column must be a non-empty string")
     config = (
-        strategy_config
-        if strategy_config is not None
-        else _get_cached_target_strategy_config()
+        strategy_config if strategy_config is not None else _get_cached_target_strategy_config()
     )
 
     resolved_strategy = config.by_column.get(target_column, config.default)

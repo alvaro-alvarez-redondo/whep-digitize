@@ -114,7 +114,7 @@ Pseudocode:
 ```python
 for column_source, column_target in present_groups.iter_rows():
     group_df = ordered_rules.filter(...)
-    
+
     # Find value_source_raw values that appear more than once
     collision_sources = (
         group_df.group_by("value_source_raw")
@@ -123,16 +123,14 @@ for column_source, column_target in present_groups.iter_rows():
         .get_column("value_source_raw")
         .to_set()
     )
-    
+
     if collision_sources:
         # Each colliding source value gets its own sub-group
         for src_val in sorted(collision_sources):
             sub = group_df.filter(pl.col("value_source_raw") == src_val)
             groups.append(sub)
         # Non-colliding rules stay together
-        non_colliding = group_df.filter(
-            ~pl.col("value_source_raw").is_in(collision_sources)
-        )
+        non_colliding = group_df.filter(~pl.col("value_source_raw").is_in(collision_sources))
         if non_colliding.height > 0:
             groups.append(non_colliding)
     else:

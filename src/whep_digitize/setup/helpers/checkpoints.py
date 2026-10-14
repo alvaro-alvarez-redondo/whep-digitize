@@ -98,5 +98,3 @@ def load_checkpoint(name: str, config: Config, *, enabled: bool) -> Any | None:
         alert_success(restored_message.format(path=object_path))
         return payload
     return None
-
-

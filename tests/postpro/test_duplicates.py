@@ -142,8 +142,12 @@ def test_persist_writes_one_tsv_per_layer(config: Config) -> None:
     without_dups = _frame(commodity=["a", "b"], value=["1", "2"])
 
     paths = persist_duplicate_audits(
-        {"raw": with_dups, "clean": without_dups, "normalize": without_dups,
-         "harmonize": with_dups},
+        {
+            "raw": with_dups,
+            "clean": without_dups,
+            "normalize": without_dups,
+            "harmonize": with_dups,
+        },
         config,
     )
 
@@ -160,8 +164,12 @@ def test_persist_writes_one_tsv_per_layer(config: Config) -> None:
     # A layer with no duplicates is written as a header row and nothing else.
     empty_text = paths["clean"].read_text(encoding="utf-8").splitlines()
     assert len(empty_text) == 1
-    assert empty_text[0].split("\t") == ["commodity", "value", DUP_FULL_COLUMN,
-                                         DUP_EXCL_VALUE_COLUMN]
+    assert empty_text[0].split("\t") == [
+        "commodity",
+        "value",
+        DUP_FULL_COLUMN,
+        DUP_EXCL_VALUE_COLUMN,
+    ]
 
 
 def test_persist_creates_the_duplicates_directory(config: Config) -> None:

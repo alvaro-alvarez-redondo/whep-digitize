@@ -191,9 +191,7 @@ def build_unmatched_rule_summary(
     )
 
 
-def merge_stage_rule_summaries(
-    matched: pl.DataFrame, unmatched: pl.DataFrame
-) -> pl.DataFrame:
+def merge_stage_rule_summaries(matched: pl.DataFrame, unmatched: pl.DataFrame) -> pl.DataFrame:
     """Concatenate matched and unmatched rule summaries into a single DataFrame.
 
     Unmatched rules get ``loop = 0`` so they can coexist with matched rules in one sheet.

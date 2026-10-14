@@ -4,7 +4,8 @@
 
 ```python
 from whep_digitize.pipeline import run_pipeline
-run_pipeline(show_view=False)          # setup -> ingest -> postpro -> export
+
+run_pipeline(show_view=False)  # setup -> ingest -> postpro -> export
 ```
 
 ```bash
